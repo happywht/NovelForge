@@ -234,16 +234,21 @@ class LocalAsyncEngine:
         if ntype in ("List.ForEach", "List.ForEachRange"):
             body_node_ids = node_successors.get("body", [])
             body_nodes = [node_map[bid] for bid in body_node_ids if bid in node_map]
-            body_executor = lambda: self._execute_body_nodes(body_nodes, session, state, run_id)
+            
+            async def body_executor():
+                await self._execute_body_nodes(body_nodes, session, state, run_id)
             
             if ntype == "List.ForEach":
-                builtin_nodes.node_list_foreach(session, state, params, body_executor)
+                await builtin_nodes.node_list_foreach(session, state, params, body_executor)
             else:
-                builtin_nodes.node_list_foreach_range(session, state, params, body_executor)
+                await builtin_nodes.node_list_foreach_range(session, state, params, body_executor)
         else:
             # 普通节点
             fn = self._resolve_node_fn(ntype)
-            fn(session, state, params)
+            if asyncio.iscoroutinefunction(fn):
+                await fn(session, state, params)
+            else:
+                fn(session, state, params)
     
     async def _execute_successors(self, node_id: str, successors: dict, dependencies: dict, 
                                   executed: set, execute_node) -> None:
@@ -258,15 +263,18 @@ class LocalAsyncEngine:
                 if all(dep in executed for dep in deps):
                     await execute_node(next_id)
 
-    def _execute_body_nodes(self, body_nodes: List[dict], session, state, run_id: int):
-        """同步执行body节点（用于ForEach回调）"""
+    async def _execute_body_nodes(self, body_nodes: List[dict], session, state, run_id: int):
+        """执行body节点（用于ForEach回调）"""
         for bn in body_nodes:
             ntype = bn.get("type")
             params = bn.get("params") or {}
             logger.info(f"[工作流] ForEach body节点 type={ntype}")
             try:
                 fn = self._resolve_node_fn(ntype)
-                fn(session, state, params)
+                if asyncio.iscoroutinefunction(fn):
+                    await fn(session, state, params)
+                else:
+                    fn(session, state, params)
             except Exception as e:  # noqa: BLE001
                 logger.exception(f"[工作流] ForEach body节点失败 type={ntype} err={e}")
                 raise
@@ -277,33 +285,36 @@ class LocalAsyncEngine:
         state: Dict[str, Any] = {"scope": run.scope_json or {}, "touched_card_ids": set()}
         logger.info(f"[工作流] 开始执行旧格式 run_id={run.id} workflow_id={workflow.id} nodes={len(nodes)}")
 
-        def run_body(body_nodes: List[dict]):
+        async def run_body(body_nodes: List[dict]):
             for bn in body_nodes:
                 ntype = bn.get("type")
                 params = bn.get("params") or {}
                 logger.info(f"[工作流] 旧格式节点开始 type={ntype}")
                 if ntype == "List.ForEach":
                     body = list((bn.get("body") or []))
-                    builtin_nodes.node_list_foreach(session, state, params, lambda: run_body(body))
+                    await builtin_nodes.node_list_foreach(session, state, params, lambda: run_body(body))
                     logger.info("[工作流] 旧格式节点结束 List.ForEach")
                     continue
                 if ntype == "List.ForEachRange":
                     body = list((bn.get("body") or []))
-                    builtin_nodes.node_list_foreach_range(session, state, params, lambda: run_body(body))
+                    await builtin_nodes.node_list_foreach_range(session, state, params, lambda: run_body(body))
                     logger.info("[工作流] 旧格式节点结束 List.ForEachRange")
                     continue
                 fn = self._resolve_node_fn(ntype)
-                asyncio.get_event_loop().create_task(self._publish(run.id, f"event: step_started\ndata: {ntype}\n\n"))
+                await self._publish(run.id, f"event: step_started\ndata: {ntype}\n\n")
                 try:
-                    fn(session, state, params)
+                    if asyncio.iscoroutinefunction(fn):
+                        await fn(session, state, params)
+                    else:
+                        fn(session, state, params)
                     logger.info(f"[工作流] 旧格式节点成功 type={ntype}")
-                    asyncio.get_event_loop().create_task(self._publish(run.id, f"event: step_succeeded\ndata: {ntype}\n\n"))
+                    await self._publish(run.id, f"event: step_succeeded\ndata: {ntype}\n\n")
                 except Exception as e:  # noqa: BLE001
                     logger.exception(f"[工作流] 旧格式节点失败 type={ntype} err={e}")
-                    asyncio.get_event_loop().create_task(self._publish(run.id, f"event: step_failed\ndata: {ntype}: {e}\n\n"))
+                    await self._publish(run.id, f"event: step_failed\ndata: {ntype}: {e}\n\n")
                     raise
 
-        run_body(nodes)
+        await run_body(nodes)
         await self._save_execution_result(session, run, state)
 
     async def _save_execution_result(self, session: Session, run: WorkflowRun, state: dict) -> None:

@@ -64,6 +64,8 @@ class Neo4jKGProvider:
 				"recent_dialogues": attrs.get("recent_dialogues") or [],
 				"recent_event_summaries_json": json.dumps(attrs.get("recent_event_summaries") or [], ensure_ascii=False),
 				"stance_json": json.dumps(getattr(attrs.get("stance"), "model_dump", lambda: attrs.get("stance"))(), ensure_ascii=False) if attrs.get("stance") is not None else None,
+				"valid_from": attrs.get("valid_from_chapter"),
+				"valid_until": attrs.get("valid_until_chapter"),
 			}
 			rows.append(payload)
 
@@ -81,7 +83,9 @@ class Neo4jKGProvider:
 			"r.b_to_a_addressing = row.b_to_a, "
 			"r.recent_dialogues = row.recent_dialogues, "
 			"r.recent_event_summaries_json = row.recent_event_summaries_json, "
-			"r.stance_json = row.stance_json"
+			"r.stance_json = row.stance_json, "
+			"r.valid_from = row.valid_from, "
+			"r.valid_until = row.valid_until"
 		)
 		with self._driver.session() as sess:
 			sess.run(cypher, rows=rows, group=group)
@@ -100,10 +104,14 @@ class Neo4jKGProvider:
 		if not parts:
 			return {"nodes": [], "edges": [], "alias_table": {}, "fact_summaries": [], "relation_summaries": []}
 
-		# 仅查询 RELATES_TO
+		# 仅查询 RELATES_TO，支持时间切片
+		where_clause = "a.name IN $parts AND b.name IN $parts"
+		if max_chapter_id is not None:
+			where_clause += " AND (r.valid_from IS NULL OR r.valid_from <= $max_chapter_id) AND (r.valid_until IS NULL OR r.valid_until >= $max_chapter_id)"
+
 		rel_cypher = (
-			"MATCH (a:Entity {group_id:$group})-[r:RELATES_TO]->(b:Entity {group_id:$group}) "
-			"WHERE a.name IN $parts AND b.name IN $parts "
+			f"MATCH (a:Entity {{group_id:$group}})-[r:RELATES_TO]->(b:Entity {{group_id:$group}}) "
+			f"WHERE {where_clause} "
 			"RETURN a.name AS a, 'RELATES_TO' AS t, b.name AS b, r {.*} as props "
 			"LIMIT $limit"
 		)
@@ -112,7 +120,7 @@ class Neo4jKGProvider:
 		rel_items: Dict[Tuple[str, str, str], Dict[str, Any]] = {}
 		edges: List[Dict[str, Any]] = []
 		with self._driver.session() as sess:
-			results = sess.run(rel_cypher, group=group, parts=parts, limit=max(1, int(top_k)))
+			results = sess.run(rel_cypher, group=group, parts=parts, limit=max(1, int(top_k)), max_chapter_id=max_chapter_id)
 			for rec in results:
 				a = rec["a"]; b = rec["b"]; t = rec["t"]; props = rec["props"] or {}
 				# 中文关系类型优先来自属性

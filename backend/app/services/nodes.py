@@ -589,7 +589,7 @@ def node_card_upsert_child_by_title(session: Session, state: dict, params: dict)
 
 
 @register_node("List.ForEach")
-def node_list_foreach(session: Session, state: dict, params: dict, run_body):
+async def node_list_foreach(session: Session, state: dict, params: dict, run_body):
     """
     List.ForEach: 遍历列表并为每个元素执行 body 节点。
     params:
@@ -624,11 +624,14 @@ def node_list_foreach(session: Session, state: dict, params: dict, run_body):
     for idx, it in enumerate(seq, start=1):
         state["item"] = {"index": idx, **(it if isinstance(it, dict) else {"value": it})}
         logger.info(f"[节点] List.ForEach index={idx}")
-        run_body()
+        if asyncio.iscoroutinefunction(run_body):
+            await run_body()
+        else:
+            run_body()
 
 
 @register_node("List.ForEachRange")
-def node_list_foreach_range(session: Session, state: dict, params: dict, run_body):
+async def node_list_foreach_range(session: Session, state: dict, params: dict, run_body):
     """
     List.ForEachRange: 根据计数遍历 1..N
     params:
@@ -655,7 +658,10 @@ def node_list_foreach_range(session: Session, state: dict, params: dict, run_bod
     for i in range(start, start + n):
         state["item"] = {"index": i}
         logger.info(f"[节点] List.ForEachRange index={i} (共{n}次)")
-        run_body()
+        if asyncio.iscoroutinefunction(run_body):
+            await run_body()
+        else:
+            run_body()
 
 
 @register_node("Card.ClearFields")
@@ -883,4 +889,106 @@ def node_card_replace_field_text(session: Session, state: Dict[str, Any], params
         "old_length": len(current_value),
         "new_length": len(updated_value)
     }
+
+
+# ==================== AI & Context 节点 ====================
+
+@register_node("LLM.Generate")
+async def node_llm_generate(session: Session, state: dict, params: dict) -> dict:
+    """
+    LLM.Generate: 调用 AI 生成内容
+    params:
+      - prompt: 提示词模板
+      - targetPath: 结果写入 state 的路径 (默认 "$.last_ai_response")
+      - model: 模型名称 (可选)
+      - temperature: 温度 (可选)
+    """
+    from app.services import agent_service
+    
+    prompt_tpl = params.get("prompt", "")
+    final_prompt = _render_value(prompt_tpl, state)
+    
+    model = params.get("model")
+    temperature = params.get("temperature")
+    
+    logger.info(f"[节点] LLM.Generate 开始生成...")
+    
+    # 这里简单调用 agent_service.run_llm_agent
+    # 实际可能需要更复杂的参数装配
+    result = await agent_service.run_llm_agent(
+        project_id=state.get("scope", {}).get("project_id"),
+        user_prompt=final_prompt,
+        model_name=model,
+        temperature=temperature
+    )
+    
+    content = result.get("content", "")
+    target_path = params.get("targetPath", "$.last_ai_response")
+    
+    # 写入 state
+    _set_by_path(state, target_path, content)
+    
+    return {"content": content, "raw_result": result}
+
+
+@register_node("Context.Assemble")
+def node_context_assemble(session: Session, state: dict, params: dict) -> dict:
+    """
+    Context.Assemble: 装配上下文（事实、关系等）
+    params:
+      - participants: 参与者列表 (可选)
+      - max_chapter_id: 最大章节ID (用于时间切片)
+    """
+    from app.services import context_service
+    from app.services.context_service import ContextAssembleParams
+    
+    project_id = state.get("scope", {}).get("project_id")
+    participants = _render_value(params.get("participants", []), state)
+    max_chapter_id = _render_value(params.get("max_chapter_id"), state)
+    
+    assemble_params = ContextAssembleParams(
+        project_id=project_id,
+        participants=participants,
+        max_chapter_id=max_chapter_id
+    )
+    
+    context = context_service.assemble_context(session, assemble_params)
+    
+    state["assembled_context"] = context.model_dump() if hasattr(context, "model_dump") else context
+    
+    return {"context": context}
+
+
+@register_node("Tools.ParseJSON")
+def node_tools_parse_json(session: Session, state: dict, params: dict) -> dict:
+    """
+    Tools.ParseJSON: 解析 JSON 字符串为对象
+    params:
+      - sourcePath: 源字符串路径 (如 "$.last_ai_response")
+      - targetPath: 结果写入路径 (如 "$.parsed_data")
+    """
+    import json
+    
+    source_path = params.get("sourcePath", "$.last_ai_response")
+    target_path = params.get("targetPath", "$.parsed_data")
+    
+    source_val = _get_from_state(source_path, state)
+    if not isinstance(source_val, str):
+        logger.warning(f"[节点] Tools.ParseJSON 源数据非字符串: {type(source_val)}")
+        return {"success": False}
+    
+    try:
+        # 尝试提取 JSON 块（处理 AI 可能带有的 Markdown 标签）
+        json_match = re.search(r"```json\s*(.*?)\s*```", source_val, re.DOTALL)
+        if json_match:
+            json_str = json_match.group(1)
+        else:
+            json_str = source_val
+            
+        data = json.loads(json_str)
+        _set_by_path(state, target_path, data)
+        return {"success": True, "data": data}
+    except Exception as e:
+        logger.error(f"[节点] Tools.ParseJSON 失败: {e}")
+        return {"success": False, "error": str(e)}
 
