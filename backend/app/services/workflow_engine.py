@@ -14,11 +14,14 @@ class LocalAsyncEngine:
     - 线性执行 nodes；支持 List.ForEach/List.ForEachRange（body 必须存在）
     - 事件：step_started/step_succeeded/step_failed/run_completed
     - 规范化：执行前对 DSL 做兼容重写（ForEach 无 body → 将紧随节点折叠为 body）
+    - 调试支持：支持暂停、恢复、单步执行
     """
 
     def __init__(self) -> None:
         self._run_tasks: Dict[int, asyncio.Task] = {}
         self._event_queues: Dict[int, "asyncio.Queue[str]"] = {}
+        self._paused_runs: Dict[int, asyncio.Event] = {}
+        self._debug_runs: set[int] = set()
 
     # ---------------- background & events ----------------
     async def _publish(self, run_id: int, event: str) -> None:
@@ -85,6 +88,47 @@ class LocalAsyncEngine:
         self._ensure_queue(run.id)
         logger.info(f"[工作流] Run 已创建并初始化事件队列 run_id={run.id} workflow_id={workflow.id}")
         return run
+
+    # ---------------- debug control ----------------
+    def set_debug(self, run_id: int, enabled: bool = True):
+        if enabled:
+            self._debug_runs.add(run_id)
+            if run_id not in self._paused_runs:
+                self._paused_runs[run_id] = asyncio.Event()
+        else:
+            self._debug_runs.discard(run_id)
+            if run_id in self._paused_runs:
+                self._paused_runs[run_id].set()
+                del self._paused_runs[run_id]
+
+    def pause(self, run_id: int):
+        if run_id not in self._paused_runs:
+            self._paused_runs[run_id] = asyncio.Event()
+        else:
+            self._paused_runs[run_id].clear()
+        logger.info(f"[工作流] 已请求暂停 run_id={run_id}")
+
+    def resume(self, run_id: int):
+        if run_id in self._paused_runs:
+            self._paused_runs[run_id].set()
+            logger.info(f"[工作流] 已请求恢复 run_id={run_id}")
+
+    def step(self, run_id: int):
+        if run_id in self._paused_runs:
+            self._paused_runs[run_id].set()
+            # 立即再次清除，以便执行完当前节点后再次暂停
+            # 注意：这需要 _execute_graph 在循环中检查
+            logger.info(f"[工作流] 已请求单步执行 run_id={run_id}")
+
+    async def _check_pause(self, run_id: int):
+        if run_id in self._paused_runs:
+            event = self._paused_runs[run_id]
+            if not event.is_set():
+                logger.info(f"[工作流] 正在等待恢复 run_id={run_id}...")
+                await self._publish(run_id, "event: paused\ndata: waiting for resume\n\n")
+                await event.wait()
+                if run_id in self._debug_runs:
+                    event.clear()  # 调试模式下，单步后继续暂停
 
     # ---------------- nodes ----------------
     def _resolve_node_fn(self, type_name: str):
@@ -191,6 +235,9 @@ class LocalAsyncEngine:
             if node_id in executed or node_id not in node_map:
                 return
             
+            # 检查暂停状态
+            await self._check_pause(run_id)
+            
             node = node_map[node_id]
             ntype = node.get("type")
             params = node.get("params") or {}
@@ -223,7 +270,16 @@ class LocalAsyncEngine:
         # 执行所有起始节点
         for start_id in graph["start_nodes"]:
             await execute_node(start_id)
-    
+
+    async def _execute_successors(self, node_id: str, successors: dict, dependencies: dict, executed: set, execute_node: Callable) -> None:
+        """执行后继节点"""
+        next_nodes = successors.get(node_id, {}).get("next", [])
+        for next_id in next_nodes:
+            # 检查所有依赖是否已完成
+            deps = dependencies.get(next_id, [])
+            if all(d in executed for d in deps):
+                await execute_node(next_id)
+
     async def _execute_single_node(self, node: dict, session: Session, state: dict, run_id: int, 
                                    node_successors: dict, node_map: dict) -> None:
         """执行单个节点"""
@@ -235,13 +291,14 @@ class LocalAsyncEngine:
             body_node_ids = node_successors.get("body", [])
             body_nodes = [node_map[bid] for bid in body_node_ids if bid in node_map]
             
-            async def body_executor():
-                await self._execute_body_nodes(body_nodes, session, state, run_id)
-            
-            if ntype == "List.ForEach":
-                await builtin_nodes.node_list_foreach(session, state, params, body_executor)
-            else:
-                await builtin_nodes.node_list_foreach_range(session, state, params, body_executor)
+            async def body_executor(s, st, p):
+                # 循环体执行逻辑
+                # 注意：循环体内部也需要支持异步
+                await self._execute_body_nodes(body_nodes, s, st, run_id)
+
+            fn = self._resolve_node_fn(ntype)
+            # 传入 body_executor 供循环节点调用
+            await fn(session, state, params, body_executor=body_executor)
         else:
             # 普通节点
             fn = self._resolve_node_fn(ntype)
@@ -249,26 +306,16 @@ class LocalAsyncEngine:
                 await fn(session, state, params)
             else:
                 fn(session, state, params)
-    
-    async def _execute_successors(self, node_id: str, successors: dict, dependencies: dict, 
-                                  executed: set, execute_node) -> None:
-        """执行后续节点"""
-        # 获取next类型的后续节点（循环节点的body节点已在循环中执行）
-        next_nodes = successors.get(node_id, {}).get("next", [])
-        
-        for next_id in next_nodes:
-            if next_id not in executed:
-                # 检查所有前置依赖是否完成
-                deps = dependencies.get(next_id, [])
-                if all(dep in executed for dep in deps):
-                    await execute_node(next_id)
 
     async def _execute_body_nodes(self, body_nodes: List[dict], session, state, run_id: int):
-        """执行body节点（用于ForEach回调）"""
+        """执行body节点"""
         for bn in body_nodes:
+            # 循环体内节点也检查暂停
+            await self._check_pause(run_id)
+            
             ntype = bn.get("type")
             params = bn.get("params") or {}
-            logger.info(f"[工作流] ForEach body节点 type={ntype}")
+            logger.info(f"[工作流] body节点 type={ntype}")
             try:
                 fn = self._resolve_node_fn(ntype)
                 if asyncio.iscoroutinefunction(fn):
@@ -276,138 +323,82 @@ class LocalAsyncEngine:
                 else:
                     fn(session, state, params)
             except Exception as e:  # noqa: BLE001
-                logger.exception(f"[工作流] ForEach body节点失败 type={ntype} err={e}")
+                logger.exception(f"[工作流] body节点失败 type={ntype} err={e}")
                 raise
 
     async def _execute_legacy_format(self, session: Session, workflow: Workflow, run: WorkflowRun, raw_nodes: List[dict]) -> None:
-        """执行旧格式的工作流（保持向后兼容）"""
-        nodes: List[dict] = self._canonicalize(raw_nodes)
+        """执行旧格式的工作流（线性执行）"""
+        nodes = self._canonicalize(raw_nodes)
         state: Dict[str, Any] = {"scope": run.scope_json or {}, "touched_card_ids": set()}
-        logger.info(f"[工作流] 开始执行旧格式 run_id={run.id} workflow_id={workflow.id} nodes={len(nodes)}")
+        
+        logger.info(f"[工作流] 开始执行(旧格式) run_id={run.id} workflow_id={workflow.id} nodes={len(nodes)}")
+        
+        for node in nodes:
+            # 检查暂停
+            await self._check_pause(run_id=run.id)
+            
+            ntype = node.get("type")
+            params = node.get("params") or {}
+            
+            await self._publish(run.id, f"event: step_started\ndata: {ntype}\n\n")
+            try:
+                # 旧格式不支持 graph 结构的 successors，传入空
+                await self._execute_single_node(node, session, state, run.id, {}, {})
+                await self._publish(run.id, f"event: step_succeeded\ndata: {ntype}\n\n")
+            except Exception as e:
+                logger.exception(f"[工作流] 节点失败 run_id={run.id} type={ntype} err={e}")
+                await self._publish(run.id, f"event: step_failed\ndata: {ntype}: {e}\n\n")
+                raise
 
-        async def run_body(body_nodes: List[dict]):
-            for bn in body_nodes:
-                ntype = bn.get("type")
-                params = bn.get("params") or {}
-                logger.info(f"[工作流] 旧格式节点开始 type={ntype}")
-                if ntype == "List.ForEach":
-                    body = list((bn.get("body") or []))
-                    await builtin_nodes.node_list_foreach(session, state, params, lambda: run_body(body))
-                    logger.info("[工作流] 旧格式节点结束 List.ForEach")
-                    continue
-                if ntype == "List.ForEachRange":
-                    body = list((bn.get("body") or []))
-                    await builtin_nodes.node_list_foreach_range(session, state, params, lambda: run_body(body))
-                    logger.info("[工作流] 旧格式节点结束 List.ForEachRange")
-                    continue
-                fn = self._resolve_node_fn(ntype)
-                await self._publish(run.id, f"event: step_started\ndata: {ntype}\n\n")
-                try:
-                    if asyncio.iscoroutinefunction(fn):
-                        await fn(session, state, params)
-                    else:
-                        fn(session, state, params)
-                    logger.info(f"[工作流] 旧格式节点成功 type={ntype}")
-                    await self._publish(run.id, f"event: step_succeeded\ndata: {ntype}\n\n")
-                except Exception as e:  # noqa: BLE001
-                    logger.exception(f"[工作流] 旧格式节点失败 type={ntype} err={e}")
-                    await self._publish(run.id, f"event: step_failed\ndata: {ntype}: {e}\n\n")
-                    raise
-
-        await run_body(nodes)
         await self._save_execution_result(session, run, state)
 
     async def _save_execution_result(self, session: Session, run: WorkflowRun, state: dict) -> None:
         """保存执行结果"""
-        logger.info(f"[工作流] 执行完毕 run_id={run.id}")
-        try:
-            touched = list(sorted({int(x) for x in (state.get("touched_card_ids") or set())}))
-            run.summary_json = {**(run.summary_json or {}), "affected_card_ids": touched}
-            session.add(run)
-            session.commit()
-        except Exception:
-            logger.exception("[工作流] 汇总受影响卡片ID失败")
+        run.status = "completed"
+        run.finished_at = datetime.now()
+        run.result_json = {"touched_card_ids": list(state.get("touched_card_ids", []))}
+        session.add(run)
+        session.commit()
+        
+        # 清理调试状态
+        self._debug_runs.discard(run.id)
+        if run.id in self._paused_runs:
+            del self._paused_runs[run.id]
+            
+        await self._publish(run.id, "event: run_completed\ndata: success\n\n")
+        await self._close_queue(run.id)
+        logger.info(f"[工作流] Run 已完成 run_id={run.id}")
 
-    # ---------------- run ----------------
-    def run(self, session: Session, run: WorkflowRun) -> None:
-        if run.id in self._run_tasks:
-            return
-
-        async def _runner():
-            run_id = run.id
-            # 确保事件队列已存在
-            self._ensure_queue(run_id)
-            await self._publish(run_id, "event: step_started\n\n")
+    # ---------------- public entry ----------------
+    def run_workflow_background(self, session: Session, workflow: Workflow, run: WorkflowRun) -> int:
+        """后台异步运行工作流"""
+        async def _task():
             try:
-                run_db: WorkflowRun = session.exec(select(WorkflowRun).where(WorkflowRun.id == run_id)).one()
-                run_db.status = "running"
-                run_db.started_at = datetime.utcnow()
-                session.add(run_db)
-                session.commit()
-
-                workflow = session.exec(select(Workflow).where(Workflow.id == run.workflow_id)).one()
-                await self._publish(run_id, "event: log\ndata: 开始执行DSL...\n\n")
-                logger.info(f"[工作流] run启动 run_id={run_id} workflow_id={workflow.id}")
+                # 重新获取 session 避免跨线程问题（如果是在新线程运行）
+                # 但在 FastAPI/asyncio 环境下通常直接用传入的
                 await self._execute_dsl(session, workflow, run)
-
-                run_db = session.exec(select(WorkflowRun).where(WorkflowRun.id == run_id)).one()
-                run_db.status = "succeeded"
-                run_db.finished_at = datetime.utcnow()
-                session.add(run_db)
+            except Exception as e:
+                logger.exception(f"[工作流] 运行异常 run_id={run.id} err={e}")
+                run.status = "failed"
+                run.finished_at = datetime.now()
+                session.add(run)
                 session.commit()
-                # 发布包含受影响卡片ID的完成事件
-                try:
-                    affected = []
-                    try:
-                        affected = list(sorted({int(x) for x in (run_db.summary_json or {}).get("affected_card_ids", [])}))
-                    except Exception:
-                        affected = []
-                    payload = {"status": "succeeded", "affected_card_ids": affected}
-                    import json as _json
-                    await self._publish(run_id, f"event: run_completed\ndata: {_json.dumps(payload, ensure_ascii=False)}\n\n")
-                except Exception:
-                    await self._publish(run_id, "event: run_completed\ndata: {\"status\":\"succeeded\"}\n\n")
-            except asyncio.CancelledError:
-                run_db = session.exec(select(WorkflowRun).where(WorkflowRun.id == run_id)).one()
-                run_db.status = "cancelled"
-                run_db.finished_at = datetime.utcnow()
-                session.add(run_db)
-                session.commit()
-                await self._publish(run_id, "event: run_completed\ndata: {\"status\":\"cancelled\"}\n\n")
-                raise
-            except Exception as e:  # noqa: BLE001
-                logger.exception(f"[工作流] run失败 run_id={run_id} err={e}")
-                run_db = session.exec(select(WorkflowRun).where(WorkflowRun.id == run_id)).one()
-                run_db.status = "failed"
-                run_db.finished_at = datetime.utcnow()
-                run_db.error_json = {"message": str(e)}
-                session.add(run_db)
-                session.commit()
-                # 失败也尽量附带受影响卡片，便于前端选择性刷新
-                try:
-                    affected = []
-                    try:
-                        affected = list(sorted({int(x) for x in (run_db.summary_json or {}).get("affected_card_ids", [])}))
-                    except Exception:
-                        affected = []
-                    payload = {"status": "failed", "affected_card_ids": affected, "error": str(e)}
-                    import json as _json
-                    await self._publish(run_id, f"event: run_completed\ndata: {_json.dumps(payload, ensure_ascii=False)}\n\n")
-                except Exception:
-                    await self._publish(run_id, "event: run_completed\ndata: {\"status\":\"failed\"}\n\n")
+                await self._publish(run.id, f"event: run_failed\ndata: {e}\n\n")
+                await self._close_queue(run.id)
             finally:
-                await self._close_queue(run_id)
+                if run.id in self._run_tasks:
+                    del self._run_tasks[run.id]
 
-        task = self._background_run(lambda: _runner(), run.id)
-        if task is not None:
+        task = self._background_run(_task, run.id)
+        if task:
             self._run_tasks[run.id] = task
-
-    def cancel(self, run_id: int) -> bool:
-        task = self._run_tasks.get(run_id)
-        if task and not task.done():
-            task.cancel()
-            return True
-        return False
+        return run.id
 
 
-engine = LocalAsyncEngine()
+_engine_instance: Optional[LocalAsyncEngine] = None
+
+def get_engine() -> LocalAsyncEngine:
+    global _engine_instance
+    if _engine_instance is None:
+        _engine_instance = LocalAsyncEngine()
+    return _engine_instance

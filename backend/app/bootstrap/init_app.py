@@ -494,8 +494,79 @@ def init_workflows(db: Session):
         ]
     }
 
-    # 第四个工作流：阶段大纲·落章节卡
-    c, u, s = _create_or_update_workflow(db, name4, "阶段大纲：根据章节大纲列表创建/更新章节大纲与章节正文子卡，并清空列表", dsl4, "阶段大纲", overwrite)
+    total_created += c
+    total_updated += u
+    total_skipped += s
+
+    # ---------------- 章节正文 · 智能审计与同步 ----------------
+    name6 = "智能章节审计与同步"
+    dsl6 = {
+        "dsl_version": 1,
+        "name": name6,
+        "nodes": [
+            {"id": "read_chapter", "type": "Card.Read", "params": {"target": "$self", "type_name": "章节正文"}, "position": {"x": 40, "y": 80}},
+            {"id": "assemble_ctx", "type": "Context.Assemble", "params": {"participants": "{$.content.entity_list}", "max_chapter_id": "{$.content.chapter_number}"}, "position": {"x": 460, "y": 80}},
+            {"id": "audit_content", "type": "Audit.Consistency", "params": {"sourcePath": "$.content.content"}, "position": {"x": 880, "y": 80}},
+            {"id": "update_kg", "type": "KG.UpdateFromContent", "params": {"sourcePath": "$.content.content", "participants": "{$.content.entity_list}"}, "position": {"x": 880, "y": 260}}
+        ],
+        "edges": [
+            {"id": "e-read-assemble", "source": "read_chapter", "target": "assemble_ctx", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e-assemble-audit", "source": "assemble_ctx", "target": "audit_content", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e-audit-update", "source": "audit_content", "target": "update_kg", "sourceHandle": "r", "targetHandle": "l"}
+        ]
+    }
+
+    c, u, s = _create_or_update_workflow(db, name6, "章节正文：自动装配上下文、进行一致性审计并同步事实到知识图谱", dsl6, "章节正文", overwrite)
+    total_created += c
+    total_updated += u
+    total_skipped += s
+
+    # ---------------- 章节正文 · 智能续写与审计 ----------------
+    name7 = "智能章节续写与审计"
+    dsl7 = {
+        "dsl_version": 1,
+        "name": name7,
+        "nodes": [
+            {"id": "read_chapter", "type": "Card.Read", "params": {"target": "$self", "type_name": "章节正文"}, "position": {"x": 40, "y": 80}},
+            {"id": "assemble_ctx", "type": "Context.Assemble", "params": {"participants": "{$.content.entity_list}", "max_chapter_id": "{$.content.chapter_number}"}, "position": {"x": 460, "y": 80}},
+            {"id": "generate_content", "type": "LLM.Generate", "params": {"prompt": "内容生成", "targetPath": "$.last_ai_response"}, "position": {"x": 880, "y": 80}},
+            {"id": "append_content", "type": "Card.ModifyContent", "params": {"setPath": "content", "setValue": "{$.content.content}\n\n{$.last_ai_response}"}, "position": {"x": 1300, "y": 80}},
+            {"id": "audit_content", "type": "Audit.Consistency", "params": {"sourcePath": "$.content.content"}, "position": {"x": 1720, "y": 80}},
+            {"id": "update_kg", "type": "KG.UpdateFromContent", "params": {"sourcePath": "$.content.content", "participants": "{$.content.entity_list}"}, "position": {"x": 1720, "y": 260}}
+        ],
+        "edges": [
+            {"id": "e1", "source": "read_chapter", "target": "assemble_ctx", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e2", "source": "assemble_ctx", "target": "generate_content", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e3", "source": "generate_content", "target": "append_content", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e4", "source": "append_content", "target": "audit_content", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e5", "source": "audit_content", "target": "update_kg", "sourceHandle": "r", "targetHandle": "l"}
+        ]
+    }
+
+    c, u, s = _create_or_update_workflow(db, name7, "章节正文：自动续写内容、审计一致性并同步到知识图谱", dsl7, "章节正文", overwrite)
+    total_created += c
+    total_updated += u
+    total_skipped += s
+
+    # ---------------- 角色卡 · 设定智能补全 ----------------
+    name8 = "角色设定智能补全"
+    dsl8 = {
+        "dsl_version": 1,
+        "name": name8,
+        "nodes": [
+            {"id": "read_char", "type": "Card.Read", "params": {"target": "$self", "type_name": "角色卡"}, "position": {"x": 40, "y": 80}},
+            {"id": "assemble_ctx", "type": "Context.Assemble", "params": {"participants": ["{$.content.name}"]}, "position": {"x": 460, "y": 80}},
+            {"id": "generate_missing", "type": "LLM.Generate", "params": {"prompt": "角色动态信息提取", "targetPath": "$.last_ai_response"}, "position": {"x": 880, "y": 80}},
+            {"id": "update_card", "type": "Card.ModifyContent", "params": {"contentMerge": "{$.last_ai_response}"}, "position": {"x": 1300, "y": 80}}
+        ],
+        "edges": [
+            {"id": "e1", "source": "read_char", "target": "assemble_ctx", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e2", "source": "assemble_ctx", "target": "generate_missing", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e3", "source": "generate_missing", "target": "update_card", "sourceHandle": "r", "targetHandle": "l"}
+        ]
+    }
+
+    c, u, s = _create_or_update_workflow(db, name8, "角色卡：根据现有知识图谱事实自动补全角色设定（性格、动机等）", dsl8, "角色卡", overwrite)
     total_created += c
     total_updated += u
     total_skipped += s

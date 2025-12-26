@@ -22,6 +22,9 @@ class ContextAssembleParams:
     current_draft_tail: Optional[str]
     recent_chapters_window: Optional[int] = None
     chapter_id: Optional[int] = None
+    radius: Optional[int] = None
+    top_k: Optional[int] = None
+    pov_character: Optional[str] = None
 
 
 @dataclass
@@ -54,20 +57,34 @@ def assemble_context(session: Session, params: ContextAssembleParams) -> Assembl
     eff_participants: List[str] = list(params.participants or [])
     participant_set = set(eff_participants)
 
+    # 启发式动态调整：参与者越多，TopK 越大，半径越小
+    p_count = len(eff_participants)
+    default_radius = 2
+    if p_count > 5:
+        default_radius = 1
+    elif p_count == 0:
+        default_radius = 0
+        
+    eff_radius = params.radius if params.radius is not None else default_radius
+    
+    # TopK 启发式：每个参与者预留 15 个事实，最小 20，最大 150
+    default_top_k = max(20, min(150, p_count * 15))
+    eff_top_k = params.top_k if params.top_k is not None else default_top_k
+
     facts_text = _compose_facts_subgraph_stub()
     facts_structured: Optional[Dict[str, Any]] = None
     try:
         provider = get_provider()
         # 放宽：边类型允许任意（排除 HAS_ALIAS），以兼容旧图/新图
         edge_whitelist = None
-        est_top_k = max(5, min(100, facts_quota // 100))
         sub_struct = provider.query_subgraph(
             project_id=params.project_id or -1,
             participants=eff_participants,
-            radius=2,
+            radius=eff_radius,
             edge_type_whitelist=edge_whitelist,
-            top_k=est_top_k,
-            max_chapter_id=None,
+            top_k=eff_top_k,
+            max_chapter_id=params.chapter_id,
+            pov_character=params.pov_character,
         )
         raw_relation_items = [it for it in (sub_struct.get("relation_summaries") or []) if isinstance(it, dict)]
         filtered_relation_items = [
@@ -121,4 +138,4 @@ def assemble_context(session: Session, params: ContextAssembleParams) -> Assembl
         facts_subgraph=facts,
         budget_stats={},
         facts_structured=facts_structured,
-    ) 
+    )

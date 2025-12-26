@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import Any, Optional, List, Dict, Callable
 import re
 import copy
+import json
+import asyncio
 from sqlmodel import Session, select
+from pydantic import BaseModel
 
 from app.db.models import Card, CardType
 from loguru import logger
@@ -594,7 +597,7 @@ async def node_list_foreach(session: Session, state: dict, params: dict, run_bod
     List.ForEach: 遍历列表并为每个元素执行 body 节点。
     params:
       - listPath: string 例如 "$.content.character_cards"
-      - list: 任意（兼容：字符串路径或直接数组）
+      - list: 任意（兼容：字符串路径 or 直接数组）
     """
     list_path = params.get("listPath")
     seq: Any = None
@@ -902,6 +905,7 @@ async def node_llm_generate(session: Session, state: dict, params: dict) -> dict
       - targetPath: 结果写入 state 的路径 (默认 "$.last_ai_response")
       - model: 模型名称 (可选)
       - temperature: 温度 (可选)
+      - style: 写作风格指引 (可选)
     """
     from app.services import agent_service
     
@@ -910,16 +914,19 @@ async def node_llm_generate(session: Session, state: dict, params: dict) -> dict
     
     model = params.get("model")
     temperature = params.get("temperature")
+    style = _render_value(params.get("style"), state)
     
     logger.info(f"[节点] LLM.Generate 开始生成...")
     
     # 这里简单调用 agent_service.run_llm_agent
     # 实际可能需要更复杂的参数装配
     result = await agent_service.run_llm_agent(
+        session=session,
         project_id=state.get("scope", {}).get("project_id"),
         user_prompt=final_prompt,
         model_name=model,
-        temperature=temperature
+        temperature=temperature,
+        style_guidelines=style
     )
     
     content = result.get("content", "")
@@ -938,6 +945,9 @@ def node_context_assemble(session: Session, state: dict, params: dict) -> dict:
     params:
       - participants: 参与者列表 (可选)
       - max_chapter_id: 最大章节ID (用于时间切片)
+      - radius: 查询半径 (可选)
+      - top_k: 最大返回事实数 (可选)
+      - pov_character: 主观视角角色 (可选)
     """
     from app.services import context_service
     from app.services.context_service import ContextAssembleParams
@@ -945,11 +955,17 @@ def node_context_assemble(session: Session, state: dict, params: dict) -> dict:
     project_id = state.get("scope", {}).get("project_id")
     participants = _render_value(params.get("participants", []), state)
     max_chapter_id = _render_value(params.get("max_chapter_id"), state)
+    radius = _render_value(params.get("radius"), state)
+    top_k = _render_value(params.get("top_k"), state)
+    pov_character = _render_value(params.get("pov_character"), state)
     
     assemble_params = ContextAssembleParams(
         project_id=project_id,
         participants=participants,
-        max_chapter_id=max_chapter_id
+        chapter_id=max_chapter_id,
+        radius=radius,
+        top_k=top_k,
+        pov_character=pov_character,
     )
     
     context = context_service.assemble_context(session, assemble_params)
@@ -992,3 +1008,158 @@ def node_tools_parse_json(session: Session, state: dict, params: dict) -> dict:
         logger.error(f"[节点] Tools.ParseJSON 失败: {e}")
         return {"success": False, "error": str(e)}
 
+
+@register_node("Audit.Consistency")
+async def node_audit_consistency(session: Session, state: dict, params: dict) -> dict:
+    """
+    Audit.Consistency: 检查内容一致性
+    params:
+      - sourcePath: 待检查内容路径 (默认 "$.current.card.content")
+      - targetPath: 结果写入路径 (默认 "$.audit_result")
+      - promptName: 提示词名称 (默认 "一致性检查")
+    """
+    from app.services import agent_service
+    
+    source_path = params.get("sourcePath", "$.current.card.content")
+    target_path = params.get("targetPath", "$.audit_result")
+    prompt_name = params.get("promptName", "一致性检查")
+    
+    content = _get_from_state(source_path, state)
+    if isinstance(content, dict):
+        # 如果是字典，尝试取正文或转为字符串
+        content = content.get("content") or content.get("text") or str(content)
+    
+    # 获取上下文（如果之前执行了 Context.Assemble）
+    context_data = state.get("assembled_context", {})
+    facts_subgraph = context_data.get("facts_subgraph", "暂无参考事实。")
+    
+    user_prompt = f"### 待检查内容\n{content}\n\n### 参考上下文\n{facts_subgraph}"
+    
+    logger.info(f"[节点] Audit.Consistency 开始审计...")
+    
+    # 调用 AI 进行审计
+    # 定义输出结构
+    class AuditResult(BaseModel):
+        has_issues: bool
+        issues: List[dict]
+
+    result = await agent_service.run_llm_agent(
+        session=session,
+        project_id=state.get("scope", {}).get("project_id"),
+        user_prompt=user_prompt,
+        prompt_name=prompt_name,
+        output_type=AuditResult
+    )
+    
+    # 写入 state
+    _set_by_path(state, target_path, result.model_dump() if hasattr(result, "model_dump") else result)
+    
+    return {"result": result}
+
+
+@register_node("KG.UpdateFromContent")
+async def node_kg_update_from_content(session: Session, state: dict, params: dict) -> dict:
+    """
+    KG.UpdateFromContent: 从内容中提取事实并更新知识图谱
+    params:
+      - sourcePath: 待提取内容路径 (默认 "$.current.card.content")
+      - participants: 参与者列表 (可选)
+    """
+    from app.services.memory_service import MemoryService
+    from app.schemas.memory import ParticipantTyped
+    
+    source_path = params.get("sourcePath", "$.current.card.content")
+    content = _get_from_state(source_path, state)
+    if isinstance(content, dict):
+        content = content.get("content") or content.get("text") or str(content)
+        
+    participants_raw = _render_value(params.get("participants", []), state)
+    participants = []
+    for p in participants_raw:
+        if isinstance(p, str):
+            participants.append(ParticipantTyped(name=p, type="character"))
+        elif isinstance(p, dict):
+            participants.append(ParticipantTyped(**p))
+            
+    project_id = state.get("scope", {}).get("project_id")
+    if not project_id:
+        raise ValueError("KG.UpdateFromContent 缺少 project_id")
+        
+    memory_service = MemoryService(session)
+    
+    logger.info(f"[节点] KG.UpdateFromContent 开始提取并更新...")
+    
+    # 1. 提取关系
+    extraction = await memory_service.extract_relations_llm(
+        text=content,
+        participants=participants
+    )
+    
+    # 2. 写入图谱
+    result = memory_service.ingest_relations_from_llm(
+        project_id=project_id,
+        data=extraction,
+        participants_with_type=participants
+    )
+    
+    # 3. 提取并更新动态信息
+    dynamic_info = await memory_service.extract_dynamic_info_from_text(
+        text=content,
+        participants=participants,
+        project_id=project_id
+    )
+    memory_service.update_dynamic_character_info(project_id, dynamic_info)
+    
+    return {"extraction": extraction, "ingest_result": result, "dynamic_info": dynamic_info}
+
+
+@register_node("Tools.Wait")
+async def node_tools_wait(session: Session, state: dict, params: dict) -> dict:
+    """
+    Tools.Wait: 等待指定时间或手动恢复
+    params:
+      - seconds: 等待秒数 (可选)
+      - message: 等待时显示的消息 (可选)
+    """
+    seconds = params.get("seconds")
+    message = params.get("message", "等待中...")
+    
+    logger.info(f"[节点] Tools.Wait: {message}")
+    
+    if seconds:
+        await asyncio.sleep(float(seconds))
+        return {"waited": seconds}
+    
+    # 如果没有指定秒数，则视为一个断点，需要外部恢复（目前仅记录日志）
+    logger.warning(f"[节点] Tools.Wait 断点触发: {message}")
+    return {"breakpoint": True}
+
+
+@register_node("Style.Assemble")
+def node_style_assemble(session: Session, state: dict, params: dict) -> dict:
+    """
+    Style.Assemble: 从卡片中装配写作风格
+    params:
+      - styleCardTitle: 风格卡片的标题 (默认 "写作风格")
+      - targetPath: 结果写入路径 (默认 "$.current_style")
+    """
+    project_id = state.get("scope", {}).get("project_id")
+    style_card_title = _render_value(params.get("styleCardTitle", "写作风格"), state)
+    target_path = params.get("targetPath", "$.current_style")
+    
+    if not project_id:
+        return {"success": False, "error": "Missing project_id"}
+        
+    # 查询风格卡片
+    from app.db.models import Card
+    stmt = select(Card).where(Card.project_id == project_id, Card.title == style_card_title)
+    card = session.exec(stmt).first()
+    
+    if not card:
+        logger.warning(f"[节点] Style.Assemble 未找到风格卡片: {style_card_title}")
+        return {"success": False, "error": "Style card not found"}
+        
+    style_content = card.content or ""
+    _set_by_path(state, target_path, style_content)
+    
+    return {"success": True, "style": style_content}

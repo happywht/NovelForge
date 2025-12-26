@@ -43,6 +43,12 @@ def get_workflow_node_types():
             'Card.ReplaceFieldText': '替换文本',
             'List.ForEach': '遍历集合',
             'List.ForEachRange': '遍历范围',
+            'LLM.Generate': 'AI 生成内容',
+            'Context.Assemble': '装配上下文',
+            'Tools.ParseJSON': '解析 JSON',
+            'Audit.Consistency': '一致性审计',
+            'KG.UpdateFromContent': '同步事实到图谱',
+            'Tools.Wait': '等待/断点',
         }
         
         node_info.append({
@@ -258,3 +264,25 @@ async def stream_events(run_id: int):
     return StreamingResponse(event_publisher(), media_type="text/event-stream")
 
 
+@router.post("/workflows/runs/{run_id}/pause")
+def pause_run(run_id: int):
+    wf_engine.pause(run_id)
+    return {"ok": True}
+
+
+@router.post("/workflows/runs/{run_id}/resume")
+def resume_run(run_id: int):
+    wf_engine.resume(run_id)
+    return {"ok": True}
+
+
+@router.post("/workflows/runs/{run_id}/step")
+def step_run(run_id: int):
+    wf_engine.step(run_id)
+    return {"ok": True}
+
+
+@router.post("/workflows/runs/{run_id}/debug")
+def set_debug_mode(run_id: int, enabled: bool = True):
+    wf_engine.set_debug(run_id, enabled)
+    return {"ok": True}

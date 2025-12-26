@@ -93,7 +93,9 @@ async def run_llm_agent(
     max_retries: int = 3,
     temperature: Optional[float] = None,
     timeout: Optional[float] = None,
-    track_stats: bool = True,) -> BaseModel:
+    track_stats: bool = True,
+    style_guidelines: Optional[str] = None,
+) -> BaseModel:
     """运行结构化输出的 LLM 调用
 
     使用 LangChain ChatModel 的 structured output 能力：
@@ -134,8 +136,11 @@ async def run_llm_agent(
             structured_llm = model.with_structured_output(output_type)
 
             messages = []
-            if system_prompt:
-                messages.append(SystemMessage(content=system_prompt))
+            eff_system_prompt = system_prompt or "你是一个专业的小说创作助手。"
+            if style_guidelines:
+                eff_system_prompt += f"\n\n【写作风格指引】\n{style_guidelines}"
+            
+            messages.append(SystemMessage(content=eff_system_prompt))
             messages.append(HumanMessage(content=user_prompt))
 
             response = await structured_llm.ainvoke(messages)
@@ -239,8 +244,13 @@ async def generate_assistant_chat_streaming(
         raise
 
 
-async def generate_continuation_streaming(session: Session, request: ContinuationRequest, system_prompt: str, track_stats: bool = True) -> AsyncGenerator[str, None]:
+async def generate_continuation_streaming(session: Session, request: ContinuationRequest, system_prompt: str, track_stats: bool = True, style_guidelines: Optional[str] = None) -> AsyncGenerator[str, None]:
     """以流式方式生成续写内容。system_prompt 由外部显式传入。"""
+    # 注入风格指引
+    eff_system_prompt = system_prompt
+    if style_guidelines:
+        eff_system_prompt += f"\n\n【写作风格指引】\n{style_guidelines}"
+        
     # 组装用户消息
     user_prompt_parts = []
     
@@ -284,7 +294,7 @@ async def generate_continuation_streaming(session: Session, request: Continuatio
     
     # 限额预检
     if track_stats:
-        ok, reason = _precheck_quota(session, request.llm_config_id, _calc_input_tokens(system_prompt, user_prompt), need_calls=1)
+        ok, reason = _precheck_quota(session, request.llm_config_id, _calc_input_tokens(eff_system_prompt, user_prompt), need_calls=1)
         if not ok:
             raise ValueError(f"LLM 配额不足:{reason}")
 
@@ -298,7 +308,7 @@ async def generate_continuation_streaming(session: Session, request: Continuatio
     )
 
     messages = [
-        SystemMessage(content=system_prompt),
+        SystemMessage(content=eff_system_prompt),
         HumanMessage(content=user_prompt),
     ]
 
@@ -331,7 +341,7 @@ async def generate_continuation_streaming(session: Session, request: Continuatio
     except asyncio.CancelledError:
         logger.info("流式 LLM 调用被取消（CancelledError），停止推送。")
         if track_stats:
-            in_tokens = _calc_input_tokens(system_prompt, user_prompt)
+            in_tokens = _calc_input_tokens(eff_system_prompt, user_prompt)
             out_tokens = _estimate_tokens(accumulated)
             _record_usage(session, request.llm_config_id, in_tokens, out_tokens, calls=1, aborted=True)
         return
@@ -342,7 +352,7 @@ async def generate_continuation_streaming(session: Session, request: Continuatio
     # 正常结束后统计
     try:
         if track_stats:
-            in_tokens = _calc_input_tokens(system_prompt, user_prompt)
+            in_tokens = _calc_input_tokens(eff_system_prompt, user_prompt)
             out_tokens = _estimate_tokens(accumulated)
             _record_usage(session, request.llm_config_id, in_tokens, out_tokens, calls=1, aborted=False)
     except Exception as stat_e:
