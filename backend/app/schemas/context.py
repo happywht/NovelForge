@@ -26,6 +26,7 @@ class AssembleContextResponse(BaseModel):
 	facts_subgraph: str = Field(default="", description="事实子图的文本回显（可选，仅回显）")
 	budget_stats: Dict[str, Any] = Field(default_factory=dict, description="上下文字数预算统计（可能包含嵌套 parts dict）")
 	facts_structured: Optional[FactsStructured] = Field(default=None, description="结构化事实子图")
+	writing_guide: Optional[str] = Field(default=None, description="写作指南/风格指引内容")
 
 
 class ContextSettingsModel(BaseModel):
@@ -43,4 +44,4 @@ class UpdateContextSettingsRequest(BaseModel):
 	soft_budget_chars: Optional[int] = None
 	quota_recent: Optional[int] = None
 	quota_older_summary: Optional[int] = None
-	quota_facts: Optional[int] = None 
+	quota_facts: Optional[int] = None

@@ -112,7 +112,12 @@ def create_default_card_types(db: Session):
                 "该卷的阶段数量及卷末实体状态快照:@parent.{content.stage_count,content.entity_snapshot}\n"
                 "角色卡信息:@type:角色卡[previous]\n"
                 "地图/场景卡信息:@type:场景卡[previous]\n"
-                "请为第 @self.content.volume_number 卷生成一份写作指南。"
+                "请为第 @self.content.volume_number 卷生成一份详细的写作指南。指南应包含：\n"
+                "1. 核心基调与氛围建议\n"
+                "2. 关键角色的性格侧重点（在本卷中）\n"
+                "3. 必须遵守的世界观规则或禁忌\n"
+                "4. 推荐的文风特征（如：冷峻、幽默、华丽等）\n"
+                "5. 伏笔埋设建议"
             )
         },
         "阶段大纲": {"default_ai_context_template": (
@@ -148,12 +153,16 @@ def create_default_card_types(db: Session):
             "场景卡:@type:场景卡[index=filter:content.name in $self.content.entity_list].{content.name,content.description}\n"
             "当前故事阶段大纲: @parent.content.overview\n"
             "角色卡:@type:角色卡[index=filter:content.name in $self.content.entity_list].{content.name,content.role_type,content.born_scene,content.description,content.personality,content.core_drive,content.character_arc,content.dynamic_info}\n"
-            # "之前的章节大纲概述:@type:章节大纲[index=filter:content.volume_number = $self.content.volume_number && content.chapter_number < $self.content.chapter_number].{content.chapter_number,content.overview}\n"
             "最近的章节原文，确保能够衔接剧情:@type:章节正文[previous:1].{content.title,content.chapter_number,content.content}\n"
             "参与者实体列表，确保生成内容只会出场这些实体:@self.content.entity_list\n"
-            "请根据第@self.content.chapter_number 章 @self.content.title 的大纲@type:章节大纲[index=filter:content.title = $self.content.title].{content.overview} 来创作章节正文内容，可以适当发散、设计与大纲内容不冲突的剧情来进行扩充，使得最终生成的内容字数3000字达到左右\n"
-            "注意，写作时必须保证结尾剧情与下一章的剧情大纲不会冲突，且不会提取设计下一章剧情(如果存在的话):@type:章节大纲[index=filter:content.volume_number = $self.content.volume_number && content.chapter_number = $self.content.chapter_number+1].{content.title,content.overview}\n"
-            "写作时请结合写作指南要求:@type:写作指南[index=filter:content.volume_number = $self.content.volume_number].{content.content}\n"
+            "写作指南（风格与规则）:@type:写作指南[index=filter:content.volume_number = $self.content.volume_number].{content.content}\n"
+            "请根据第@self.content.chapter_number 章 @self.content.title 的大纲@type:章节大纲[index=filter:content.title = $self.content.title].{content.overview} 来创作章节正文内容。\n"
+            "要求：\n"
+            "1. 严格遵守“写作指南”中的文风和规则。\n"
+            "2. 保持与上一章剧情的连贯性。\n"
+            "3. 确保所有出场实体的性格与设定一致。\n"
+            "4. 适当进行细节扩充，目标字数约3000字。\n"
+            "5. 结尾需自然衔接下一章大纲（如果存在）:@type:章节大纲[index=filter:content.volume_number = $self.content.volume_number && content.chapter_number = $self.content.chapter_number+1].{content.title,content.overview}"
             )},
         "角色卡": {"default_ai_context_template": None},
         "场景卡": {"default_ai_context_template": None},

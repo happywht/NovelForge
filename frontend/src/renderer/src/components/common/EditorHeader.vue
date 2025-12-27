@@ -16,7 +16,21 @@
         <el-button type="primary" plain @click="$emit('open-context')">上下文注入</el-button>
       </el-tooltip>
       <el-button v-if="!isChapterContent" type="success" plain @click="$emit('generate')">AI 生成</el-button>
+      
+      <el-dropdown @command="(cmd: string) => $emit('workflow-command', cmd)">
+        <el-button type="primary" plain>✨ AI 协作</el-button>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item v-if="isChapterContent" command="dsl7">自动续写本章</el-dropdown-item>
+            <el-dropdown-item v-if="isChapterContent" command="dsl6">检查逻辑漏洞</el-dropdown-item>
+            <el-dropdown-item v-if="cardType.includes('角色')" command="dsl8">补全人物设定</el-dropdown-item>
+            <el-dropdown-item divided command="batch-analyze">一键入库 (批量分析)</el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
+
       <el-button type="primary" :disabled="!canSave" :loading="saving" @click="$emit('save')">保存</el-button>
+      
       <el-dropdown>
         <el-button text>更多</el-button>
         <template #dropdown>
@@ -44,7 +58,7 @@ const props = defineProps<{
   isChapterContent?: boolean
 }>()
 
-const emit = defineEmits(['update:title','save','generate','open-versions','delete','open-context'])
+const emit = defineEmits(['update:title','save','generate','open-versions','delete','open-context', 'workflow-command'])
 
 const titleProxy = ref(props.title)
 watch(() => props.title, v => titleProxy.value = v)
@@ -71,4 +85,4 @@ const statusTag = computed(() => {
 .right { display: flex; align-items: center; gap: 8px; }
 .title-input { width: 280px; }
 .last-saved { color: var(--el-text-color-secondary); font-size: 12px; }
-</style> 
+</style>

@@ -1,62 +1,107 @@
 <template>
   <div class="ctx-panel">
     <div class="panel-header">
-      <h3 class="panel-title">参与实体</h3>
-      <el-button size="small" type="primary" :loading="assembling" @click="assemble">刷新上下文</el-button>
+      <div class="header-left">
+        <el-icon class="header-icon"><Connection /></el-icon>
+        <h3 class="panel-title">上下文感知</h3>
+      </div>
+      <el-button size="small" type="primary" :loading="assembling" @click="assemble">
+        <el-icon><Refresh /></el-icon> 刷新装配
+      </el-button>
     </div>
     
-    <el-form label-width="70px" class="controls">
-      <el-form-item label="参与者">
-        <el-select v-model="localParticipants" multiple filterable allow-create default-first-option placeholder="输入或选择参与者" @change="onParticipantsChange">
-          <el-option-group v-for="g in participantGroups" :key="g.label" :label="g.label">
-            <el-option v-for="p in g.values" :key="p" :label="p" :value="p" />
-          </el-option-group>
-        </el-select>
-      </el-form-item>
-    </el-form>
+    <div class="controls">
+      <el-form label-position="top" size="small">
+        <el-form-item label="当前参与实体">
+          <el-select v-model="localParticipants" multiple filterable allow-create default-first-option placeholder="输入或选择参与者" @change="onParticipantsChange" class="participant-select">
+            <el-option-group v-for="g in participantGroups" :key="g.label" :label="g.label">
+              <el-option v-for="p in g.values" :key="p" :label="p" :value="p" />
+            </el-option-group>
+          </el-select>
+        </el-form-item>
+      </el-form>
+    </div>
 
-    <div v-if="assembled" class="assembled">
-      <div class="facts-structured" v-if="assembled.facts_structured">
-        <div class="facts-title" v-if="Array.isArray((assembled.facts_structured as any)?.fact_summaries) && ((assembled.facts_structured as any)?.fact_summaries?.length > 0)">关键事实</div>
-        <ul class="list" v-if="Array.isArray((assembled.facts_structured as any)?.fact_summaries) && ((assembled.facts_structured as any)?.fact_summaries?.length > 0)">
-          <li v-for="(f, i0) in ((assembled.facts_structured as any)?.fact_summaries as string[] || [])" :key="i0">- {{ f }}</li>
-        </ul>
+    <div class="panel-content custom-scrollbar">
+      <div v-if="assembled" class="assembled-container">
+        <!-- 写作指南部分 -->
+        <div v-if="assembled.writing_guide" class="section writing-guide-section">
+          <div class="section-header">
+            <el-icon><EditPen /></el-icon>
+            <span class="section-title">写作指南</span>
+          </div>
+          <div class="guide-content">{{ assembled.writing_guide }}</div>
+        </div>
 
-        <div class="facts-title" v-if="Array.isArray((assembled.facts_structured as any)?.relation_summaries) && ((assembled.facts_structured as any)?.relation_summaries?.length > 0)">关系摘要</div>
-        <ul class="list" v-if="Array.isArray((assembled.facts_structured as any)?.relation_summaries) && ((assembled.facts_structured as any)?.relation_summaries?.length > 0)">
-          <li v-for="(r, idx) in ((assembled.facts_structured as any)?.relation_summaries as any[] || [])" :key="idx" class="relation-item">
-            <div class="relation-head">{{ (r as any).a }} ↔ {{ (r as any).b }}（{{ (r as any).kind }}）
-              <el-tag v-if="(r as any).stance" size="small" style="margin-left:6px;">{{ (r as any).stance }}</el-tag>
+        <!-- 结构化事实部分 -->
+        <div v-if="assembled.facts_structured" class="section facts-section">
+          <div class="section-header">
+            <el-icon><Memo /></el-icon>
+            <span class="section-title">关键事实</span>
+          </div>
+          
+          <div v-if="Array.isArray(assembled.facts_structured.fact_summaries) && assembled.facts_structured.fact_summaries.length > 0" class="sub-section">
+            <ul class="fact-list">
+              <li v-for="(f, i) in assembled.facts_structured.fact_summaries" :key="i" class="fact-item">
+                <el-icon class="bullet"><CircleCheck /></el-icon>
+                <span>{{ f }}</span>
+              </li>
+            </ul>
+          </div>
+
+          <div v-if="Array.isArray(assembled.facts_structured.relation_summaries) && assembled.facts_structured.relation_summaries.length > 0" class="sub-section">
+            <div class="sub-title">实体关系</div>
+            <div v-for="(r, idx) in assembled.facts_structured.relation_summaries" :key="idx" class="relation-card">
+              <div class="relation-main">
+                <span class="entity-name">{{ r.a }}</span>
+                <el-tag size="small" effect="plain" class="relation-kind">{{ r.kind }}</el-tag>
+                <span class="entity-name">{{ r.b }}</span>
+                <el-tag v-if="r.stance" size="small" :type="getStanceType(r.stance)" class="stance-tag">{{ r.stance }}</el-tag>
+              </div>
+              
+              <div v-if="r.description" class="relation-desc">{{ r.description }}</div>
+              
+              <div v-if="r.a_to_b_addressing || r.b_to_a_addressing" class="addressing-box">
+                <div v-if="r.a_to_b_addressing" class="addr-item">
+                  <span class="addr-label">{{ r.a }} 称呼 {{ r.b }}：</span>
+                  <span class="addr-val">{{ r.a_to_b_addressing }}</span>
+                </div>
+                <div v-if="r.b_to_a_addressing" class="addr-item">
+                  <span class="addr-label">{{ r.b }} 称呼 {{ r.a }}：</span>
+                  <span class="addr-val">{{ r.b_to_a_addressing }}</span>
+                </div>
+              </div>
+
+              <div v-if="r.recent_dialogues?.length" class="dialogue-section">
+                <div class="mini-label">对话样例</div>
+                <div v-for="(d, i) in r.recent_dialogues.slice(0, 2)" :key="i" class="dialogue-item">
+                  "{{ d }}"
+                </div>
+              </div>
             </div>
-            <div v-if="(r as any).description" class="muted" style="margin: 2px 0;">{{ (r as any).description }}</div>
-            <div v-if="(r as any).a_to_b_addressing || (r as any).b_to_a_addressing" class="muted addressing">
-              <span v-if="(r as any).a_to_b_addressing">A称B：{{ (r as any).a_to_b_addressing }}</span>
-              <span v-if="(r as any).b_to_a_addressing" style="margin-left:12px;">B称A：{{ (r as any).b_to_a_addressing }}</span>
+          </div>
+        </div>
+
+        <!-- 原始子图部分 -->
+        <div class="section raw-section">
+          <div class="section-header" @click="showRaw = !showRaw">
+            <el-icon><Cpu /></el-icon>
+            <span class="section-title">原始事实子图</span>
+            <el-icon class="toggle-icon" :class="{ 'is-active': showRaw }"><ArrowRight /></el-icon>
+          </div>
+          <el-collapse-transition>
+            <div v-show="showRaw" class="raw-content">
+              <pre class="code-block">{{ assembled.facts_subgraph || '暂无数据' }}</pre>
             </div>
-            <div v-if="Array.isArray((r as any)?.recent_dialogues) && ((r as any).recent_dialogues?.length > 0)" class="muted">
-              对话样例：
-              <ul class="list">
-                <li v-for="(d, i3) in ((r as any).recent_dialogues as string[] || [])" :key="i3"><div class="dialog-text">{{ d }}</div></li>
-              </ul>
-            </div>
-            <div v-if="Array.isArray((r as any)?.recent_event_summaries) && ((r as any).recent_event_summaries?.length > 0)" class="muted">
-              近期事件：
-              <ul class="list">
-                <li v-for="(ev, i4) in ((r as any).recent_event_summaries as any[] || [])" :key="i4">
-                  <span>{{ (ev as any).summary }}</span>
-                  <span class="badges" v-if="(ev as any).volume_number != null || (ev as any).chapter_number != null">
-                    <el-tag size="small" type="info" v-if="(ev as any).volume_number != null">卷{{ (ev as any).volume_number }}</el-tag>
-                    <el-tag size="small" type="info" v-if="(ev as any).chapter_number != null" style="margin-left:6px;">章{{ (ev as any).chapter_number }}</el-tag>
-                  </span>
-                </li>
-              </ul>
-            </div>
-          </li>
-        </ul>
-        
+          </el-collapse-transition>
+        </div>
       </div>
-      <pre class="pre" v-if="!assembled.facts_structured && assembled.facts_subgraph">{{ assembled.facts_subgraph }}</pre>
-      <div v-if="!assembled.facts_structured && !assembled.facts_subgraph">关键事实：暂无（相关实体之间信息尚未收集）。</div>
+      
+      <div v-else-if="!assembling" class="empty-state">
+        <el-empty description="尚未装配上下文" :image-size="100">
+          <el-button type="primary" @click="assemble">立即装配</el-button>
+        </el-empty>
+      </div>
     </div>
   </div>
 </template>
@@ -66,38 +111,35 @@ import { ref, onMounted, watch } from 'vue'
 import { assembleContext, type AssembleContextResponse } from '@renderer/api/ai'
 import { ElMessage } from 'element-plus'
 import { getCardsForProject, type CardRead } from '@renderer/api/cards'
+import { Connection, Refresh, EditPen, Memo, CircleCheck, Cpu, ArrowRight } from '@element-plus/icons-vue'
 
 const props = defineProps<{ projectId?: number; participants?: string[]; volumeNumber?: number | null; stageNumber?: number | null; chapterNumber?: number | null; draftTail?: string; prefetched?: AssembleContextResponse | null }>()
 const emit = defineEmits<{ (e:'update:participants', v: string[]): void; (e:'update:volumeNumber', v: number | null): void; (e:'update:stageNumber', v: number | null): void; (e:'update:chapterNumber', v: number | null): void }>()
 
 const assembling = ref(false)
 const assembled = ref<AssembleContextResponse | null>(null)
-// 回显入口已移除
+const showRaw = ref(false)
 
 type Group = { label: string; values: string[] }
 const participantGroups = ref<Group[]>([])
 const localParticipants = ref<string[]>(props.participants || [])
 const localVolumeNumber = ref<number | null>(props.volumeNumber ?? null)
-const localStageNumber = ref<number | null>(props.stageNumber ?? null)
 const localChapterNumber = ref<number | null>(props.chapterNumber ?? null)
-
-// 缓存：名称 -> 分组标签（通过项目卡片匹配）
-const nameToGroup = ref<Record<string, string>>({})
 
 watch(() => props.participants, (v) => { localParticipants.value = [...(v || [])] })
 watch(() => props.volumeNumber, (v) => { localVolumeNumber.value = v ?? null })
-watch(() => props.stageNumber, (v) => { localStageNumber.value = v ?? null })
 watch(() => props.chapterNumber, (v) => { localChapterNumber.value = v ?? null })
 watch(() => props.prefetched, (v) => { if (v) assembled.value = v })
-watch(() => props.projectId, async () => { await buildNameGroupCache(); await buildAllGroups() })
+watch(() => props.projectId, async () => { await buildAllGroups() })
 
-function emitParticipants() { emit('update:participants', [...localParticipants.value]) }
-function emitVolume() { emit('update:volumeNumber', localVolumeNumber.value ?? null) }
-function emitStage() { emit('update:stageNumber', localStageNumber.value ?? null) }
-function emitChapter() { emit('update:chapterNumber', localChapterNumber.value ?? null) }
+function getStanceType(stance: string) {
+  if (stance.includes('友') || stance.includes('爱')) return 'success'
+  if (stance.includes('敌') || stance.includes('恨')) return 'danger'
+  if (stance.includes('中')) return 'info'
+  return 'warning'
+}
 
 function detectTypeGroupByCard(c: CardRead): string {
-  // 1) 优先使用内容中的实体类型标记（后端新增）
   const et = (c.content as any)?.entity_type
   if (et === 'character') return '角色'
   if (et === 'scene') return '场景'
@@ -105,7 +147,6 @@ function detectTypeGroupByCard(c: CardRead): string {
   if (et === 'item') return '物品'
   if (et === 'concept') return '概念'
 
-  // 2) 使用卡片类型中文名归类
   const tname = (c.card_type?.name || '').trim()
   if (tname.includes('角色')) return '角色'
   if (tname.includes('场景')) return '场景'
@@ -113,26 +154,7 @@ function detectTypeGroupByCard(c: CardRead): string {
   if (tname.includes('物品')) return '物品'
   if (tname.includes('概念')) return '概念'
 
-  // 3) 兼容旧模型名：优先实例/类型的 model_name
-  const m = (c as any).model_name || (c.card_type as any)?.model_name || ''
-  if (m === 'CharacterCard') return '角色'
-  if (m === 'SceneCard') return '场景'
-  if (m === 'OrganizationCard') return '组织'
-
   return '其他'
-}
-
-async function buildNameGroupCache() {
-  nameToGroup.value = {}
-  if (!props.projectId) return
-  try {
-    const cards: CardRead[] = await getCardsForProject(props.projectId)
-    for (const c of cards) {
-      const nm = (c.title || '').trim()
-      if (!nm) continue
-      nameToGroup.value[nm] = detectTypeGroupByCard(c)
-    }
-  } catch {}
 }
 
 async function buildAllGroups() {
@@ -157,10 +179,13 @@ async function buildAllGroups() {
 }
 
 function onParticipantsChange() {
-  emitParticipants();
+  emit('update:participants', [...localParticipants.value])
 }
 
-onMounted(async () => { await buildNameGroupCache(); await buildAllGroups(); if (props.prefetched) assembled.value = props.prefetched })
+onMounted(async () => { 
+  await buildAllGroups()
+  if (props.prefetched) assembled.value = props.prefetched 
+})
 
 async function assemble() {
   try {
@@ -173,9 +198,7 @@ async function assemble() {
       current_draft_tail: props.draftTail || ''
     })
     assembled.value = res
-    // 将最新本地值回写父层，确保保存时同步
-    emitParticipants(); emitVolume(); emitStage(); emitChapter();
-    ElMessage.success('上下文已装配')
+    ElMessage.success('上下文装配完成')
   } catch (e:any) {
     ElMessage.error('装配失败')
   } finally {
@@ -185,34 +208,236 @@ async function assemble() {
 </script>
 
 <style scoped>
-.ctx-panel { display: flex; flex-direction: column; gap: 0; height: 100%; }
+.ctx-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--el-bg-color);
+}
+
 .panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  border-bottom: 2px solid var(--el-border-color-light);
   background: var(--el-fill-color-lighter);
+  border-bottom: 1px solid var(--el-border-color-light);
 }
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-icon {
+  color: var(--el-color-primary);
+  font-size: 18px;
+}
+
 .panel-title {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.controls {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--el-border-color-lighter);
+}
+
+.participant-select {
+  width: 100%;
+}
+
+.panel-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 16px;
+}
+
+.section {
+  margin-bottom: 20px;
+  background: var(--el-bg-color-overlay);
+  border-radius: 8px;
+  border: 1px solid var(--el-border-color-lighter);
+  overflow: hidden;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--el-fill-color-light);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  cursor: default;
+}
+
+.section-title {
+  font-size: 13px;
   font-weight: 600;
   color: var(--el-text-color-primary);
 }
-.controls { padding: 12px 16px; border-bottom: 1px solid var(--el-border-color-light); }
-.actions { display: flex; gap: 8px; }
-.assembled { padding: 16px; overflow: auto; color: var(--el-text-color-primary); font-size: 14px; line-height: 1.8; }
-.pre { white-space: pre-wrap; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size: 13px; color: var(--el-text-color-primary); }
-.facts-structured { margin-bottom: 8px; }
-.facts-title { font-weight: 600; margin: 6px 0; color: var(--el-text-color-primary); }
-.list { margin: 0; padding-left: 16px; }
-.list li { margin: 4px 0; }
-.muted { color: var(--el-text-color-regular); }
-.relation-item { margin-bottom: 10px; }
-.relation-head { font-weight: 600; margin: 2px 0; color: var(--el-text-color-primary); }
-.addressing span { display: inline-block; }
-.dialog-text { white-space: pre-wrap; line-height: 1.8; font-size: 13.5px; color: var(--el-text-color-primary); }
-.badges { margin-left: 8px; }
-.raw-toggle { margin: 6px 0; }
-</style> 
+
+.guide-content {
+  padding: 12px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--el-text-color-regular);
+  white-space: pre-wrap;
+}
+
+.fact-list {
+  list-style: none;
+  padding: 8px 12px;
+  margin: 0;
+}
+
+.fact-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.bullet {
+  margin-top: 3px;
+  color: var(--el-color-success);
+  font-size: 14px;
+}
+
+.sub-section {
+  padding: 8px 0;
+}
+
+.sub-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--el-text-color-secondary);
+  padding: 4px 12px;
+  margin-top: 8px;
+}
+
+.relation-card {
+  margin: 8px 12px;
+  padding: 10px;
+  background: var(--el-fill-color-lighter);
+  border-radius: 6px;
+  border: 1px solid var(--el-border-color-lighter);
+}
+
+.relation-main {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.entity-name {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.relation-kind {
+  font-size: 11px;
+}
+
+.relation-desc {
+  font-size: 12px;
+  color: var(--el-text-color-regular);
+  margin-bottom: 8px;
+}
+
+.addressing-box {
+  background: var(--el-bg-color);
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  margin-bottom: 8px;
+}
+
+.addr-item {
+  margin-bottom: 2px;
+}
+
+.addr-label {
+  color: var(--el-text-color-secondary);
+}
+
+.dialogue-section {
+  border-top: 1px dashed var(--el-border-color-lighter);
+  padding-top: 6px;
+}
+
+.mini-label {
+  font-size: 11px;
+  color: var(--el-text-color-placeholder);
+  margin-bottom: 4px;
+}
+
+.dialogue-item {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--el-text-color-regular);
+  margin-bottom: 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--el-border-color-lighter);
+}
+
+.raw-section .section-header {
+  cursor: pointer;
+}
+
+.raw-section .section-header:hover {
+  background: var(--el-fill-color);
+}
+
+.toggle-icon {
+  margin-left: auto;
+  transition: transform 0.3s;
+}
+
+.toggle-icon.is-active {
+  transform: rotate(90deg);
+}
+
+.raw-content {
+  padding: 12px;
+}
+
+.code-block {
+  margin: 0;
+  padding: 8px;
+  background: #1e1e1e;
+  color: #d4d4d4;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.empty-state {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--el-border-color-lighter);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--el-border-color);
+}
+</style>

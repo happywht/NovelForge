@@ -14,6 +14,7 @@
       @open-context="openDrawer = true"
       @delete="handleDelete"
       @open-versions="showVersions = true"
+      @workflow-command="handleWorkflowCommand"
     />
     
     <!-- 自定义内容编辑器（如 CodeMirrorEditor）-->
@@ -165,6 +166,17 @@ function handleSwitchTab(tab: string) {
 
 function handleContentEditorDirtyChange(dirty: boolean) {
   contentEditorDirty.value = dirty
+}
+
+function handleWorkflowCommand(command: string) {
+  const evt = new CustomEvent('nf:run-workflow', {
+    detail: {
+      command,
+      cardId: props.card.id,
+      cardTitle: props.card.title
+    }
+  })
+  window.dispatchEvent(evt)
 }
 
 function openAssistant() {
@@ -699,4 +711,4 @@ async function handleAssistantFinalize(summary: string) {
 .model-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ai-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; flex-wrap: wrap; }
 .ai-actions .left, .ai-actions .right { display: flex; gap: 6px; align-items: center; }
-</style> 
+</style>

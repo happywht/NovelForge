@@ -32,11 +32,14 @@ class AssembledContext:
     facts_subgraph: str
     budget_stats: Dict[str, Any]
     facts_structured: Optional[Dict[str, Any]] = None
+    writing_guide: Optional[str] = None
 
     def to_system_prompt_block(self) -> str:
         parts: List[str] = []
         if self.facts_subgraph:
             parts.append(f"[事实子图]\n{self.facts_subgraph}")
+        if self.writing_guide:
+            parts.append(f"[写作指南]\n{self.writing_guide}")
         return "\n\n".join(parts)
 
 
@@ -133,9 +136,18 @@ def assemble_context(session: Session, params: ContextAssembleParams) -> Assembl
 
     facts = _truncate(facts_text, facts_quota)
 
+    # 提取写作指南（如果存在）
+    writing_guide: Optional[str] = None
+    if params.project_id:
+        guide_card = session.exec(
+            select(Card).where(Card.project_id == params.project_id, Card.title == "写作指南")
+        ).first()
+        if guide_card:
+            writing_guide = str(guide_card.content) if guide_card.content else None
 
     return AssembledContext(
         facts_subgraph=facts,
         budget_stats={},
         facts_structured=facts_structured,
+        writing_guide=writing_guide,
     )
