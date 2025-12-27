@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from app.db.models import Card, CardType
 from loguru import logger
+from app.services import agent_service, context_service, memory_service, llm_config_service, prompt_service
 
 
 # ==================== 节点注册机制 ====================
@@ -158,6 +159,7 @@ def _get_card_by_id(session: Session, card_id: int) -> Optional[Card]:
 
 
 def _get_by_path(obj: Any, path: str) -> Any:
+    print(f"DEBUG: _get_by_path path={path}")
     # 极简路径解析：支持 $.content.a.b.c 与 $.a.b
     if not path or not isinstance(path, str):
         return None
@@ -170,6 +172,8 @@ def _get_by_path(obj: Any, path: str) -> Any:
     else:
         cur = obj
     for p in parts:
+        if cur is None:
+            return None
         if isinstance(cur, dict):
             cur = cur.get(p)
         else:
@@ -907,29 +911,29 @@ async def node_llm_generate(session: Session, state: dict, params: dict) -> dict
       - temperature: 温度 (可选)
       - style: 写作风格指引 (可选)
     """
-    from app.services import agent_service
+    # 获取 LLM 配置
+    configs = llm_config_service.get_llm_configs(session)
+    llm_config_id = configs[0].id if configs else 1
     
     prompt_tpl = params.get("prompt", "")
     final_prompt = _render_value(prompt_tpl, state)
     
-    model = params.get("model")
     temperature = params.get("temperature")
     style = _render_value(params.get("style"), state)
     
     logger.info(f"[节点] LLM.Generate 开始生成...")
-    
-    # 这里简单调用 agent_service.run_llm_agent
-    # 实际可能需要更复杂的参数装配
+
+    from app.schemas.ai import ContinuationResponse
     result = await agent_service.run_llm_agent(
         session=session,
-        project_id=state.get("scope", {}).get("project_id"),
+        llm_config_id=llm_config_id,
         user_prompt=final_prompt,
-        model_name=model,
+        output_type=ContinuationResponse,
         temperature=temperature,
         style_guidelines=style
     )
     
-    content = result.get("content", "")
+    content = result.content if hasattr(result, "content") else str(result)
     target_path = params.get("targetPath", "$.last_ai_response")
     
     # 写入 state
@@ -968,9 +972,10 @@ def node_context_assemble(session: Session, state: dict, params: dict) -> dict:
         pov_character=pov_character,
     )
     
+    from dataclasses import asdict
     context = context_service.assemble_context(session, assemble_params)
     
-    state["assembled_context"] = context.model_dump() if hasattr(context, "model_dump") else context
+    state["assembled_context"] = asdict(context)
     
     return {"context": context}
 
@@ -1030,14 +1035,21 @@ async def node_audit_consistency(session: Session, state: dict, params: dict) ->
         content = content.get("content") or content.get("text") or str(content)
     
     # 获取上下文（如果之前执行了 Context.Assemble）
-    context_data = state.get("assembled_context", {})
+    context_data = state.get("assembled_context") or {}
     facts_subgraph = context_data.get("facts_subgraph", "暂无参考事实。")
     
     user_prompt = f"### 待检查内容\n{content}\n\n### 参考上下文\n{facts_subgraph}"
     
     logger.info(f"[节点] Audit.Consistency 开始审计...")
     
-    # 调用 AI 进行审计
+    # 获取 LLM 配置
+    configs = llm_config_service.get_llm_configs(session)
+    llm_config_id = configs[0].id if configs else 1
+    
+    # 获取提示词
+    prompt = prompt_service.get_prompt_by_name(session, prompt_name)
+    system_prompt = prompt.template if prompt else "你是一个专业的小说审计助手。"
+
     # 定义输出结构
     class AuditResult(BaseModel):
         has_issues: bool
@@ -1045,9 +1057,9 @@ async def node_audit_consistency(session: Session, state: dict, params: dict) ->
 
     result = await agent_service.run_llm_agent(
         session=session,
-        project_id=state.get("scope", {}).get("project_id"),
+        llm_config_id=llm_config_id,
         user_prompt=user_prompt,
-        prompt_name=prompt_name,
+        system_prompt=system_prompt,
         output_type=AuditResult
     )
     
@@ -1073,7 +1085,7 @@ async def node_kg_update_from_content(session: Session, state: dict, params: dic
     if isinstance(content, dict):
         content = content.get("content") or content.get("text") or str(content)
         
-    participants_raw = _render_value(params.get("participants", []), state)
+    participants_raw = _render_value(params.get("participants", []), state) or []
     participants = []
     for p in participants_raw:
         if isinstance(p, str):
@@ -1085,33 +1097,38 @@ async def node_kg_update_from_content(session: Session, state: dict, params: dic
     if not project_id:
         raise ValueError("KG.UpdateFromContent 缺少 project_id")
         
-    memory_service = MemoryService(session)
+    memory_svc = MemoryService(session)
     
     logger.info(f"[节点] KG.UpdateFromContent 开始提取并更新...")
     
+    # 获取 LLM 配置
+    configs = llm_config_service.get_llm_configs(session)
+    llm_config_id = configs[0].id if configs else 1
+
     # 1. 提取关系
-    extraction = await memory_service.extract_relations_llm(
+    extraction = await memory_svc.extract_relations_llm(
         text=content,
-        participants=participants
+        participants=participants,
+        llm_config_id=llm_config_id
     )
     
     # 2. 写入图谱
-    result = memory_service.ingest_relations_from_llm(
+    result = memory_svc.ingest_relations_from_llm(
         project_id=project_id,
         data=extraction,
         participants_with_type=participants
     )
     
     # 3. 提取并更新动态信息
-    dynamic_info = await memory_service.extract_dynamic_info_from_text(
+    dynamic_info = await memory_svc.extract_dynamic_info_from_text(
         text=content,
         participants=participants,
+        llm_config_id=llm_config_id,
         project_id=project_id
     )
-    memory_service.update_dynamic_character_info(project_id, dynamic_info)
+    memory_svc.update_dynamic_character_info(project_id, dynamic_info)
     
     return {"extraction": extraction, "ingest_result": result, "dynamic_info": dynamic_info}
-
 
 @register_node("Tools.Wait")
 async def node_tools_wait(session: Session, state: dict, params: dict) -> dict:

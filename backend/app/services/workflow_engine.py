@@ -380,6 +380,7 @@ class LocalAsyncEngine:
             except Exception as e:
                 logger.exception(f"[工作流] 运行异常 run_id={run.id} err={e}")
                 run.status = "failed"
+                run.error_json = {"error": str(e)}
                 run.finished_at = datetime.now()
                 session.add(run)
                 session.commit()
@@ -394,6 +395,21 @@ class LocalAsyncEngine:
             self._run_tasks[run.id] = task
         return run.id
 
+    def run(self, session: Session, run: WorkflowRun) -> int:
+        """兼容旧代码：运行工作流"""
+        workflow = session.get(Workflow, run.workflow_id)
+        if not workflow:
+            raise ValueError(f"Workflow not found: {run.workflow_id}")
+        return self.run_workflow_background(session, workflow, run)
+
+    def cancel(self, run_id: int) -> bool:
+        """取消正在运行的工作流"""
+        task = self._run_tasks.get(run_id)
+        if task:
+            task.cancel()
+            return True
+        return False
+
 
 _engine_instance: Optional[LocalAsyncEngine] = None
 
@@ -402,3 +418,5 @@ def get_engine() -> LocalAsyncEngine:
     if _engine_instance is None:
         _engine_instance = LocalAsyncEngine()
     return _engine_instance
+
+engine = get_engine()

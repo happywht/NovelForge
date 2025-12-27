@@ -15,11 +15,11 @@ from app.services.kg_provider import get_provider
 
 @dataclass
 class ContextAssembleParams:
-    project_id: Optional[int]
-    volume_number: Optional[int]
-    chapter_number: Optional[int]
-    participants: Optional[List[str]]
-    current_draft_tail: Optional[str]
+    project_id: Optional[int] = None
+    volume_number: Optional[int] = None
+    chapter_number: Optional[int] = None
+    participants: Optional[List[str]] = None
+    current_draft_tail: Optional[str] = None
     recent_chapters_window: Optional[int] = None
     chapter_id: Optional[int] = None
     radius: Optional[int] = None
