@@ -60,6 +60,9 @@ async def test_llm_connection_endpoint(connection_data: LLMConnectionTest, sessi
                 "model": connection_data.model_name,
                 "api_key": connection_data.api_key,
             }
+            # Support custom base_url for OpenAI-compatible APIs
+            if connection_data.api_base:
+                kwargs["base_url"] = connection_data.api_base
             model = ChatOpenAI(**kwargs)
 
         elif provider == "anthropic":
@@ -68,6 +71,20 @@ async def test_llm_connection_endpoint(connection_data: LLMConnectionTest, sessi
             kwargs = {
                 "model": connection_data.model_name,
                 "api_key": connection_data.api_key,
+            }
+            model = ChatAnthropic(**kwargs)
+        
+        elif provider == "zhipu_anthropic":
+            from langchain_anthropic import ChatAnthropic
+            
+            # Zhipu AI provides Anthropic-compatible API
+            # Default base_url: https://open.bigmodel.cn/api/anthropic
+            base_url = connection_data.api_base or "https://open.bigmodel.cn/api/anthropic"
+            
+            kwargs = {
+                "model": connection_data.model_name,  # e.g., glm-4-flash, glm-4-plus
+                "api_key": connection_data.api_key,
+                "base_url": base_url,
             }
             model = ChatAnthropic(**kwargs)
 
@@ -80,14 +97,30 @@ async def test_llm_connection_endpoint(connection_data: LLMConnectionTest, sessi
             }
             model = ChatGoogleGenerativeAI(**kwargs)
 
+        # Support for DeepSeek, Moonshot, and other OpenAI-compatible providers
+        elif provider in ["deepseek", "moonshot", "qwen", "minimax", "zhipu", "baichuan"]:
+            from langchain_openai import ChatOpenAI
+            
+            if not connection_data.api_base:
+                raise HTTPException(status_code=400, detail=f"提供商 '{provider}' 需要指定 api_base 参数")
+            
+            kwargs = {
+                "model": connection_data.model_name,
+                "api_key": connection_data.api_key,
+                "base_url": connection_data.api_base,
+            }
+            model = ChatOpenAI(**kwargs)
+
         else:
-            raise HTTPException(status_code=400, detail=f"不支持的提供商类型: {connection_data.provider}")
+            raise HTTPException(status_code=400, detail=f"不支持的提供商类型: {connection_data.provider}。支持的类型: openai, openai_compatible, anthropic, zhipu_anthropic, google, deepseek, moonshot, qwen, minimax, zhipu, baichuan")
 
         # 发送一次最小请求以验证连通性
         await model.ainvoke("ping")
         return ApiResponse(message="Connection successful")
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"连接测试失败: {e}")
+        raise HTTPException(status_code=400, detail=f"连接测试失败: {str(e)}")
 
 
 @router.post("/{config_id}/reset-usage", response_model=ApiResponse, summary="重置统计（输入/输出token与调用次数清零）")

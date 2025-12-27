@@ -445,6 +445,20 @@ def build_chat_model(
             model_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 2048}
         model_kwargs.update(common_kwargs)
         return ChatAnthropic(**model_kwargs)
+    
+    # Zhipu Anthropic (Anthropic-compatible API)
+    if provider == "zhipu_anthropic":
+        base_url = cfg.api_base or cfg.base_url or "https://open.bigmodel.cn/api/anthropic"
+        model_kwargs = {
+            "model": cfg.model_name,  # e.g., glm-4-flash, glm-4-plus
+            "api_key": cfg.api_key,
+            "base_url": base_url,
+        }
+        # Zhipu supports thinking mode via Anthropic API
+        if thinking_enabled:
+            model_kwargs["thinking"] = {"type": "enabled", "budget_tokens": 2048}
+        model_kwargs.update(common_kwargs)
+        return ChatAnthropic(**model_kwargs)
 
     # Google Gemini via langchain-google-genai
     if provider == "google":
