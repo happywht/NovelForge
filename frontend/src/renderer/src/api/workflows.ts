@@ -97,4 +97,8 @@ export function getWorkflowNodeTypes(): Promise<{ node_types: WorkflowNodeType[]
   return request.get('/workflow-node-types', undefined, '/api', { showLoading: false })
 }
 
+export function runWorkflow(id: number, payload: { scope_json: any; params_json: any }): Promise<any> {
+  return request.post(`/workflows/${id}/run`, payload, '/api', { showLoading: true })
+}
+
 

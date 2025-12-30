@@ -152,6 +152,10 @@
               :chapter-number="chapterChapterNumber"
             />
           </el-tab-pane>
+
+          <el-tab-pane label="历史" name="history">
+            <HistoryPanel :card-id="activeCard?.id" @restored="handleHistoryRestored" />
+          </el-tab-pane>
         </el-tabs>
       </template>
       
@@ -277,6 +281,7 @@ import AssistantPanel from '@renderer/components/assistants/AssistantPanel.vue'
 import ContextPanel from '@renderer/components/panels/ContextPanel.vue'
 import ChapterToolsPanel from '@renderer/components/panels/ChapterToolsPanel.vue'
 import OutlinePanel from '@renderer/components/panels/OutlinePanel.vue'
+import HistoryPanel from '@renderer/components/panels/HistoryPanel.vue'
 import { useCardStore } from '@renderer/stores/useCardStore'
 import { useEditorStore } from '@renderer/stores/useEditorStore'
 import { useProjectStore } from '@renderer/stores/useProjectStore'
@@ -1408,6 +1413,14 @@ onMounted(async () => {
    await nextTick()
    try { treeRef.value?.setExpandedKeys?.(expandedKeys) } catch {}
  }, { deep: true })
+
+async function handleHistoryRestored(content: string) {
+  if (activeCard.value) {
+    cardStore.updateCardContentLocally(activeCard.value.id, content)
+    ElMessage.success('已恢复历史版本内容')
+  }
+}
+
 </script>
 
 <style scoped>

@@ -37,7 +37,7 @@ export interface CardBatchReorderResponse {
   updated_count: number
   message: string
 }
-export const batchReorderCards = (data: CardBatchReorderRequest): Promise<CardBatchReorderResponse> => 
+export const batchReorderCards = (data: CardBatchReorderRequest): Promise<CardBatchReorderResponse> =>
   request.post('/cards/batch-reorder', data)
 
 export const deleteCard = (id: number): Promise<void> => request.delete(`/cards/${id}`)
@@ -48,4 +48,22 @@ export const moveCard = (id: number, params: { target_project_id: number; parent
 export const getContentModels = (): Promise<string[]> => request.get('/ai/content-models')
 
 // --- Card AI Params API ---
-export const getCardAIParams = (cardId: number): Promise<{ ai_params: any; effective_params: any; follow_type: boolean }> => request.get(`/cards/${cardId}/ai-params`) 
+export const getCardAIParams = (cardId: number): Promise<{ ai_params: any; effective_params: any; follow_type: boolean }> => request.get(`/cards/${cardId}/ai-params`)
+
+// --- Generation History API ---
+export interface GenerationHistory {
+  id: number
+  project_id: number
+  card_id: number | null
+  prompt_name: string
+  content: string
+  llm_config_id: number
+  created_at: string
+  meta_data: any
+}
+
+export const getCardGenerationHistory = (cardId: number): Promise<GenerationHistory[]> =>
+  request.get(`/cards/${cardId}/generation-history`)
+
+export const restoreCardGeneration = (cardId: number, history_id: number): Promise<{ success: boolean; content: any }> =>
+  request.post(`/cards/${cardId}/restore-generation/${history_id}`, {}) 

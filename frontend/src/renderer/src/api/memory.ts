@@ -1,4 +1,4 @@
-import http from './request'
+import http, { aiHttpClient } from './request'
 import type { components } from '@renderer/types/generated'
 
 // 使用后端生成的类型（注意部分为 Input/Output 变体）
@@ -15,7 +15,7 @@ export interface ExtractOnlyRequest {
 }
 
 export function extractDynamicInfoOnly(data: ExtractOnlyRequest) {
-	return http.post<UpdateDynamicInfoOutput>('/memory/extract-dynamic-info', data)
+	return aiHttpClient.post<UpdateDynamicInfoOutput>('/memory/extract-dynamic-info', data)
 }
 
 export type UpdateDynamicInfoOnlyReq = components['schemas']['UpdateDynamicInfoRequest']
@@ -35,11 +35,11 @@ export function ingestRelationsLLM(data: IngestRelationsLLMRequest) {
 // 预览→确认入图：使用后端 RelationExtraction-Output
 export type ExtractRelationsOnlyReq = components['schemas']['ExtractRelationsRequest']
 export function extractRelationsOnly(data: ExtractRelationsOnlyReq) {
-	return http.post<RelationExtractionOutput>('/memory/extract-relations-llm', data)
+	return aiHttpClient.post<RelationExtractionOutput>('/memory/extract-relations-llm', data)
 }
 
 export type IngestRelationsFromPreviewReq = components['schemas']['IngestRelationsFromPreviewRequest']
 export type IngestRelationsFromPreviewResp = components['schemas']['IngestRelationsFromPreviewResponse']
 export function ingestRelationsFromPreview(data: IngestRelationsFromPreviewReq) {
 	return http.post<IngestRelationsFromPreviewResp>('/memory/ingest-relations', data)
-} 
+}

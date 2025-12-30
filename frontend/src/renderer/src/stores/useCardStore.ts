@@ -92,16 +92,16 @@ export const useCardStore = defineStore('card', () => {
 
   async function fetchInitialData() {
     await Promise.all([
-        fetchCardTypes(),
-        fetchAvailableModels()
+      fetchCardTypes(),
+      fetchAvailableModels()
     ]);
   }
 
   // Card Actions
   async function fetchCards(projectId: number) {
     if (!projectId) {
-        cards.value = []
-        return
+      cards.value = []
+      return
     }
     isLoading.value = true
     try {
@@ -268,7 +268,7 @@ export const useCardStore = defineStore('card', () => {
       console.error(error)
     }
   }
-  
+
   // Available Models Actions
   async function fetchAvailableModels() {
     try {
@@ -282,6 +282,13 @@ export const useCardStore = defineStore('card', () => {
   // Utility
   function setActiveCard(cardId: number | null) {
     activeCardId.value = cardId
+  }
+
+  function updateCardContentLocally(cardId: number, content: any) {
+    const index = cards.value.findIndex((c) => c.id === cardId)
+    if (index !== -1) {
+      cards.value[index] = { ...cards.value[index], content }
+    }
   }
 
   return {
@@ -303,5 +310,6 @@ export const useCardStore = defineStore('card', () => {
     fetchCardTypes,
     fetchAvailableModels,
     setActiveCard,
+    updateCardContentLocally,
   }
-}) 
+})
