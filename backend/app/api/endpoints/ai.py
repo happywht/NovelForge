@@ -3,7 +3,7 @@ from sqlmodel import Session, select
 from app.db.session import get_session
 from app.schemas.ai import ContinuationRequest, ContinuationResponse, GeneralAIRequest
 from app.schemas.response import ApiResponse
-from app.services import prompt_service, agent_service, llm_config_service
+from app.services import prompt_service, agent_service, llm_config_service, history_service
 from fastapi.responses import StreamingResponse
 import json
 from fastapi import Body
@@ -23,6 +23,7 @@ from app.schemas import entity as entity_schemas
 from app.services.workflow_triggers import trigger_on_generate_finish
 from app.services.context_service import assemble_context, ContextAssembleParams
 from app.services import llm_config_service as _llm_svc
+from loguru import logger
 
 router = APIRouter()
 
@@ -500,6 +501,23 @@ async def generate_continuation(
                 async for chunk in agent_service.generate_continuation_streaming(session, request, system_prompt):
                     content_acc.append(chunk)
                     yield chunk
+                
+                # 保存到历史记录
+                full_content = "".join(content_acc)
+                if full_content and request.project_id:
+                    try:
+                        history_service.save_history(
+                            session=session,
+                            project_id=request.project_id,
+                            card_id=request.card_id,
+                            prompt_name=request.prompt_name,
+                            content=full_content,
+                            llm_config_id=request.llm_config_id,
+                            meta_data={"stream": True, "temperature": request.temperature}
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to save generation history: {e}")
+
                 try:
                     # 续写结束后触发
                     trigger_on_generate_finish(session, None, request.project_id)
@@ -508,6 +526,22 @@ async def generate_continuation(
             return StreamingResponse(stream_wrapper(_stream_and_trigger()), media_type="text/event-stream")
         else:
             result = await agent_service.generate_continuation(session, request, system_prompt)
+            
+            # 保存到历史记录
+            if result and request.project_id:
+                try:
+                    history_service.save_history(
+                        session=session,
+                        project_id=request.project_id,
+                        card_id=request.card_id,
+                        prompt_name=request.prompt_name,
+                        content=result,
+                        llm_config_id=request.llm_config_id,
+                        meta_data={"stream": False, "temperature": request.temperature}
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to save generation history: {e}")
+
             try:
                 trigger_on_generate_finish(session, None, request.project_id)
             except Exception:

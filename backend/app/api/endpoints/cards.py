@@ -15,6 +15,7 @@ from loguru import logger
 from app.schemas.card import CardCopyOrMoveRequest
 from app.services.workflow_triggers import trigger_on_card_save
 from fastapi import Response
+from app.services import history_service
 
 router = APIRouter()
 
@@ -246,6 +247,41 @@ def move_card_endpoint(card_id: int, payload: CardCopyOrMoveRequest, db: Session
     if not moved:
         raise HTTPException(status_code=404, detail="Card not found")
     return moved 
+
+@router.get("/cards/{card_id}/generation-history")
+def get_card_generation_history(card_id: int, db: Session = Depends(get_session)):
+    """获取卡片的 AI 生成历史记录"""
+    return history_service.get_history_by_card(db, card_id)
+
+@router.post("/cards/{card_id}/restore-generation/{history_id}")
+def restore_card_generation(card_id: int, history_id: int, db: Session = Depends(get_session)):
+    """恢复指定的 AI 生成版本到卡片内容"""
+    history = history_service.get_history_by_id(db, history_id)
+    if not history or history.card_id != card_id:
+        raise HTTPException(status_code=404, detail="History record not found")
+    
+    card = db.get(Card, card_id)
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+    
+    # 恢复逻辑：如果 content 是字典，尝试更新 content 或 text 字段
+    if isinstance(card.content, dict):
+        new_content = dict(card.content)
+        if "content" in new_content:
+            new_content["content"] = history.content
+        elif "text" in new_content:
+            new_content["text"] = history.content
+        else:
+            # 如果都没有，默认更新 content 字段
+            new_content["content"] = history.content
+        card.content = new_content
+    else:
+        card.content = history.content
+    
+    db.add(card)
+    db.commit()
+    db.refresh(card)
+    return {"success": True, "content": card.content}
 
 # --- Card Schema Endpoints ---
 

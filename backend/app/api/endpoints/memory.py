@@ -91,7 +91,13 @@ async def extract_dynamic_info_only(req: ExtractOnlyRequest, session: Session = 
 def ingest_relations_from_preview(req: IngestRelationsFromPreviewRequest, session: Session = Depends(get_session)):
     svc = MemoryService(session)
     try:
-        res = svc.ingest_relations_from_llm(req.project_id, req.data, volume_number=req.volume_number, chapter_number=req.chapter_number)
+        res = svc.ingest_relations_from_llm(
+            req.project_id, 
+            req.data, 
+            volume_number=req.volume_number, 
+            chapter_number=req.chapter_number,
+            participants_with_type=req.participants
+        )
         return IngestRelationsFromPreviewResponse(written=res.get("written", 0))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"关系入图失败: {e}")
@@ -117,4 +123,4 @@ def update_dynamic_info(req: UpdateDynamicInfoRequest, session: Session = Depend
         )
     except Exception as e:
         logger.error(f"Failed to update dynamic info: {e}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+        raise HTTPException(status_code=500, detail=str(e))

@@ -48,6 +48,7 @@ class ExtractRelationsRequest(BaseModel):
 class IngestRelationsFromPreviewRequest(BaseModel):
 	project_id: int
 	data: RelationExtraction
+	participants: Optional[List[ParticipantTyped]] = None
 	volume_number: Optional[int] = None
 	chapter_number: Optional[int] = None
 
@@ -79,4 +80,4 @@ class UpdateDynamicInfoRequest(BaseModel):
 
 class UpdateDynamicInfoResponse(BaseModel):
 	success: bool
-	updated_card_count: int 
+	updated_card_count: int

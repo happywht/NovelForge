@@ -61,7 +61,14 @@ class DeletionInfo(BaseModel):
 class UpdateDynamicInfo(BaseModel):
     info_list:List[DynamicInfo]=Field(description="需要更新的动态信息列表，尽量只提取足够重要的信息")
     delete_info_list: Optional[List[DeletionInfo]] = Field(default=None, description="（可选）为新增信息腾出空间而要删除的旧信息列表")
-
+    
+    @field_validator('delete_info_list', mode='before')
+    @classmethod
+    def _handle_null_string(cls, v: Any) -> Any:
+        """处理 LLM 返回字符串 'null' 的情况"""
+        if v is None or (isinstance(v, str) and v.lower() in ('null', 'none', '')):
+            return None
+        return v
 
 class Entity(BaseModel):
     name: str = Field(..., min_length=1, description="实体名称（唯一标识），不包含任何别称、外号、称号等信息，单纯的名称。")

@@ -91,7 +91,13 @@ class Neo4jKGProvider:
 			"r.observed_by = row.observed_by"
 		)
 		with self._driver.session() as sess:
-			sess.run(cypher, rows=rows, group=group)
+			try:
+				sess.run(cypher, rows=rows, group=group)
+			except Exception as e:
+				error_msg = str(e)
+				if "Security.Forbidden" in error_msg or "access denied" in error_msg.lower():
+					raise RuntimeError(f"知识图谱写入失败: 权限不足 (Neo4j Access Denied)。请检查数据库用户权限或是否处于只读模式。详情: {error_msg}")
+				raise RuntimeError(f"知识图谱写入失败: {error_msg}")
 
 	def query_subgraph(
 		self,

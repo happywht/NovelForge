@@ -147,6 +147,19 @@ class Knowledge(SQLModel, table=True):
     built_in: bool = Field(default=False)
 
 
+# AI 生成历史记录
+class AIGenerationHistory(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id")
+    card_id: Optional[int] = Field(default=None, foreign_key="card.id")
+    prompt_name: str
+    content: str
+    llm_config_id: Optional[int] = Field(default=None, foreign_key="llmconfig.id")
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    # 存储生成时的参数、模型名称等
+    meta_data: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+
+
 # 工作流系统
 class Workflow(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

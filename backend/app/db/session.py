@@ -15,7 +15,7 @@ DB_FILE = Path(os.getenv("AIAUTHOR_DB_PATH", (base_dir / 'aiauthor.db').as_posix
 DATABASE_URL = f"sqlite:///{DB_FILE.as_posix()}"
 
 # 创建数据库引擎（SQLite 需要此参数以允许多线程访问）
-engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False})
+engine = create_engine(DATABASE_URL, echo=True, connect_args={"check_same_thread": False, "timeout": 30})
 
 
 def get_session():
@@ -31,4 +31,4 @@ def get_session():
         session.rollback()
         raise
     finally:
-        session.close() 
+        session.close()
