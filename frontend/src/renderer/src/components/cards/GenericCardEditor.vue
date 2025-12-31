@@ -43,12 +43,12 @@
         <div class="main-pane">
           <div v-if="schema" class="form-container">
             <template v-if="sections && sections.length">
-              <SectionedForm v-if="wrapperName" :schema="innerSchema" v-model="innerData" :sections="sections" />
-              <SectionedForm v-else :schema="schema" v-model="localData" :sections="sections" />
+              <SectionedForm v-if="wrapperName" :schema="innerSchema" v-model="innerData" :sections="sections" :root-schema="schema" />
+              <SectionedForm v-else :schema="schema" v-model="localData" :sections="sections" :root-schema="schema" />
             </template>
             <template v-else>
-              <ModelDrivenForm v-if="wrapperName" :schema="innerSchema" v-model="innerData" />
-              <ModelDrivenForm v-else :schema="schema" v-model="localData" />
+              <ModelDrivenForm v-if="wrapperName" :schema="innerSchema" v-model="innerData" :root-schema="schema" />
+              <ModelDrivenForm v-else :schema="schema" v-model="localData" :root-schema="schema" />
             </template>
           </div>
           <div v-else class="loading-or-error-container">
@@ -71,7 +71,7 @@
       </template>
     </ContextDrawer>
 
-    <CardReferenceSelectorDialog v-model="isSelectorVisible" :cards="cards" :currentCardId="props.card.id" @confirm="handleReferenceConfirm" />
+    <CardReferenceSelectorDialog v-model:visible="isSelectorVisible" :cards="cards" :currentCardId="props.card.id" @confirm="handleReferenceConfirm" />
     <CardVersionsDialog
       v-if="projectStore.currentProject?.id"
       v-model="showVersions"

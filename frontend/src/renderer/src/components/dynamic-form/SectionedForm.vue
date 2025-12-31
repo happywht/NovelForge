@@ -11,6 +11,7 @@
           v-model="proxy"
           :include-fields="sec.include"
           :exclude-fields="sec.exclude"
+          :root-schema="rootSchema"
         />
       </el-collapse-item>
     </el-collapse>
@@ -23,7 +24,7 @@ import type { JSONSchema } from '@renderer/api/schema'
 import ModelDrivenForm from './ModelDrivenForm.vue'
 import type { SectionConfig } from '@renderer/services/uiLayoutService'
 
-const props = defineProps<{ schema: JSONSchema | undefined; modelValue: any; sections: SectionConfig[] }>()
+const props = defineProps<{ schema: JSONSchema | undefined; modelValue: any; sections: SectionConfig[]; rootSchema?: JSONSchema }>()
 const emit = defineEmits(['update:modelValue'])
 
 const proxy = ref<any>(props.modelValue)
@@ -56,4 +57,4 @@ watch(() => props.sections, (secs) => {
 .sectioned-form { display: flex; flex-direction: column; gap: 8px; }
 .sec-title { font-weight: 600; margin-right: 8px; }
 .sec-desc { color: var(--el-text-color-secondary); font-size: 12px; }
-</style> 
+</style>

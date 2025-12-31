@@ -36,24 +36,24 @@ export interface ParsedField {
  */
 export function parseSchemaFields(schema: any, path = '$.content', maxDepth = 5): ParsedField[] {
   if (maxDepth <= 0) return []
-  
+
   const fields: ParsedField[] = []
   try {
     const properties = schema.properties || {}
     const defs = schema.$defs || {}
     const required = schema.required || []
-    
+
     for (const [fieldName, fieldSchema] of Object.entries(properties)) {
       if (typeof fieldSchema !== 'object' || !fieldSchema) continue
-      
+
       // 解析引用和anyOf
       const resolvedSchema = resolveSchemaRef(fieldSchema as any, defs)
-      
+
       const fieldType = resolvedSchema.type || 'unknown'
       const fieldTitle = resolvedSchema.title || fieldName
       const fieldDescription = resolvedSchema.description || ''
       const fieldPath = `${path}.${fieldName}`
-      
+
       const fieldInfo: ParsedField = {
         name: fieldName,
         title: fieldTitle,
@@ -63,7 +63,7 @@ export function parseSchemaFields(schema: any, path = '$.content', maxDepth = 5)
         required: required.includes(fieldName),
         expanded: false
       }
-      
+
       // 处理嵌套对象
       if (fieldType === 'object' && resolvedSchema.properties) {
         const children = parseSchemaFields(resolvedSchema, fieldPath, maxDepth - 1)
@@ -73,7 +73,7 @@ export function parseSchemaFields(schema: any, path = '$.content', maxDepth = 5)
           fieldInfo.hasChildren = true
         }
       }
-      
+
       // 处理数组类型
       else if (fieldType === 'array' && resolvedSchema.items) {
         const itemsSchema = resolveSchemaRef(resolvedSchema.items, defs)
@@ -89,13 +89,13 @@ export function parseSchemaFields(schema: any, path = '$.content', maxDepth = 5)
           fieldInfo.arrayItemType = itemsSchema.type || 'unknown'
         }
       }
-      
+
       fields.push(fieldInfo)
     }
   } catch (e) {
     console.warn('解析Schema字段失败:', e)
   }
-  
+
   return fields
 }
 
@@ -103,18 +103,19 @@ export function parseSchemaFields(schema: any, path = '$.content', maxDepth = 5)
  * 解析Schema引用，支持本地$defs和全局schemaService
  * @param schema Schema对象
  * @param localDefs 本地$defs定义
+ * @param rootSchema 根Schema对象（用于解析全局$defs）
  * @returns 解析后的Schema对象
  */
-export function resolveSchemaRef(schema: any, localDefs?: any): any {
+export function resolveSchemaRef(schema: any, localDefs?: any, rootSchema?: any): any {
   if (!schema || typeof schema !== 'object') return schema
-  
+
   // 处理anyOf类型 - 优先处理
   if (schema.anyOf && Array.isArray(schema.anyOf)) {
     for (const anySchema of schema.anyOf) {
       if (anySchema.type === 'null') continue
-      
+
       // 递归解析anyOf中的引用
-      const resolved = resolveSchemaRef(anySchema, localDefs)
+      const resolved = resolveSchemaRef(anySchema, localDefs, rootSchema)
       if (resolved && resolved.type && resolved.type !== 'null') {
         return {
           ...resolved,
@@ -124,24 +125,29 @@ export function resolveSchemaRef(schema: any, localDefs?: any): any {
       }
     }
   }
-  
+
   // 处理$ref引用
   if (schema.$ref && typeof schema.$ref === 'string') {
     const refPath = schema.$ref
     if (refPath.startsWith('#/$defs/')) {
       const refName = refPath.replace('#/$defs/', '')
-      
+
       // 优先使用本地$defs
       let resolved = localDefs && localDefs[refName] ? localDefs[refName] : null
-      
-      // 如果本地没有，尝试从全局schemaService获取
+
+      // 如果本地没有，尝试从 rootSchema 获取
+      if (!resolved && rootSchema && rootSchema.$defs) {
+        resolved = rootSchema.$defs[refName]
+      }
+
+      // 如果还没有，尝试从全局schemaService获取
       if (!resolved) {
         resolved = schemaService.getSchema(refName)
       }
-      
+
       if (resolved) {
         // 递归解析引用的定义（可能还包含其他引用）
-        const finalResolved = resolveSchemaRef(resolved, localDefs)
+        const finalResolved = resolveSchemaRef(resolved, localDefs, rootSchema)
         return {
           ...finalResolved,
           title: schema.title || finalResolved.title,
@@ -150,7 +156,7 @@ export function resolveSchemaRef(schema: any, localDefs?: any): any {
       }
     }
   }
-  
+
   return schema
 }
 
@@ -164,7 +170,7 @@ export function getFieldIcon(type: string): string {
     case 'object': return '📁'
     case 'array': return '📊'
     case 'string': return '📄'
-    case 'number': 
+    case 'number':
     case 'integer': return '🔢'
     case 'boolean': return '☑️'
     default: return '📄'
@@ -205,13 +211,13 @@ export function extractFieldPathOptions(fields: ParsedField[], options: Array<{ 
         value: field.path
       })
     }
-    
+
     // 递归处理子字段
     if (field.children?.length) {
       extractFieldPathOptions(field.children, options)
     }
   }
-  
+
   return options
 }
 
@@ -220,10 +226,11 @@ export function extractFieldPathOptions(fields: ParsedField[], options: Array<{ 
  * 与原有的resolveActualSchema逻辑兼容
  * @param schema Schema对象
  * @param parentSchema 父级Schema（用于获取$defs）
+ * @param rootSchema 根Schema对象
  * @returns 解析后的Schema对象
  */
-export function resolveActualSchema(schema: any, parentSchema?: any): any {
+export function resolveActualSchema(schema: any, parentSchema?: any, rootSchema?: any): any {
   const localDefs = parentSchema?.$defs || {}
-  return resolveSchemaRef(schema, localDefs)
+  return resolveSchemaRef(schema, localDefs, rootSchema)
 }
 

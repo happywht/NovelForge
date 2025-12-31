@@ -7,6 +7,7 @@
           :model-value="modelValue ? modelValue[index] : undefined"
           @update:modelValue="updateItem(index, $event)"
           :schema="itemSchema"
+          :root-schema="rootSchema"
           label=""
           prop=""
         />
@@ -29,6 +30,7 @@ const props = defineProps<{
   label: string
   prop: string
   schema: JSONSchema
+  rootSchema?: JSONSchema
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -77,4 +79,4 @@ function updateItem(index: number, value: any) {
 :deep(.el-form-item) {
   margin-bottom: 0;
 }
-</style> 
+</style>

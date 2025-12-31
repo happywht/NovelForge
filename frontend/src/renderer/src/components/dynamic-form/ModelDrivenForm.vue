@@ -13,6 +13,7 @@
             :readonly="readonlyFields.includes(String(propName))"
             :contextData="modelValue"
             :owner-id="ownerId"
+            :root-schema="rootSchema || schema"
             @update:modelValue="updateModel(String(propName), $event)"
           />
         </template>
@@ -47,6 +48,7 @@ const props = defineProps<{
   ownerId?: number | null
   includeFields?: string[]
   excludeFields?: string[]
+  rootSchema?: JSONSchema
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -69,7 +71,7 @@ const visibleProperties = computed(() => {
 // --- 逻辑 ---
 function resolveActualSchema(schema: JSONSchema): JSONSchema {
   // 使用统一的Schema解析服务
-  return resolveSchemaUnified(schema, props.schema) as JSONSchema
+  return resolveSchemaUnified(schema, props.schema, props.rootSchema || props.schema) as JSONSchema
 }
 
 function getFieldComponent(propSchema: JSONSchema) {
@@ -111,4 +113,4 @@ function updateModel(propName: string, value: any) {
 .model-driven-form { padding: 0; }
 .form-card { border: none; }
 :deep(.el-card__body) { padding: 20px; }
-</style> 
+</style>

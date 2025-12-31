@@ -8,6 +8,7 @@
     <ModelDrivenForm
       :schema="effectiveSchema"
       :modelValue="modelValue || {}"
+      :root-schema="rootSchema"
       @update:modelValue="emit('update:modelValue', $event)"
     />
   </el-card>
@@ -25,6 +26,7 @@ const props = defineProps<{
   modelValue: Record<string, any> | undefined
   label: string
   schema: JSONSchema
+  rootSchema?: JSONSchema
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -58,4 +60,4 @@ const effectiveSchema = computed<JSONSchema>(() => {
   margin-bottom: 20px;
   background-color: var(--el-fill-color-lighter);
 }
-</style> 
+</style>

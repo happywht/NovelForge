@@ -20,6 +20,7 @@
           :prop="String(index)"
           :schema="getItemSchemaForIndex(index)"
           :model-value="item"
+          :root-schema="rootSchema"
           @update:modelValue="updateItem(index, $event)"
         />
         <!-- 对于复杂类型，使用ModelDrivenForm -->
@@ -28,6 +29,7 @@
           :schema="getItemSchemaForIndex(index)"
           :model-value="item"
           :display-name-map="displayNameMap"
+          :root-schema="rootSchema"
           @update:modelValue="updateItem(index, $event)"
         />
       </div>
@@ -55,8 +57,8 @@ import { Delete, Plus } from '@element-plus/icons-vue'
 import { resolveActualSchema } from '@renderer/services/schemaFieldParser'
 
 const ModelDrivenForm = defineAsyncComponent(() => import('../ModelDrivenForm.vue'))
-const StringField = defineAsyncComponent(() => import('./StringField.vue'))
-const NumberField = defineAsyncComponent(() => import('./NumberField.vue'))
+const StringField = defineAsyncComponent(() => import('./fields/StringField.vue'))
+const NumberField = defineAsyncComponent(() => import('./fields/NumberField.vue'))
 
 const props = defineProps<{
   modelValue: any[] | undefined
@@ -66,6 +68,7 @@ const props = defineProps<{
   readonly?: boolean
   contextData?: Record<string, any>
   ownerId?: number | null // 接收最外层传来的ID
+  rootSchema?: JSONSchema
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -78,7 +81,7 @@ const emit = defineEmits(['update:modelValue'])
 
 const itemSchema = computed((): JSONSchema => {
   if (props.schema.items) {
-    return resolveActualSchema(props.schema.items, props.schema)
+    return resolveActualSchema(props.schema.items, props.schema, props.rootSchema)
   }
   return { type: 'string', title: '项目' }
 })
@@ -150,7 +153,7 @@ function addItem() {
  * 为数组项创建默认值，确保与ModelDrivenForm兼容
  */
 function createArrayItemDefaultValue(schema: JSONSchema): any {
-  const actualSchema = resolveActualSchema(schema, props.schema)
+  const actualSchema = resolveActualSchema(schema, props.schema, props.rootSchema)
   
   if (actualSchema.default !== undefined) {
     return actualSchema.default
@@ -172,7 +175,7 @@ function resolveAnyOfForValue(base: JSONSchema, value: any): JSONSchema | null {
   
   // 简单实现：找到第一个非null的Schema
   const nonNullSchema = base.anyOf.find((s: any) => s && s.type !== 'null')
-  return nonNullSchema ? resolveActualSchema(nonNullSchema as JSONSchema, props.schema) : null
+  return nonNullSchema ? resolveActualSchema(nonNullSchema as JSONSchema, props.schema, props.rootSchema) : null
 }
 </script>
 
@@ -206,4 +209,4 @@ function resolveAnyOfForValue(base: JSONSchema, value: any): JSONSchema | null {
   margin-top: 10px;
   width: 100%;
 }
-</style> 
+</style>
