@@ -1180,3 +1180,44 @@ def node_style_assemble(session: Session, state: dict, params: dict) -> dict:
     _set_by_path(state, target_path, style_content)
     
     return {"success": True, "style": style_content}
+
+
+@register_node("Card.Delete")
+def node_card_delete(session: Session, state: dict, params: dict) -> dict:
+    """
+    Card.Delete: 删除锚点卡片或指定 card_id
+    params:
+      - target: "$self" | int(card_id)
+    """
+    target = params.get("target", "$self")
+    
+    card_id: Optional[int] = None
+    if target == "$self":
+        scope = state.get("scope") or {}
+        card_id = scope.get("card_id")
+    else:
+        try:
+            card_id = int(target)
+        except Exception:
+            card_id = None
+    
+    if not card_id:
+        raise ValueError("Card.Delete 未指定有效的卡片 ID")
+    
+    from app.services.card_service import CardService
+    service = CardService(session)
+    success = service.delete(card_id)
+    
+    if not success:
+        logger.warning(f"[节点] 删除卡片失败，未找到 card_id={card_id}")
+        return {"success": False, "error": "Card not found"}
+    
+    logger.info(f"[节点] 删除卡片成功 card_id={card_id}")
+    
+    # 如果删除的是当前 state 中的卡片，清除引用
+    if state.get("card") and state["card"].id == card_id:
+        state["card"] = None
+    if state.get("current") and state["current"].get("card") and state["current"]["card"].id == card_id:
+        state["current"]["card"] = None
+        
+    return {"success": True, "card_id": card_id}

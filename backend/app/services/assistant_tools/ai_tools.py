@@ -555,6 +555,60 @@ def replace_field_text(
         return {"success": False, "error": f"替换失败: {str(e)}"}
 
 
+@tool
+def delete_card(card_id: int) -> dict:
+    """
+    删除指定的卡片。
+    注意：此操作不可逆，请谨慎使用。
+    """
+    deps = _get_deps()
+    logger.info(f" [Assistant.delete_card] card_id={card_id}")
+
+    try:
+        # 验证卡片存在性和归属
+        card = deps.session.get(Card, card_id)
+        if not card or card.project_id != deps.project_id:
+            logger.warning(f"⚠️ 卡片 {card_id} 不存在或不属于当前项目")
+            return {
+                "success": False,
+                "error": f"卡片 {card_id} 不存在或不属于当前项目",
+            }
+
+        title = card.title
+        
+        # 构造工作流节点所需的 state
+        state = {"scope": {"card_id": card_id}}
+
+        # 调用工作流节点函数
+        result = nodes.node_card_delete(
+            session=deps.session,
+            state=state,
+            params={"target": "$self"},
+        )
+
+        # 如果节点执行失败，直接返回错误
+        if not result.get("success"):
+            logger.warning(
+                f"⚠️ [Assistant.delete_card] 节点执行失败: {result.get('error')}"
+            )
+            return result
+        
+        # 提交事务
+        deps.session.commit()
+
+        logger.info(f"✅ [Assistant.delete_card] 删除成功")
+
+        return {
+            "success": True,
+            "message": f"✅ 已成功删除卡片「{title}」(ID: {card_id})",
+            "card_id": card_id
+        }
+
+    except Exception as e:
+        logger.error(f"❌ [Assistant.delete_card] 删除失败: {e}")
+        return {"success": False, "error": f"删除失败: {str(e)}"}
+
+
 # 导出所有 LangChain 工具（已通过 @tool 装饰）
 ASSISTANT_TOOLS = [
     search_cards,
@@ -564,6 +618,7 @@ ASSISTANT_TOOLS = [
     batch_create_cards,
     get_card_type_schema,
     get_card_content,
+    delete_card,
 ]
 
 ASSISTANT_TOOL_REGISTRY = {tool.name: tool for tool in ASSISTANT_TOOLS}
