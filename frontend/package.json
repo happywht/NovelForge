@@ -25,6 +25,7 @@
     "gen:types": "openapi-typescript http://127.0.0.1:8000/openapi.json -o src/renderer/src/types/generated.d.ts"
   },
   "dependencies": {
+    "@antv/g6": "^5.0.51",
     "@codemirror/autocomplete": "^6.18.6",
     "@codemirror/commands": "^6.8.1",
     "@codemirror/lang-markdown": "^6.3.4",

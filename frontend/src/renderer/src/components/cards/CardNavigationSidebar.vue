@@ -175,7 +175,7 @@ const treeSelectProps = {
 const isCreateCardDialogVisible = ref(false)
 const newCardForm = reactive({
   title: '',
-  card_type_id: undefined as number | undefined,
+  card_type_id: null as number | null,
   parent_id: '' as any
 })
 
@@ -214,14 +214,14 @@ function startResizingInner(event: MouseEvent) {
 
 function openCreateRoot() {
   newCardForm.title = ''
-  newCardForm.card_type_id = undefined
+  newCardForm.card_type_id = null
   newCardForm.parent_id = '' as any
   isCreateCardDialogVisible.value = true
 }
 
 function openCreateChild(parentId: number) {
   newCardForm.title = ''
-  newCardForm.card_type_id = undefined
+  newCardForm.card_type_id = null
   newCardForm.parent_id = parentId
   isCreateCardDialogVisible.value = true
 }
@@ -249,7 +249,7 @@ async function handleCreateCard() {
   }
   
   isCreateCardDialogVisible.value = false
-  Object.assign(newCardForm, { title: '', card_type_id: undefined, parent_id: '' as any })
+  Object.assign(newCardForm, { title: '', card_type_id: null, parent_id: '' as any })
 }
 
 function openImportFreeCards() {

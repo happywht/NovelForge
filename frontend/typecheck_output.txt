@@ -1,0 +1,14 @@
+
+> frontend@0.8.5 typecheck:web
+> vue-tsc --NoEmit -p tsconfig.web.json --composite false
+
+src/renderer/src/components/cards/CardNavigationSidebar.vue(197,21): error TS2345: Argument of type '{ title: string; card_type_id: number | undefined; parent_id: any; }' is not assignable to parameter of type 'NewCardForm'.
+  Types of property 'card_type_id' are incompatible.
+    Type 'number | undefined' is not assignable to type 'number | null'.
+      Type 'undefined' is not assignable to type 'number | null'.
+src/renderer/src/components/dynamic-form/ModelDrivenForm.vue(13,82): error TS2339: Property 'readOnly' does not exist on type 'JSONSchema'.
+src/renderer/src/components/editors/CodeMirrorEditor.vue(625,7): error TS2353: Object literal may only specify known properties, and 'participants' does not exist in type '{ project_id: number; data: { relations?: { a: string; b: string; kind: "其他" | "同盟" | "队友" | "同门" | "敌对" | "亲属" | "师徒" | "对手" | "伙伴" | "上级" | "下属" | "指导" | "隶属" | "成员" | "领导" | "创立" | "控制" | "位于" | "影响" | "克制" | "关于"; ... 5 more ...; stance?: "友好" | ... 3 more ... | undefined; }[] | undefined; }; volume_number?: num...'.
+src/renderer/src/components/kg/KGVisualization.vue(35,5): error TS2353: Object literal may only specify known properties, and 'fitView' does not exist in type 'GraphOptions'.
+src/renderer/src/components/kg/KGVisualization.vue(68,20): error TS2339: Property 'Arrow' does not exist on type 'typeof import("D:/\u5BB6\u5EAD/\u526F\u4E1A\u63A2\u7D22/\u5C0F\u8BF4\u9879\u76EE/NovelForge/frontend/node_modules/@antv/g6/lib/index")'.
+src/renderer/src/components/panels/ContextPanel.vue(38,30): error TS2339: Property 'writing_guide' does not exist on type '{ facts_subgraph: string; budget_stats?: { [key: string]: unknown; } | undefined; facts_structured?: { fact_summaries?: string[] | undefined; relation_summaries?: { a: string; b: string; kind: "其他" | ... 19 more ... | "关于"; ... 5 more ...; stance?: "友好" | ... 3 more ... | undefined; }[] | undefined; } | null | undef...'.
+src/renderer/src/components/panels/ContextPanel.vue(43,51): error TS2339: Property 'writing_guide' does not exist on type '{ facts_subgraph: string; budget_stats?: { [key: string]: unknown; } | undefined; facts_structured?: { fact_summaries?: string[] | undefined; relation_summaries?: { a: string; b: string; kind: "其他" | ... 19 more ... | "关于"; ... 5 more ...; stance?: "友好" | ... 3 more ... | undefined; }[] | undefined; } | null | undef...'.

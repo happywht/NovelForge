@@ -2,7 +2,7 @@ import request from './request'
 import { ref } from 'vue'
 
 // --- 类型定义 ---
-// 基础的 JSON Schema 类型定义。可以根据需要进行扩展。
+// 基础的 JSON Schema 类型 definition。可以根据需要进行扩展。
 export interface JSONSchema {
   // Common properties
   type?: string | string[]
@@ -26,6 +26,8 @@ export interface JSONSchema {
   // 用于 Literal 转换来的枚举
   // 用于对象引用
   $ref?: string
+  // 用于只读字段
+  readOnly?: boolean
 }
 
 // --- 状态 ---
@@ -38,7 +40,7 @@ const error = ref<any>(null)
 /**
  * 解析 $ref 引用，找到其对应的 schema 定义。
  * @param refPath 引用路径 (例如, '#/components/schemas/MyModel')
- * @param openapiSpec 完整的 OpenAPI 规范对象。
+ * @param allSchemas 包含所有可用 schema 定义的 Map。
  * @returns 解析后的 JSONSchema，如果未找到则返回 null。
  */
 function resolveRef(refPath: string, allSchemas: Map<string, JSONSchema>): JSONSchema | null {
@@ -52,8 +54,8 @@ function resolveRef(refPath: string, allSchemas: Map<string, JSONSchema>): JSONS
   const resolved = allSchemas.get(refName)
   if (!resolved) {
     console.error(`无法在 allSchemas 中解析 $ref: ${refName}`)
-        return null
-      }
+    return null
+  }
   return resolved
 }
 
@@ -101,15 +103,15 @@ function dereferenceSchema(
   if (newSchema.items) {
     newSchema.items = dereferenceSchema(newSchema.items, allSchemas, new Set(visited))
   }
-  
+
   if (newSchema.prefixItems) {
-    newSchema.prefixItems = newSchema.prefixItems.map(itemSchema => 
+    newSchema.prefixItems = newSchema.prefixItems.map(itemSchema =>
       dereferenceSchema(itemSchema, allSchemas, new Set(visited))
     );
   }
 
   if (newSchema.anyOf) {
-    newSchema.anyOf = newSchema.anyOf.map(itemSchema => 
+    newSchema.anyOf = newSchema.anyOf.map(itemSchema =>
       dereferenceSchema(itemSchema, allSchemas, new Set(visited))
     );
   }
@@ -133,7 +135,7 @@ async function loadSchemas() {
     const allSchemas = await request.get<Record<string, JSONSchema>>('/ai/schemas')
     if (allSchemas) {
       const schemaMap = new Map<string, JSONSchema>(Object.entries(allSchemas))
-      
+
       // 创建一个新的 Map 用于存储解引用后的 schema
       const dereferencedSchemaMap = new Map<string, JSONSchema>()
 
@@ -141,7 +143,7 @@ async function loadSchemas() {
       for (const [name, schema] of schemaMap.entries()) {
         dereferencedSchemaMap.set(name, schema);
       }
-      
+
       // 第二步：遍历并解引用每一个 schema
       for (const [name, schema] of dereferencedSchemaMap.entries()) {
         dereferencedSchemaMap.set(name, dereferenceSchema(schema, dereferencedSchemaMap));
@@ -189,4 +191,4 @@ export const schemaService = {
   loadSchemas,
   refreshSchemas,
   getSchema
-} 
+}

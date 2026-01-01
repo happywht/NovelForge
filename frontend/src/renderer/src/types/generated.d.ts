@@ -105,7 +105,7 @@ export interface paths {
         put?: never;
         /**
          * 测试 LLM 连接
-         * @description 使用传入参数临时构造一个 Agent 并发起一次最小调用以验证连通性。
+         * @description 使用传入参数临时构造一个 LangChain ChatModel 并发起一次最小调用以验证连通性。
          */
         post: operations["test_llm_connection_endpoint_api_llm_configs_test_post"];
         delete?: never;
@@ -447,6 +447,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/cards/batch-reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Batch Reorder Cards
+         * @description 批量更新卡片排序
+         *
+         *     Args:
+         *         request: 包含要更新的卡片列表，每个卡片包含 card_id, display_order, parent_id
+         *
+         *     Returns:
+         *         更新的卡片数量和成功状态
+         */
+        post: operations["batch_reorder_cards_api_cards_batch_reorder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/cards/{card_id}/copy": {
         parameters: {
             query?: never;
@@ -475,6 +501,46 @@ export interface paths {
         put?: never;
         /** Move Card Endpoint */
         post: operations["move_card_endpoint_api_cards__card_id__move_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cards/{card_id}/generation-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Card Generation History
+         * @description 获取卡片的 AI 生成历史记录
+         */
+        get: operations["get_card_generation_history_api_cards__card_id__generation_history_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/cards/{card_id}/restore-generation/{history_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Card Generation
+         * @description 恢复指定的 AI 生成版本到卡片内容
+         */
+        post: operations["restore_card_generation_api_cards__card_id__restore_generation__history_id__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -796,6 +862,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/workflow-node-types": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Workflow Node Types
+         * @description 获取所有已注册的工作流节点类型
+         */
+        get: operations["get_workflow_node_types_api_workflow_node_types_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/workflows": {
         parameters: {
             query?: never;
@@ -951,6 +1037,74 @@ export interface paths {
         get: operations["stream_events_api_workflows_runs__run_id__events_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workflows/runs/{run_id}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Pause Run */
+        post: operations["pause_run_api_workflows_runs__run_id__pause_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workflows/runs/{run_id}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resume Run */
+        post: operations["resume_run_api_workflows_runs__run_id__resume_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workflows/runs/{run_id}/step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Step Run */
+        post: operations["step_run_api_workflows_runs__run_id__step_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/workflows/runs/{run_id}/debug": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Set Debug Mode */
+        post: operations["set_debug_mode_api_workflows_runs__run_id__debug_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1148,6 +1302,11 @@ export interface components {
             };
             /** @description 结构化事实子图 */
             facts_structured?: components["schemas"]["FactsStructured"] | null;
+            /**
+             * Writing Guide
+             * @description 写作指南/风格指引内容
+             */
+            writing_guide?: string | null;
         };
         /**
          * AssistantChatRequest
@@ -1202,6 +1361,26 @@ export interface components {
              * @default true
              */
             stream: boolean;
+            /**
+             * Thinking Enabled
+             * @description 是否启用推理/Thinking 输出（仅部分模型支持）
+             */
+            thinking_enabled?: boolean | null;
+            /**
+             * Context Summarization Enabled
+             * @description 是否启用上下文摘要中间件（对过长对话做摘要压缩）
+             */
+            context_summarization_enabled?: boolean | null;
+            /**
+             * Context Summarization Threshold
+             * @description 触发上下文摘要的 token 阈值
+             */
+            context_summarization_threshold?: number | null;
+            /**
+             * React Mode Enabled
+             * @description 是否启用 React 文本协议工具调用模式
+             */
+            react_mode_enabled?: boolean | null;
         };
         /** CancelResponse */
         CancelResponse: {
@@ -1209,6 +1388,17 @@ export interface components {
             ok: boolean;
             /** Message */
             message?: string | null;
+        };
+        /**
+         * CardBatchReorderRequest
+         * @description 批量更新卡片排序请求
+         */
+        CardBatchReorderRequest: {
+            /**
+             * Updates
+             * @description 要更新的卡片排序列表
+             */
+            updates: components["schemas"]["CardOrderItem"][];
         };
         /** CardCopyOrMoveRequest */
         CardCopyOrMoveRequest: {
@@ -1239,6 +1429,18 @@ export interface components {
             ai_params?: {
                 [key: string]: unknown;
             } | null;
+        };
+        /**
+         * CardOrderItem
+         * @description 单个卡片的排序信息
+         */
+        CardOrderItem: {
+            /** Card Id */
+            card_id: number;
+            /** Display Order */
+            display_order: number;
+            /** Parent Id */
+            parent_id?: number | null;
         };
         /** CardRead */
         CardRead: {
@@ -1425,6 +1627,11 @@ export interface components {
             stream: boolean;
             /** Project Id */
             project_id?: number | null;
+            /**
+             * Card Id
+             * @description 关联的卡片ID
+             */
+            card_id?: number | null;
             /** Volume Number */
             volume_number?: number | null;
             /** Chapter Number */
@@ -1686,6 +1893,8 @@ export interface components {
             /** Project Id */
             project_id: number;
             data: components["schemas"]["RelationExtraction-Input"];
+            /** Participants */
+            participants?: components["schemas"]["ParticipantTyped"][] | null;
             /** Volume Number */
             volume_number?: number | null;
             /** Chapter Number */
@@ -3538,6 +3747,39 @@ export interface operations {
             };
         };
     };
+    batch_reorder_cards_api_cards_batch_reorder_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CardBatchReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     copy_card_endpoint_api_cards__card_id__copy_post: {
         parameters: {
             query?: never;
@@ -3595,6 +3837,69 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CardRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_card_generation_history_api_cards__card_id__generation_history_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    restore_card_generation_api_cards__card_id__restore_generation__history_id__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                card_id: number;
+                history_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
             /** @description Validation Error */
@@ -4367,6 +4672,26 @@ export interface operations {
             };
         };
     };
+    get_workflow_node_types_api_workflow_node_types_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
     list_workflows_api_workflows_get: {
         parameters: {
             query?: never;
@@ -4767,6 +5092,132 @@ export interface operations {
     stream_events_api_workflows_runs__run_id__events_get: {
         parameters: {
             query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    pause_run_api_workflows_runs__run_id__pause_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resume_run_api_workflows_runs__run_id__resume_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    step_run_api_workflows_runs__run_id__step_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_debug_mode_api_workflows_runs__run_id__debug_post: {
+        parameters: {
+            query?: {
+                enabled?: boolean;
+            };
             header?: never;
             path: {
                 run_id: number;

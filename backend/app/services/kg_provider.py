@@ -25,6 +25,7 @@ class KnowledgeGraphProvider(Protocol):
 		pov_character: Optional[str] = None,
 	) -> Dict[str, Any]: ...
 	def delete_project_graph(self, project_id: int) -> None: ...
+	def get_full_graph(self, project_id: int) -> Dict[str, Any]: ...
 
 
 class Neo4jKGProvider:
@@ -179,6 +180,42 @@ class Neo4jKGProvider:
 			# 先删关系再删节点
 			sess.run("MATCH (n:Entity {group_id:$group})-[r]-() DELETE r", group=group)
 			sess.run("MATCH (n:Entity {group_id:$group}) DELETE n", group=group)
+
+	def get_full_graph(self, project_id: int) -> Dict[str, Any]:
+		"""获取某个项目下的完整图谱数据（节点与关系）。"""
+		group = self._group(project_id)
+		node_cypher = "MATCH (n:Entity {group_id: $group}) RETURN n.name AS name"
+		edge_cypher = (
+			"MATCH (a:Entity {group_id: $group})-[r:RELATES_TO]->(b:Entity {group_id: $group}) "
+			"RETURN a.name AS source, b.name AS target, r.kind AS kind, r.kind_en AS kind_en, r.fact AS fact, r.recent_event_summaries_json AS events"
+		)
+		
+		nodes = []
+		edges = []
+		with self._driver.session() as sess:
+			node_results = sess.run(node_cypher, group=group)
+			for rec in node_results:
+				nodes.append({"id": rec["name"], "label": rec["name"]})
+			
+			edge_results = sess.run(edge_cypher, group=group)
+			for rec in edge_results:
+				events = []
+				try:
+					if rec["events"]:
+						events = json.loads(rec["events"])
+				except: pass
+				
+				edges.append({
+					"source": rec["source"],
+					"target": rec["target"],
+					"label": rec["kind"] or rec["kind_en"] or "RELATES_TO",
+					"properties": {
+						"fact": rec["fact"],
+						"events": events
+					}
+				})
+		
+		return {"nodes": nodes, "edges": edges}
 
 
 def get_provider() -> KnowledgeGraphProvider:

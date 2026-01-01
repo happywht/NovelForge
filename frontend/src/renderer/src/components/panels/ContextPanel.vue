@@ -5,12 +5,18 @@
         <el-icon class="header-icon"><Connection /></el-icon>
         <h3 class="panel-title">上下文感知</h3>
       </div>
-      <el-button size="small" type="primary" :loading="assembling" @click="assemble">
-        <el-icon><Refresh /></el-icon> 刷新装配
-      </el-button>
+      <div class="header-right">
+        <el-radio-group v-model="viewMode" size="small" class="view-toggle">
+          <el-radio-button value="list"><el-icon><Memo /></el-icon></el-radio-button>
+          <el-radio-button value="graph"><el-icon><Share /></el-icon></el-radio-button>
+        </el-radio-group>
+        <el-button size="small" type="primary" :loading="assembling" @click="assemble">
+          <el-icon><Refresh /></el-icon> 刷新装配
+        </el-button>
+      </div>
     </div>
     
-    <div class="controls">
+    <div v-if="viewMode === 'list'" class="controls">
       <el-form label-position="top" size="small">
         <el-form-item label="当前参与实体">
           <el-select v-model="localParticipants" multiple filterable allow-create default-first-option placeholder="输入或选择参与者" @change="onParticipantsChange" class="participant-select">
@@ -22,8 +28,12 @@
       </el-form>
     </div>
 
-    <div class="panel-content custom-scrollbar">
-      <div v-if="assembled" class="assembled-container">
+    <div class="panel-content custom-scrollbar" :class="{ 'is-graph': viewMode === 'graph' }">
+      <template v-if="viewMode === 'graph'">
+        <KGVisualization v-if="projectId" :project-id="projectId" />
+        <el-empty v-else description="未选择项目" />
+      </template>
+      <div v-else-if="assembled" class="assembled-container">
         <!-- 写作指南部分 -->
         <div v-if="assembled.writing_guide" class="section writing-guide-section">
           <div class="section-header">
@@ -111,7 +121,8 @@ import { ref, onMounted, watch } from 'vue'
 import { assembleContext, type AssembleContextResponse } from '@renderer/api/ai'
 import { ElMessage } from 'element-plus'
 import { getCardsForProject, type CardRead } from '@renderer/api/cards'
-import { Connection, Refresh, EditPen, Memo, CircleCheck, Cpu, ArrowRight } from '@element-plus/icons-vue'
+import { Connection, Refresh, EditPen, Memo, CircleCheck, Cpu, ArrowRight, Share } from '@element-plus/icons-vue'
+import KGVisualization from '../kg/KGVisualization.vue'
 
 const props = defineProps<{ projectId?: number; participants?: string[]; volumeNumber?: number | null; stageNumber?: number | null; chapterNumber?: number | null; draftTail?: string; prefetched?: AssembleContextResponse | null }>()
 const emit = defineEmits<{ (e:'update:participants', v: string[]): void; (e:'update:volumeNumber', v: number | null): void; (e:'update:stageNumber', v: number | null): void; (e:'update:chapterNumber', v: number | null): void }>()
@@ -119,6 +130,7 @@ const emit = defineEmits<{ (e:'update:participants', v: string[]): void; (e:'upd
 const assembling = ref(false)
 const assembled = ref<AssembleContextResponse | null>(null)
 const showRaw = ref(false)
+const viewMode = ref<'list' | 'graph'>('list')
 
 type Group = { label: string; values: string[] }
 const participantGroups = ref<Group[]>([])
@@ -146,6 +158,7 @@ function detectTypeGroupByCard(c: CardRead): string {
   if (et === 'organization') return '组织'
   if (et === 'item') return '物品'
   if (et === 'concept') return '概念'
+  if (et === 'character') return '角色'
 
   const tname = (c.card_type?.name || '').trim()
   if (tname.includes('角色')) return '角色'
@@ -230,6 +243,16 @@ async function assemble() {
   gap: 8px;
 }
 
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.view-toggle {
+  margin-right: 4px;
+}
+
 .header-icon {
   color: var(--el-color-primary);
   font-size: 18px;
@@ -254,6 +277,11 @@ async function assemble() {
   flex: 1;
   overflow-y: auto;
   padding: 12px 16px;
+}
+
+.panel-content.is-graph {
+  padding: 0;
+  overflow: hidden;
 }
 
 .section {
