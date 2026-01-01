@@ -7,6 +7,7 @@ export type RelationExtractionOutput = components['schemas']['RelationExtraction
 
 export interface ExtractOnlyRequest {
 	project_id?: number
+	card_id?: number
 	text: string
 	participants?: string[]
 	llm_config_id: number

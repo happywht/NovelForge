@@ -22,6 +22,7 @@ export interface EditorContext {
     resolveSampling: () => any
     formatFactsFromContext: (ctx: any) => string
     extractParticipantsForCurrentChapter: () => string[]
+    dispatch: (specs: any) => void
 }
 
 export function useEditorAI(ctx: EditorContext) {
@@ -53,38 +54,52 @@ export function useEditorAI(ctx: EditorContext) {
         streamedCharCount.value = 0
         ctx.clearHighlight()
 
-        let fullResponse = ''
-        let startPos = 0
+        let accumulated = ''
+        let currentOffset = 0
+        const startTime = Date.now()
 
         if (replaceMode && replaceFrom !== undefined && replaceTo !== undefined) {
-            startPos = replaceFrom
+            currentOffset = replaceFrom
+            // 先清空选中区域
+            ctx.dispatch({
+                changes: { from: replaceFrom, to: replaceTo, insert: '' }
+            })
         } else {
-            startPos = ctx.getText().length
+            // 续写模式，从末尾开始
+            currentOffset = ctx.getText().length
         }
+
+        const startOffset = currentOffset
 
         try {
             streamHandle.value = generateContinuationStreaming(
                 requestData,
                 (delta) => {
-                    if (streamingStatus.value !== '正在生成') {
-                        streamingStatus.value = '正在生成'
-                    }
-                    fullResponse += delta
-                    streamedCharCount.value += delta.length
+                    accumulated += delta
+                    streamedCharCount.value = accumulated.length
 
-                    if (replaceMode && replaceFrom !== undefined && replaceTo !== undefined) {
-                        ctx.replaceSelectedText(fullResponse)
-                        ctx.setHighlight(replaceFrom, replaceFrom + fullResponse.length)
-                    } else {
-                        ctx.appendAtEnd(delta)
-                        ctx.updateHighlight(startPos, startPos + fullResponse.length)
-                    }
+                    // 计算速度
+                    const elapsed = (Date.now() - startTime) / 1000
+                    const speed = elapsed > 0 ? (accumulated.length / elapsed).toFixed(1) : '0'
+                    streamingStatus.value = `正在生成... ${accumulated.length}字 (${speed}字/秒)`
+
+                    // 增量更新编辑器
+                    ctx.dispatch({
+                        changes: { from: currentOffset, to: currentOffset, insert: delta },
+                        // 如果是续写模式，保持光标在末尾
+                        selection: !replaceMode ? { anchor: currentOffset + delta.length } : undefined
+                    })
+
+                    // 更新高亮区域
+                    ctx.updateHighlight(startOffset, currentOffset + delta.length)
+
+                    currentOffset += delta.length
                 },
                 () => {
                     aiLoading.value = false
                     streamHandle.value = null
                     streamingStatus.value = '生成完成'
-                    ElMessage.success(`${taskName}完成`)
+                    ElMessage.success(`${taskName}完成，共 ${accumulated.length} 字`)
                     setTimeout(() => { ctx.clearHighlight() }, 2000)
                 },
                 (err) => {

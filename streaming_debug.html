@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <title>流式输出调试</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        .form {
+            background: #252526;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            background: #3c3c3c;
+            color: #d4d4d4;
+            border: 1px solid #555;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .start {
+            background: #0e639c;
+            color: white;
+            border: none;
+        }
+
+        .stop {
+            background: #c5150d;
+            color: white;
+            border: none;
+        }
+
+        #output {
+            background: #1e1e1e;
+            border: 1px solid #555;
+            padding: 15px;
+            min-height: 300px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        #console {
+            background: #252526;
+            border: 1px solid #555;
+            padding: 15px;
+            min-height: 200px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-size: 11px;
+            color: #858585;
+        }
+
+        .log-info {
+            color: #4ec9b0;
+        }
+
+        .log-error {
+            color: #f48771;
+        }
+
+        .log-success {
+            color: #608b4e;
+        }
+    </style>
+</head>
+
+<body>
+    <h2>🔍 流式输出调试测试</h2>
+    <div class="form">
+        <label>LLM ID: <input type="number" id="llmId" value="3"></label>
+        <label>Prompt: <input type="text" id="prompt" value="内容生成"></label>
+        <label>Project ID: <input type="number" id="projectId" value="2"></label>
+        <label>Card ID: <input type="number" id="cardId" value="7"></label>
+        <button class="start" onclick="test()">开始测试</button>
+        <button class="stop" onclick="stop()">停止</button>
+    </div>
+    <h3>流式输出:</h3>
+    <div id="output"></div>
+    <h3>调试控制台:</h3>
+    <div id="console"></div>
+
+    <script>
+        let controller = null;
+        const log = (msg, type = 'info') => {
+            const div = document.getElementById('console');
+            const line = document.createElement('div');
+            line.className = `log-${type}`;
+            line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            div.appendChild(line);
+            div.scrollTop = div.scrollHeight;
+        };
+
+        async function test() {
+            document.getElementById('output').textContent = '';
+            document.getElementById('console').textContent = '';
+            log('🚀 开始流式测试...', 'info');
+
+            const payload = {
+                llm_config_id: parseInt(document.getElementById('llmId').value),
+                prompt_name: document.getElementById('prompt').value,
+                project_id: parseInt(document.getElementById('projectId').value),
+                card_id: parseInt(document.getElementById('cardId').value),
+                existing_text: '在这个充满魔法的世界里...',
+                participants: [],
+                stream: true
+            };
+
+            log(`📦 请求参数: ${JSON.stringify(payload, null, 2)}`, 'info');
+
+            try {
+                controller = new AbortController();
+                log('🌐 发送 fetch 请求...', 'info');
+
+                const response = await fetch('http://127.0.0.1:8000/api/ai/generate/continuation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'text/event-stream'
+                    },
+                    body: JSON.stringify(payload),
+                    signal: controller.signal
+                });
+
+                log(`✅ 响应状态: ${response.status} ${response.statusText}`, 'success');
+                log(`📋 Content-Type: ${response.headers.get('content-type')}`, 'info');
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+                let chunkIndex = 0;
+
+                log('📖 开始读取流...', 'info');
+
+                while (true) {
+                    const { done, value } = await reader.read();
+
+                    if (done) {
+                        log('🏁 流结束', 'success');
+                        break;
+                    }
+
+                    chunkIndex++;
+                    const chunk = decoder.decode(value, { stream: true });
+                    log(`📦 Chunk #${chunkIndex}: ${value.length} bytes`, 'info');
+                    log(`   内容预览: ${chunk.substring(0, 100)}...`, 'info');
+
+                    buffer += chunk;
+                    const events = buffer.split('\n\n');
+                    buffer = events.pop() || '';
+
+                    log(`   分割出 ${events.length} 个事件`, 'info');
+
+                    for (const event of events) {
+                        if (!event.trim()) continue;
+
+                        log(`   事件: ${event.substring(0, 80)}`, 'info');
+
+                        const lines = event.split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const jsonStr = line.substring(6);
+                                log(`   解析JSON: ${jsonStr}`, 'info');
+                                try {
+                                    const data = JSON.parse(jsonStr);
+                                    log(`   ✅ 数据: ${JSON.stringify(data)}`, 'success');
+                                    if (data.content) {
+                                        document.getElementById('output').textContent += data.content;
+                                    }
+                                } catch (e) {
+                                    log(`   ❌ JSON解析失败: ${e.message}`, 'error');
+                                }
+                            }
+                        }
+                    }
+                }
+
+            } catch (error) {
+                if (error.name === 'AbortError') {
+                    log('⏹️ 用户停止', 'info');
+                } else {
+                    log(`❌ 错误: ${error.message}`, 'error');
+                    console.error(error);
+                }
+            }
+        }
+
+        function stop() {
+            if (controller) {
+                controller.abort();
+                controller = null;
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -100,6 +100,12 @@
           <el-button type="danger" plain size="small" :disabled="!streamHandle" @click="interruptStream">
             <el-icon><CircleClose /></el-icon> 中断
           </el-button>
+
+          <!-- 流式状态显示 -->
+          <div v-if="aiLoading && streamingStatus" class="streaming-status">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <span class="status-text">{{ streamingStatus }}</span>
+          </div>
           
           <!-- AI模型配置 -->
           <AIPerCardParams :card-id="props.card.id" :card-type-name="props.card.card_type?.name" />
@@ -166,7 +172,7 @@ import type { CardRead, CardUpdate } from '@renderer/api/cards'
 import { getAIConfigOptions, type AIConfigOptions, type ContinuationRequest } from '@renderer/api/ai'
 import { getCardAIParams } from '@renderer/api/setting'
 import { updateDynamicInfoOnly, type UpdateDynamicInfoOutput, ingestRelationsFromPreview, type RelationExtractionOutput } from '@renderer/api/memory'
-import { ArrowDown, Document, MagicStick, CircleClose, Timer, Select } from '@element-plus/icons-vue'
+import { ArrowDown, Document, MagicStick, CircleClose, Timer, Select, Loading } from '@element-plus/icons-vue'
 import AIPerCardParams from '../common/AIPerCardParams.vue'
 import { resolveTemplate } from '@renderer/services/contextResolver'
 
@@ -309,7 +315,8 @@ const {
   resolveLlmConfigId,
   resolveSampling,
   formatFactsFromContext,
-  extractParticipantsForCurrentChapter
+  extractParticipantsForCurrentChapter,
+  dispatch: (specs: any) => view?.dispatch(specs)
 })
 
 const wordCount = ref(0)
@@ -612,7 +619,7 @@ async function confirmIngestRelationsFromPreview() {
     const resp = await ingestRelationsFromPreview({ 
       project_id: projectId, 
       data: relationsPreview.value, 
-      participants,
+      participants: participants as any,
       volume_number: vol, 
       chapter_number: ch 
     })
@@ -705,6 +712,8 @@ defineExpose({ handleSave, restoreContent: (c: any) => { setText(typeof c === 's
 .toolbar-divider { width: 1px; height: 20px; background: var(--el-border-color-light); }
 .toolbar-group { display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--el-fill-color-blank); border-radius: 6px; border: 1px solid var(--el-border-color-lighter); }
 .group-label { font-size: 12px; color: var(--el-text-color-secondary); font-weight: 500; }
+.streaming-status { display: flex; align-items: center; gap: 6px; color: var(--el-color-primary); font-size: 12px; margin-left: 10px; }
+.status-text { white-space: nowrap; }
 .editor-content-wrapper { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
 .chapter-header { padding: 16px 32px 14px; border-bottom: 1px solid var(--el-border-color-light); background: var(--el-fill-color-lighter); flex-shrink: 0; }
 .title-section { flex: 1; display: flex; align-items: center; gap: 16px; }
