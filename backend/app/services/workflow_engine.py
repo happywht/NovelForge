@@ -62,22 +62,8 @@ class LocalAsyncEngine:
             loop = asyncio.get_running_loop()
             return loop.create_task(coro_factory())
         except RuntimeError:
-            # 无运行中的事件循环（通常发生在同步线程调用时，如 Card.Save 触发器）
-            import threading
-            
-            def run_in_new_loop():
-                new_loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(new_loop)
-                try:
-                    new_loop.run_until_complete(coro_factory())
-                except Exception as e:
-                    logger.exception(f"[工作流] 线程内执行异常 run_id={run_id} err={e}")
-                finally:
-                    new_loop.close()
-            
-            logger.info(f"[工作流] 无事件循环；通过新线程异步启动 run_id={run_id}")
-            thread = threading.Thread(target=run_in_new_loop, daemon=True)
-            thread.start()
+            # 无运行中的事件循环
+            logger.error(f"[工作流] 无事件循环，无法启动 run_id={run_id}")
             return None
 
     # ---------------- create run ----------------

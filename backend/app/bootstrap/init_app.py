@@ -649,3 +649,24 @@ def init_workflows(db: Session):
         logger.info(f"工作流初始化完成: 新增 {total_created} 个，更新 {total_updated} 个（overwrite={overwrite}，跳过 {total_skipped} 个）。")
     else:
         logger.info(f"所有工作流已是最新状态（overwrite={overwrite}，跳过 {total_skipped} 个）。")
+
+
+def init_card_templates(db: Session):
+    """初始化默认卡片模板"""
+    from app.db.models import CardTemplate, CardType
+    
+    # 示例：为“章节正文”创建一个默认模板
+    ct = db.exec(select(CardType).where(CardType.name == "章节正文")).first()
+    if ct:
+        exists = db.exec(select(CardTemplate).where(CardTemplate.name == "标准章节模板")).first()
+        if not exists:
+            template = CardTemplate(
+                name="标准章节模板",
+                description="包含标准章节结构的模板",
+                card_type_id=ct.id,
+                content={"content": "在此输入章节内容...", "entity_list": []},
+                is_built_in=True
+            )
+            db.add(template)
+            db.commit()
+            logger.info("Created default card template: 标准章节模板")

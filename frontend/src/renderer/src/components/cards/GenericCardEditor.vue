@@ -71,7 +71,7 @@
       </template>
     </ContextDrawer>
 
-    <CardReferenceSelectorDialog v-model:visible="isSelectorVisible" :cards="cards" :currentCardId="props.card.id" @confirm="handleReferenceConfirm" />
+    <CardReferenceSelectorDialog v-model="isSelectorVisible" :cards="cards" :currentCardId="props.card.id" @confirm="handleReferenceConfirm" />
     <CardVersionsDialog
       v-if="projectStore.currentProject?.id"
       v-model="showVersions"
@@ -223,8 +223,44 @@ async function loadAIOptions() { try { aiOptions.value = await getAIConfigOption
 const projectName = '当前项目'
 const lastSavedAt = ref<string | undefined>(undefined)
 const titleProxy = ref(props.card.title)
-watch(() => props.card.title, v => titleProxy.value = v)
-watch(titleProxy, v => localData.value = { ...localData.value, title: v })
+
+/**
+ * // 顶部标题与表单 Title 字段保持同步
+ * // 1) 初始化为 card.title，切换卡片时重置
+ */
+watch(
+  () => props.card.title,
+  (v) => {
+    titleProxy.value = v
+  }
+)
+
+/**
+ * // 2) 顶部标题变更 -> 写回表单数据中的 title (若存在)
+ */
+watch(
+  titleProxy,
+  (v) => {
+    if (!localData.value) {
+      localData.value = { title: v }
+      return
+    }
+    if ((localData.value as any).title === v) return
+    localData.value = { ...(localData.value || {}), title: v }
+  }
+)
+
+/**
+ * // 3) 表单中的 title 字段变更 -> 回写到标题栏
+ */
+watch(
+  () => (localData.value && (localData.value as any).title),
+  (v) => {
+    if (typeof v === 'string' && v !== titleProxy.value) {
+      titleProxy.value = v
+    }
+  }
+)
 
 const isDirty = computed(() => {
   // 如果使用了自定义内容编辑器，使用其 dirty 状态
@@ -533,8 +569,12 @@ async function handleSave() {
   // 默认表单编辑器的保存逻辑
   try {
     isSaving.value = true
+    const trimmedTitle = titleProxy.value.trim()
+    if (localData.value) {
+      (localData.value as any).title = trimmedTitle
+    }
     const updatePayload: CardUpdate = {
-      title: titleProxy.value,
+      title: trimmedTitle,
       content: cloneDeep(localData.value),
       ai_context_template: localAiContextTemplate.value,
     }

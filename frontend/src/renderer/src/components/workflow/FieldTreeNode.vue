@@ -78,6 +78,7 @@ function handleChildToggle(fieldPath: string) {
         <span class="field-name">{{ field.title || field.name }}</span>
         <span class="field-type">{{ field.type }}</span>
         <span v-if="field.required" class="required-marker">*</span>
+        <span v-if="field.readOnly" class="readonly-marker">🔒</span>
         <span class="field-path">{{ field.path }}</span>
       </div>
     </div>
@@ -186,6 +187,12 @@ function handleChildToggle(fieldPath: string) {
   font-weight: bold;
   font-size: 9px;
   flex-shrink: 0;
+}
+
+.readonly-marker {
+  font-size: 9px;
+  flex-shrink: 0;
+  margin-left: 2px;
 }
 
 .field-path {

@@ -7,7 +7,7 @@
           <h4 class="title">章节大纲</h4>
           <div class="section">
             <div class="stage-head">
-              <span class="name">第{{ chapterOutline.chapter_number || '-' }}章｜{{ chapterOutline.title || '未命名' }}</span>
+              <span class="name">第{{ chapterOutline.chapter_number || '-' }}章｜{{ chapterOutline.title || chapterOutline.card_title || '未命名' }}</span>
               <span class="badge">卷{{ volumeNumber ?? '-' }}</span>
             </div>
             <p class="text">{{ chapterOutline.overview || '暂无概述' }}</p>
@@ -209,6 +209,7 @@ const chapterOutline = computed(() => {
       if (Number.isFinite(v) && Number.isFinite(n) && v === vol && n === ch) {
         return {
           title: co?.title || c.title,
+          card_title: c.title,
           overview: co?.overview || '',
           volume_number: v,
           chapter_number: n,

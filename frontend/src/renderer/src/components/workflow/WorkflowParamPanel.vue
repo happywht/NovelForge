@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch, nextTick } from 'vue'
 import type { CardTypeRead } from '@renderer/api/cards'
 import { getCardTypes } from '@renderer/api/cards'
-// import FieldTreeNode from './FieldTreeNode.vue' // 暂时注释，可能是 TypeScript 缓存问题
+import FieldTreeNode from './FieldTreeNode.vue'
 import { QuestionFilled, DocumentCopy } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { parseSchemaFields, toggleFieldExpanded, extractFieldPathOptions, type ParsedField } from '@renderer/services/schemaFieldParser'
@@ -94,6 +94,14 @@ const suggestions = computed(() => {
           hints.push({ key: 'setPath', value: '$.content.status', description: '设置状态字段' })
           hints.push({ key: 'setValue', value: 'completed', description: '设置为已完成' })
         }
+      }
+      break
+    case 'CardTemplate.Apply':
+      if (!currentParams.templateId) {
+        hints.push({ key: 'templateId', value: 1, description: '应用 ID 为 1 的模板' })
+      }
+      if (!currentParams.target) {
+        hints.push({ key: 'target', value: '$self', description: '应用到当前卡片' })
       }
       break
   }
@@ -208,6 +216,11 @@ const paramErrors = computed(() => {
     case 'Card.ClearFields':
       if (!currentParams.fields || !Array.isArray(currentParams.fields) || currentParams.fields.length === 0) {
         errors.push('fields 必须是非空数组')
+      }
+      break
+    case 'CardTemplate.Apply':
+      if (!currentParams.templateId) {
+        errors.push('templateId 是必填参数')
       }
       break
   }
@@ -525,7 +538,7 @@ function handleFieldToggle(fieldPath: string) {
           </el-select>
         </el-form-item>
         
-        <!-- 字段结构展示 - 暂时注释等待 TypeScript 缓存问题解决
+        <!-- 字段结构展示 -->
         <div v-if="selectedCardType && parsedFields.length > 0" class="field-structure">
           <div class="field-structure-title">
             <el-icon><DocumentCopy /></el-icon>
@@ -542,7 +555,6 @@ function handleFieldToggle(fieldPath: string) {
             />
           </div>
         </div>
-        -->
         
         <div class="tip">说明：选择卡片类型后可查看其字段结构，点击字段可复制路径。后续节点会使用该类型进行路径选择与校验。</div>
       </el-form>
@@ -718,6 +730,19 @@ function handleFieldToggle(fieldPath: string) {
             <el-button size="small" type="primary" @click="addField">添加字段</el-button>
           </div>
         </el-form-item>
+      </el-form>
+    </template>
+
+    <!-- CardTemplate.Apply -->
+    <template v-else-if="typeName === 'CardTemplate.Apply'">
+      <el-form label-width="110px" size="small">
+        <el-form-item label="模板 ID">
+          <el-input-number :model-value="params.templateId" @update:model-value="v=>update('templateId', v)" :min="1" />
+        </el-form-item>
+        <el-form-item label="目标卡片">
+          <el-input :model-value="params.target || '$self'" @update:model-value="v=>update('target', v)" placeholder="$self" />
+        </el-form-item>
+        <div class="tip">说明：将指定模板的内容应用到目标卡片。</div>
       </el-form>
     </template>
 

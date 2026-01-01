@@ -1,22 +1,5 @@
-import os, sys
-from dotenv import load_dotenv
+from app.core.config import settings
 
-def _load_env_from_nearby():
-    candidates = []
-    if getattr(sys, "frozen", False):
-        exe_dir = os.path.dirname(sys.executable)
-        candidates.append(os.path.join(exe_dir, ".env"))
-    backend_dir = os.path.abspath(os.path.dirname(__file__))
-    candidates.append(os.path.join(backend_dir, ".env"))
-    candidates.append(os.path.join(os.getcwd(), ".env"))
-    for p in candidates:
-        try:
-            if os.path.isfile(p):
-                load_dotenv(p, override=False)
-        except Exception:
-            pass
-
-_load_env_from_nearby()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,6 +13,7 @@ from app.bootstrap.init_app import init_prompts, create_default_card_types
 from app.bootstrap.init_app import init_knowledge
 from app.bootstrap.init_app import init_reserved_project
 from app.bootstrap.init_app import init_workflows
+from app.bootstrap.init_app import init_card_templates
 
 def init_db():
     models.SQLModel.metadata.create_all(engine)
@@ -54,13 +38,25 @@ async def lifespan(app):
         init_reserved_project(session)
         # 初始化内置工作流
         init_workflows(session)
+        # 初始化卡片模板
+        init_card_templates(session)
+        
+        # 清理僵死工作流 (Zombie Workflow Cleanup)
+        from app.db.models import WorkflowRun
+        zombies = session.exec(select(WorkflowRun).where(WorkflowRun.status == "running")).all()
+        if zombies:
+            for z in zombies:
+                z.status = "failed"
+                z.error_json = {"error": "System restarted while running"}
+            session.commit()
+            logger.info(f"Cleaned up {len(zombies)} zombie workflows.")
     yield
     # 关闭时可添加清理逻辑（如有需要）
 
 # 创建 FastAPI 应用实例，注册 lifespan
 app = FastAPI(
-    title="NovelForge API",
-    version="1.0.0",
+    title=settings.APP_NAME,
+    version=settings.VERSION,
     openapi_url="/openapi.json",
     docs_url="/docs",
     redoc_url="/redoc",

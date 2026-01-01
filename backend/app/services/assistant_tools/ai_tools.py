@@ -8,9 +8,10 @@ from contextvars import ContextVar
 from loguru import logger
 from langchain_core.tools import tool
 
-from app.services import nodes
+from app.services import nodes, agent_service, llm_config_service
 from app.db.models import Card, CardType
 import copy
+from pydantic import BaseModel
 
 
 class AssistantDeps:
@@ -609,6 +610,86 @@ def delete_card(card_id: int) -> dict:
         return {"success": False, "error": f"删除失败: {str(e)}"}
 
 
+@tool
+async def create_card_from_inspiration(
+    card_type: str,
+    title: str,
+    inspiration_text: str,
+    parent_card_id: Optional[int] = None,
+) -> Dict[str, Any]:
+    """
+    根据灵感描述自动生成并创建新卡片。
+    
+    使用场景：当用户有一个模糊的想法（如“帮我设计一个反派角色，性格阴影”），
+    助手应调用此工具，它会自动根据灵感生成符合 Schema 的内容并创建卡片。
+    
+    Args:
+        card_type: 卡片类型名称（如：角色卡、世界观设定等）
+        title: 卡片标题
+        inspiration_text: 灵感描述文本
+        parent_card_id: 父卡片ID（可选）
+    
+    Returns:
+        success: True 表示成功，False 表示失败
+        error: 错误信息
+        card_id: 新创建的卡片ID
+        message: 用户友好的消息
+    """
+
+    deps = _get_deps()
+    logger.info(f" [Assistant.create_card_from_inspiration] type={card_type}, title={title}")
+
+    try:
+        # 1. 获取 Schema
+        schema_resp = get_card_type_schema(card_type_name=card_type)
+        if not schema_resp.get("success"):
+            return schema_resp
+        
+        schema = schema_resp.get("schema")
+        
+        # 2. 调用 AI 生成内容
+        configs = llm_config_service.get_llm_configs(deps.session)
+        llm_config_id = configs[0].id if configs else 1
+        
+        system_prompt = f"你是一个专业的小说创作助手。请根据灵感描述，为一个类型为「{card_type}」的卡片生成详细内容。请严格按照提供的 JSON Schema 生成内容，仅返回 JSON 对象。"
+        user_prompt = f"卡片标题：{title}\n灵感描述：{inspiration_text}\n\n请生成符合以下 Schema 的内容：\n{json.dumps(schema, ensure_ascii=False)}"
+
+        logger.info(f"  正在调用 AI 生成内容...")
+        
+        # 动态创建一个 Pydantic 模型用于解析
+        class DynamicContent(BaseModel):
+            content: Dict[str, Any]
+
+        # 实际上我们只需要生成符合 schema 的字典
+        # 这里简化处理，直接让 AI 返回符合 schema 的 JSON
+        result = await agent_service.run_llm_agent(
+            session=deps.session,
+            llm_config_id=llm_config_id,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            output_type=dict # 期望返回字典
+        )
+        
+        generated_content = result if isinstance(result, dict) else {}
+        
+        # 3. 创建卡片
+        create_res = create_card( # type: ignore[call-arg]
+            card_type=card_type,
+            title=title,
+            content=generated_content,
+            parent_card_id=parent_card_id
+        )
+        
+        if create_res.get("success"):
+            create_res["message"] = f"✨ 已根据灵感自动生成并创建{card_type}「{title}」"
+        
+        return create_res
+
+    except Exception as e:
+        logger.error(f"❌ [Assistant.create_card_from_inspiration] 失败: {e}")
+        return {"success": False, "error": f"生成并创建失败: {str(e)}"}
+
+
 # 导出所有 LangChain 工具（已通过 @tool 装饰）
 ASSISTANT_TOOLS = [
     search_cards,
@@ -619,6 +700,7 @@ ASSISTANT_TOOLS = [
     get_card_type_schema,
     get_card_content,
     delete_card,
+    create_card_from_inspiration,
 ]
 
 ASSISTANT_TOOL_REGISTRY = {tool.name: tool for tool in ASSISTANT_TOOLS}

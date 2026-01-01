@@ -83,6 +83,7 @@ class CardType(SQLModel, table=True):
     # UI 布局（可选），供前端 SectionedForm 使用
     ui_layout: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     cards: List["Card"] = Relationship(back_populates="card_type")
+    templates: List["CardTemplate"] = Relationship(back_populates="card_type")
 
 
 class Card(SQLModel, table=True):
@@ -212,3 +213,14 @@ class WorkflowRun(SQLModel, table=True):
     finished_at: Optional[datetime] = None
     summary_json: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     error_json: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+
+
+class CardTemplate(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(index=True)
+    description: Optional[str] = None
+    card_type_id: int = Field(foreign_key="cardtype.id")
+    card_type: "CardType" = Relationship(back_populates="templates")
+    content: Any = Field(default={}, sa_column=Column(JSON))
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    is_built_in: bool = Field(default=False)

@@ -99,4 +99,29 @@ class CardOrderItem(BaseModel):
 
 class CardBatchReorderRequest(BaseModel):
     """批量更新卡片排序请求"""
-    updates: List[CardOrderItem] = Field(description="要更新的卡片排序列表") 
+    updates: List[CardOrderItem] = Field(description="要更新的卡片排序列表")
+
+
+# --- CardTemplate Schemas ---
+
+class CardTemplateBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    card_type_id: int
+    content: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+
+class CardTemplateCreate(CardTemplateBase):
+    pass
+
+
+class CardTemplateUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    content: Optional[Dict[str, Any]] = None
+
+
+class CardTemplateRead(CardTemplateBase):
+    id: int
+    created_at: datetime
+    is_built_in: bool = False

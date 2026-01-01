@@ -1,9 +1,13 @@
 <template>
   <el-form-item :label="label" :prop="prop">
+    <template #label v-if="$slots.label">
+      <slot name="label"></slot>
+    </template>
     <el-select
       :model-value="modelValue"
       @update:modelValue="emit('update:modelValue', $event)"
       :placeholder="placeholder"
+      :disabled="readonly"
       clearable
       style="width: 100%"
     >
@@ -26,6 +30,7 @@ const props = defineProps<{
   label: string
   prop: string
   schema: JSONSchema
+  readonly?: boolean
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -33,4 +38,4 @@ const emit = defineEmits(['update:modelValue'])
 const placeholder = computed(() => {
   return props.schema.description || `请选择 ${props.label}`
 })
-</script> 
+</script>

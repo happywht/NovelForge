@@ -1,5 +1,8 @@
 <template>
   <el-form-item :label="label" :prop="prop">
+    <template #label v-if="$slots.label">
+      <slot name="label"></slot>
+    </template>
     <el-input-number 
       v-model="internalValue" 
       @change="handleChange" 
@@ -37,4 +40,4 @@ function handleChange(value: number | undefined) {
 .full-width {
   width: 100%;
 }
-</style> 
+</style>

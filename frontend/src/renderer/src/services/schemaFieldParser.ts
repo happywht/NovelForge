@@ -25,6 +25,7 @@ export interface ParsedField {
   expandable?: boolean
   arrayItemType?: string
   hasChildren?: boolean
+  readOnly?: boolean
 }
 
 /**
@@ -61,7 +62,8 @@ export function parseSchemaFields(schema: any, path = '$.content', maxDepth = 5)
         path: fieldPath,
         description: fieldDescription,
         required: required.includes(fieldName),
-        expanded: false
+        expanded: false,
+        readOnly: !!resolvedSchema.readOnly
       }
 
       // 处理嵌套对象

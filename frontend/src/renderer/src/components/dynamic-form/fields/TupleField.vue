@@ -1,5 +1,8 @@
 <template>
   <el-form-item :label="label" :prop="prop">
+    <template #label v-if="$slots.label">
+      <slot name="label"></slot>
+    </template>
     <div class="tuple-field-wrapper">
       <div v-for="(itemSchema, index) in itemSchemas" :key="index" class="tuple-item">
         <component
@@ -8,6 +11,7 @@
           @update:modelValue="updateItem(index, $event)"
           :schema="itemSchema"
           :root-schema="rootSchema"
+          :readonly="readonly"
           label=""
           prop=""
         />
@@ -31,6 +35,7 @@ const props = defineProps<{
   prop: string
   schema: JSONSchema
   rootSchema?: JSONSchema
+  readonly?: boolean
 }>()
 
 const emit = defineEmits(['update:modelValue'])
@@ -42,10 +47,6 @@ const itemSchemas = computed((): JSONSchema[] => {
 
 // 动态获取元组中每个元素应该使用的字段组件
 function getFieldComponent(itemSchema: JSONSchema) {
-  if (itemSchema.enum && itemSchema.enum.length > 0) {
-    // 虽然元组里用枚举不常见，但以防万一
-    // return EnumField - 为了简化，暂时不在这里处理枚举
-  }
   switch (itemSchema.type) {
     case 'string':
       return StringField

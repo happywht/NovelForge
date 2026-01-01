@@ -2,13 +2,16 @@
   <el-card shadow="never" class="object-field-card">
     <template #header>
       <div class="card-header">
-        <span>{{ label }}</span>
+        <slot name="label">
+          <span>{{ label }}</span>
+        </slot>
       </div>
     </template>
     <ModelDrivenForm
       :schema="effectiveSchema"
       :modelValue="modelValue || {}"
       :root-schema="rootSchema"
+      :readonly-fields="readonly ? Object.keys(modelValue || {}) : []"
       @update:modelValue="emit('update:modelValue', $event)"
     />
   </el-card>
@@ -19,7 +22,6 @@ import { defineAsyncComponent, computed } from 'vue'
 import type { JSONSchema } from '@renderer/api/schema'
 
 // 使用前向声明来处理递归组件。
-// 这在模块级别打破了循环依赖。
 const ModelDrivenForm = defineAsyncComponent(() => import('../ModelDrivenForm.vue'))
 
 const props = defineProps<{
@@ -27,6 +29,7 @@ const props = defineProps<{
   label: string
   schema: JSONSchema
   rootSchema?: JSONSchema
+  readonly?: boolean
 }>()
 
 const emit = defineEmits(['update:modelValue'])

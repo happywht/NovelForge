@@ -454,15 +454,18 @@ function extractParticipantsWithTypeForCurrentChapter() {
 
 async function handleSave() {
   if (props.chapter) { emit('save'); return }
+  const trimmedTitle = localCard.title.trim()
+  localCard.content = {
+    ...localCard.content,
+    title: trimmedTitle,
+    content: getText(),
+    word_count: wordCount.value,
+    volume_number: (props.contextParams as any)?.volume_number ?? (localCard.content as any)?.volume_number,
+    chapter_number: (props.contextParams as any)?.chapter_number ?? (localCard.content as any)?.chapter_number,
+  }
   const updatePayload: CardUpdate = {
-    title: localCard.title,
-    content: {
-      ...localCard.content,
-      content: getText(),
-      word_count: wordCount.value,
-      volume_number: (props.contextParams as any)?.volume_number ?? (localCard.content as any)?.volume_number,
-      chapter_number: (props.contextParams as any)?.chapter_number ?? (localCard.content as any)?.chapter_number,
-    }
+    title: trimmedTitle,
+    content: localCard.content as any
   }
   await cardStore.modifyCard(localCard.id, updatePayload)
   originalContent.value = getText()
@@ -677,8 +680,16 @@ function initEditor() {
 async function handleTitleBlur() {
   const newTitle = titleElement.value?.textContent?.trim() || ''
   if (newTitle && newTitle !== localCard.title) {
-    await cardStore.modifyCard(localCard.id, { title: newTitle })
     localCard.title = newTitle
+    localCard.content = {
+      ...(localCard.content || {}),
+      title: newTitle,
+    }
+    const updatePayload: CardUpdate = {
+      title: newTitle,
+      content: localCard.content as any,
+    }
+    await cardStore.modifyCard(localCard.id, updatePayload)
     ElMessage.success('标题已更新')
   } else if (titleElement.value) {
     titleElement.value.textContent = localCard.title

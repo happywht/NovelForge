@@ -3,9 +3,8 @@ from __future__ import annotations
 import os
 import json
 from typing import Any, Dict, List, Optional, Tuple, Protocol
-
-
 from app.schemas.relation_extract import EN_TO_CN_KIND
+from app.core.config import settings
 
 
 class KnowledgeGraphUnavailableError(RuntimeError):
@@ -31,10 +30,10 @@ class KnowledgeGraphProvider(Protocol):
 class Neo4jKGProvider:
 	def __init__(self) -> None:
 		from neo4j import GraphDatabase  # type: ignore
-		uri = os.getenv("NEO4J_URI") or os.getenv("GRAPH_DB_URI") or "bolt://127.0.0.1:7687"
-		user = os.getenv("NEO4J_USER") or os.getenv("GRAPH_DB_USER") or "neo4j"
-		password = os.getenv("NEO4J_PASSWORD") or os.getenv("GRAPH_DB_PASSWORD") or "neo4j"
-		self._driver = GraphDatabase.driver(uri, auth=(user, password))
+		self._driver = GraphDatabase.driver(
+			settings.NEO4J_URI, 
+			auth=(settings.NEO4J_USER, settings.NEO4J_PASSWORD)
+		)
 
 	def close(self) -> None:
 		try:

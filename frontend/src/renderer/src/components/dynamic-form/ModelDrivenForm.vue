@@ -10,12 +10,16 @@
             :schema="resolveActualSchema(propSchema)"
             :display-name-map="displayNameMap"
             :model-value="modelValue[propName]"
-            :readonly="readonlyFields.includes(String(propName))"
+            :readonly="readonlyFields.includes(String(propName)) || !!propSchema.readOnly"
             :contextData="modelValue"
             :owner-id="ownerId"
             :root-schema="rootSchema || schema"
             @update:modelValue="updateModel(String(propName), $event)"
-          />
+          >
+            <template #label v-if="$slots[`label-${propName}`]">
+              <slot :name="`label-${propName}`" :label="propSchema.title || String(propName)"></slot>
+            </template>
+          </component>
         </template>
       </el-form>
     </el-card>
@@ -35,6 +39,7 @@ const ObjectField = defineAsyncComponent(() => import('./fields/ObjectField.vue'
 const ArrayField = defineAsyncComponent(() => import('./fields/ArrayField.vue'))
 const EnumField = defineAsyncComponent(() => import('./fields/EnumField.vue'))
 const TupleField = defineAsyncComponent(() => import('./fields/TupleField.vue'))
+const BooleanField = defineAsyncComponent(() => import('./fields/BooleanField.vue'))
 // 用于不支持类型的默认回退组件
 const FallbackField = defineAsyncComponent(() => import('./fields/FallbackField.vue'))
 
@@ -97,6 +102,8 @@ function getFieldComponent(propSchema: JSONSchema) {
       return ObjectField
     case 'array':
       return ArrayField
+    case 'boolean':
+      return BooleanField
     default:
       console.warn(`不支持的字段类型: ${actualSchema.type} (属性: ${actualSchema.title}). 已使用回退组件。`)
       return FallbackField

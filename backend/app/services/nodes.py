@@ -1221,3 +1221,53 @@ def node_card_delete(session: Session, state: dict, params: dict) -> dict:
         state["current"]["card"] = None
         
     return {"success": True, "card_id": card_id}
+
+
+@register_node("CardTemplate.Apply")
+def node_card_template_apply(session: Session, state: dict, params: dict) -> dict:
+    """
+    CardTemplate.Apply: 应用卡片模板到指定卡片
+    params:
+      - templateId: 模板 ID
+      - target: "$self" | int(card_id)
+    """
+    template_id = params.get("templateId")
+    target = params.get("target", "$self")
+    
+    if not template_id:
+        raise ValueError("CardTemplate.Apply 未指定 templateId")
+        
+    from app.services.card_template_service import CardTemplateService
+    from app.services.card_service import CardService
+    from app.schemas.card import CardUpdate
+    
+    template_svc = CardTemplateService(session)
+    card_svc = CardService(session)
+    
+    template = template_svc.get_by_id(int(template_id))
+    if not template:
+        return {"success": False, "error": "Template not found"}
+        
+    card_id: Optional[int] = None
+    if target == "$self":
+        scope = state.get("scope") or {}
+        card_id = scope.get("card_id")
+    else:
+        try:
+            card_id = int(target)
+        except Exception:
+            card_id = None
+            
+    if not card_id:
+        raise ValueError("CardTemplate.Apply 未指定有效的卡片 ID")
+        
+    card = card_svc.get_by_id(card_id)
+    if not card:
+        return {"success": False, "error": "Card not found"}
+        
+    # 应用模板内容
+    card_update = CardUpdate(content=template.content)
+    updated_card = card_svc.update(card_id, card_update)
+    
+    return {"success": True, "card_id": card_id, "template_id": template_id}
+
