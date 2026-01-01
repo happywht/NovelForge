@@ -6,8 +6,21 @@ import { useAssistantStore } from '@renderer/stores/useAssistantStore'
 import { useCardTree } from './useCardTree'
 import { copyCard, batchReorderCards } from '@renderer/api/cards'
 import { getCardSchema, createCardType } from '@renderer/api/setting'
+import type { components } from '@renderer/types/generated'
 
-export function useCardDragDrop(newCardForm: any, handleCreateCard: () => void) {
+type CardRead = components['schemas']['CardRead']
+
+interface NewCardForm {
+    title: string
+    card_type_id: number | null
+    parent_id: number | null
+}
+
+interface DragNode {
+    data: CardRead & { __isGroup?: boolean }
+}
+
+export function useCardDragDrop(newCardForm: NewCardForm, handleCreateCard: () => void) {
     const cardStore = useCardStore()
     const projectStore = useProjectStore()
     const assistantStore = useAssistantStore()
@@ -25,7 +38,7 @@ export function useCardDragDrop(newCardForm: any, handleCreateCard: () => void) 
             if (typeId) {
                 newCardForm.title = (cardStore.cardTypes.find(ct => ct.id === Number(typeId))?.name || '新卡片')
                 newCardForm.card_type_id = Number(typeId)
-                newCardForm.parent_id = '' as any
+                newCardForm.parent_id = null
                 handleCreateCard()
                 return
             }
@@ -64,18 +77,18 @@ export function useCardDragDrop(newCardForm: any, handleCreateCard: () => void) 
         } catch (err) { }
     }
 
-    function handleAllowDrag(draggingNode: any): boolean {
+    function handleAllowDrag(draggingNode: DragNode): boolean {
         return !draggingNode.data.__isGroup
     }
 
-    function handleAllowDrop(draggingNode: any, dropNode: any, type: 'prev' | 'inner' | 'next'): boolean {
+    function handleAllowDrop(draggingNode: DragNode, dropNode: DragNode, type: 'prev' | 'inner' | 'next'): boolean {
         if (dropNode.data.__isGroup) {
             return type === 'inner'
         }
         return true
     }
 
-    async function handleNodeDrop(draggingNode: any, dropNode: any, dropType: 'before' | 'after' | 'inner', ev: DragEvent) {
+    async function handleNodeDrop(draggingNode: DragNode, dropNode: DragNode, dropType: 'before' | 'after' | 'inner', ev: DragEvent) {
         try {
             const draggedCard = draggingNode.data
             const targetCard = dropNode.data
@@ -92,7 +105,7 @@ export function useCardDragDrop(newCardForm: any, handleCreateCard: () => void) 
                     type: 'move',
                     cardId: draggedCard.id,
                     cardTitle: draggedCard.title,
-                    cardType: draggedCard.card_type?.name || 'Unknown',
+                    cardType: (draggedCard as any).card_type?.name || 'Unknown',
                     detail: '从子卡片移到根级'
                 })
 
@@ -112,8 +125,8 @@ export function useCardDragDrop(newCardForm: any, handleCreateCard: () => void) 
                     type: 'move',
                     cardId: draggedCard.id,
                     cardTitle: draggedCard.title,
-                    cardType: draggedCard.card_type?.name || 'Unknown',
-                    detail: `设为「${targetCard.title}」(${targetCard.card_type?.name || 'Unknown'} #${targetCard.id})的子卡片`
+                    cardType: (draggedCard as any).card_type?.name || 'Unknown',
+                    detail: `设为「${targetCard.title}」(${(targetCard as any).card_type?.name || 'Unknown'} #${targetCard.id})的子卡片`
                 })
 
                 updateProjectStructureContext(activeCard.value?.id)
