@@ -98,8 +98,24 @@
           </el-button-group>
           
           <el-button type="danger" plain size="small" :disabled="!streamHandle" @click="interruptStream">
-            <el-icon><CircleClose /></el-icon> 中断
+            <el-icon><CircleClose /></el-icon> 停止
           </el-button>
+
+          <div class="toolbar-divider"></div>
+
+          <el-dropdown @command="handleAIWorkflow" trigger="click">
+            <el-button type="warning" size="small" :loading="aiLoading">
+              <el-icon><MagicStick /></el-icon> ✨ AI 协作
+              <el-icon class="el-icon--right"><arrow-down /></el-icon>
+            </el-button>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item command="续写">自动续写本章</el-dropdown-item>
+                <el-dropdown-item command="审计">检查逻辑漏洞</el-dropdown-item>
+                <el-dropdown-item command="补全" v-if="props.card.card_type?.name === '角色卡'">补全人物设定</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
 
           <!-- 流式状态显示 -->
           <div v-if="aiLoading && streamingStatus" class="streaming-status">
@@ -172,6 +188,7 @@ import type { CardRead, CardUpdate } from '@renderer/api/cards'
 import { getAIConfigOptions, type AIConfigOptions, type ContinuationRequest } from '@renderer/api/ai'
 import { getCardAIParams } from '@renderer/api/setting'
 import { updateDynamicInfoOnly, type UpdateDynamicInfoOutput, ingestRelationsFromPreview, type RelationExtractionOutput } from '@renderer/api/memory'
+import { runWorkflow, listWorkflows } from '@renderer/api/workflows'
 import { ArrowDown, Document, MagicStick, CircleClose, Timer, Select, Loading } from '@element-plus/icons-vue'
 import AIPerCardParams from '../common/AIPerCardParams.vue'
 import { resolveTemplate } from '@renderer/services/contextResolver'
@@ -397,6 +414,41 @@ function resolveLlmConfigId(): number | undefined {
 function resolveSampling() {
   const src: any = perCardParams.value || editingParams.value || {}
   return { temperature: src.temperature, max_tokens: src.max_tokens, timeout: src.timeout }
+}
+
+async function handleAIWorkflow(command: string) {
+  const workflowNameMap: Record<string, string> = {
+    '续写': '智能章节续写与审计',
+    '审计': '智能章节审计与同步',
+    '补全': '角色设定智能补全'
+  }
+  
+  const targetName = workflowNameMap[command]
+  if (!targetName) return
+  
+  aiLoading.value = true
+  try {
+    const workflows = await listWorkflows()
+    const target = workflows.find(w => w.name === targetName)
+    if (!target) {
+      ElMessage.error(`未找到工作流: ${targetName}`)
+      return
+    }
+    
+    const scope = {
+      card_id: props.card.id,
+      project_id: props.contextParams?.project_id,
+      volume_number: localCard.content.volume_number,
+      chapter_number: localCard.content.chapter_number
+    }
+    
+    await runWorkflow(target.id, { scope_json: scope, params_json: {} })
+    ElMessage.success(`${targetName} 已启动`)
+  } catch (err: any) {
+    ElMessage.error(`启动失败: ${err.message}`)
+  } finally {
+    aiLoading.value = false
+  }
 }
 
 function formatFactsFromContext(ctx: any): string {

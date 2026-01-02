@@ -29,7 +29,6 @@
 <script setup lang="ts">
 import { defineAsyncComponent, computed } from 'vue'
 import type { JSONSchema } from '@renderer/api/schema'
-import { schemaService } from '@renderer/api/schema'
 import { resolveActualSchema as resolveSchemaUnified } from '@renderer/services/schemaFieldParser'
 
 // --- 组件导入 ---
@@ -81,17 +80,23 @@ function resolveActualSchema(schema: JSONSchema): JSONSchema {
 
 function getFieldComponent(propSchema: JSONSchema) {
   const actualSchema = resolveActualSchema(propSchema);
+  
+  // 优先处理枚举
   if (actualSchema.enum && actualSchema.enum.length > 0) {
     return EnumField
   }
-  if (actualSchema.type === 'array' && (actualSchema.prefixItems || actualSchema.anyOf)) {
-    if (actualSchema.anyOf && !actualSchema.prefixItems) {
-       return TupleField
-    }
-    if(actualSchema.prefixItems){
-      return TupleField
-    }
+  
+  // 处理元组/固定长度数组
+  if (actualSchema.type === 'array' && (actualSchema.prefixItems || (actualSchema.items && Array.isArray(actualSchema.items)))) {
+    return TupleField
   }
+
+  // 处理 anyOf (非数组情况)
+  if (actualSchema.anyOf && !actualSchema.type) {
+    const firstValid = actualSchema.anyOf.find((s: any) => s.type !== 'null')
+    if (firstValid && firstValid.type === 'object') return ObjectField
+  }
+
   switch (actualSchema.type) {
     case 'string':
       return StringField

@@ -224,6 +224,92 @@ export function extractFieldPathOptions(fields: ParsedField[], options: Array<{ 
 }
 
 /**
+ * 为Schema生成默认值
+ * @param schema JSON Schema对象
+ * @param rootSchema 根Schema对象
+ * @returns 默认值
+ */
+export function createDefaultValue(schema: any, rootSchema?: any): any {
+  const actualSchema = resolveActualSchema(schema, null, rootSchema || schema)
+
+  if (actualSchema.default !== undefined) {
+    return JSON.parse(JSON.stringify(actualSchema.default))
+  }
+
+  // 处理 anyOf/oneOf
+  if (actualSchema.anyOf && actualSchema.anyOf.length > 0) {
+    const firstValid = actualSchema.anyOf.find((s: any) => s.type !== 'null')
+    if (firstValid) return createDefaultValue(firstValid, rootSchema)
+  }
+  if (actualSchema.oneOf && actualSchema.oneOf.length > 0) {
+    return createDefaultValue(actualSchema.oneOf[0], rootSchema)
+  }
+
+  switch (actualSchema.type) {
+    case 'string':
+      if (actualSchema.enum && actualSchema.enum.length > 0) return actualSchema.enum[0]
+      return ''
+    case 'number':
+    case 'integer':
+      return 0
+    case 'boolean':
+      return false
+    case 'array':
+      return []
+    case 'object':
+      const obj: any = {}
+      if (actualSchema.properties) {
+        for (const [key, propSchema] of Object.entries(actualSchema.properties)) {
+          obj[key] = createDefaultValue(propSchema, rootSchema)
+        }
+      }
+      return obj
+    default:
+      return null
+  }
+}
+
+/**
+ * 在 anyOf 中寻找最匹配给定值的 Schema
+ * @param anyOfSchemas anyOf 数组
+ * @param value 当前值
+ * @param rootSchema 根 Schema
+ * @returns 匹配的 Schema 或第一个非空 Schema
+ */
+export function matchSchemaForValue(anyOfSchemas: any[], value: any, rootSchema?: any): any {
+  if (!anyOfSchemas || !anyOfSchemas.length) return null
+
+  // 如果值不存在，返回第一个非空 Schema
+  if (value === undefined || value === null) {
+    return anyOfSchemas.find(s => s.type !== 'null') || anyOfSchemas[0]
+  }
+
+  // 简单的启发式匹配
+  for (const schema of anyOfSchemas) {
+    const resolved = resolveActualSchema(schema, null, rootSchema)
+    if (!resolved || resolved.type === 'null') continue
+
+    // 类型匹配
+    if (typeof value === resolved.type || (resolved.type === 'integer' && Number.isInteger(value))) {
+      // 如果是对象，进一步检查属性匹配度
+      if (resolved.type === 'object' && resolved.properties && typeof value === 'object') {
+        const schemaProps = Object.keys(resolved.properties)
+        const valueProps = Object.keys(value)
+        // 如果值包含 Schema 中定义的关键属性，则认为匹配
+        if (valueProps.some(p => schemaProps.includes(p))) {
+          return schema
+        }
+      } else {
+        return schema
+      }
+    }
+  }
+
+  // 回退到第一个非空 Schema
+  return anyOfSchemas.find(s => s.type !== 'null') || anyOfSchemas[0]
+}
+
+/**
  * 为ModelDrivenForm等组件提供的Schema解析函数
  * 与原有的resolveActualSchema逻辑兼容
  * @param schema Schema对象

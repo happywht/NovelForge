@@ -58,7 +58,7 @@
 import { computed, defineAsyncComponent } from 'vue'
 import { type JSONSchema } from '@renderer/api/schema'
 import { Delete, Plus } from '@element-plus/icons-vue'
-import { resolveActualSchema } from '@renderer/services/schemaFieldParser'
+import { resolveActualSchema, createDefaultValue, matchSchemaForValue } from '@renderer/services/schemaFieldParser'
 
 const ModelDrivenForm = defineAsyncComponent(() => import('../ModelDrivenForm.vue'))
 const StringField = defineAsyncComponent(() => import('./StringField.vue'))
@@ -89,8 +89,7 @@ function getItemSchemaForIndex(index: number): JSONSchema {
   const base = itemSchema.value
   const value = (props.modelValue || [])[index]
   if ((base as any).anyOf) {
-    const matched = resolveAnyOfForValue(base, value)
-    if (matched) return matched
+    return matchSchemaForValue((base as any).anyOf, value, props.rootSchema) as JSONSchema
   }
   return base
 }
@@ -130,40 +129,11 @@ function removeItem(index: number) {
 function addItem() {
   const newArray = [...(props.modelValue || [])]
   const base = itemSchema.value
-  let defaultValue: any
-
-  if ((base as any).anyOf) {
-    defaultValue = { name: '', entity_type: 'character', life_span: '短期' }
-  } else {
-    defaultValue = createArrayItemDefaultValue(base)
-  }
+  
+  const defaultValue = createDefaultValue(base, props.rootSchema)
 
   newArray.push(defaultValue)
   emit('update:modelValue', newArray)
-}
-
-function createArrayItemDefaultValue(schema: JSONSchema): any {
-  const actualSchema = resolveActualSchema(schema, props.schema, props.rootSchema)
-  
-  if (actualSchema.default !== undefined) {
-    return actualSchema.default
-  }
-  
-  switch (actualSchema.type) {
-    case 'string': return ''
-    case 'number':
-    case 'integer': return 0
-    case 'boolean': return false
-    case 'array': return []
-    case 'object': return {}
-    default: return null
-  }
-}
-
-function resolveAnyOfForValue(base: JSONSchema, value: any): JSONSchema | null {
-  if (!base.anyOf) return null
-  const nonNullSchema = base.anyOf.find((s: any) => s && s.type !== 'null')
-  return nonNullSchema ? resolveActualSchema(nonNullSchema as JSONSchema, props.schema, props.rootSchema) : null
 }
 </script>
 
