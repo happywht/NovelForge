@@ -505,7 +505,6 @@ function handleDrop(e: DragEvent) {
         :edges="edges"
         :node-types="nodeTypes"
         @node-click="handleNodeClick"
-        @node-click="handleNodeClick"
         @connect-start="onConnectStart"
         @connect-end="onConnectEnd"
         @node-contextmenu="handleNodeContext"

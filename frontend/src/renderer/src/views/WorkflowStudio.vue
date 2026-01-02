@@ -527,7 +527,7 @@ function deleteSelectedNode() {
                   class="trigger-tag"
                   @close="removeTrigger(tg.id)"
                   @click="
-                    editingTrigger = { ...tg }
+                    editingTrigger = { ...tg };
                     triggerDialogVisible = true
                   "
                 >
