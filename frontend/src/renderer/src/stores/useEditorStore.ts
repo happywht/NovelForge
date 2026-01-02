@@ -158,8 +158,11 @@ export const useEditorStore = defineStore('editor', () => {
   }
 
   async function triggerExtractDynamicInfo(opts: { llm_config_id?: number; preview?: boolean }) {
+    console.log('[EditorStore] triggerExtractDynamicInfo called, ref exists:', !!triggerExtractDynamicInfoRef.value)
     if (triggerExtractDynamicInfoRef.value) {
       await triggerExtractDynamicInfoRef.value(opts)
+    } else {
+      console.warn('[EditorStore] triggerExtractDynamicInfoRef is null!')
     }
   }
 

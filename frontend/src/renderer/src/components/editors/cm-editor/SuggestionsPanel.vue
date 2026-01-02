@@ -38,7 +38,7 @@
               <ul class="info-list">
                 <li v-for="(vals, key) in role.dynamic_info" :key="key">
                   <span class="info-key">{{ key }}:</span>
-                  <span class="info-vals">{{ vals.join(', ') }}</span>
+                  <span class="info-vals">{{ vals.map((v: any) => v.info).join(', ') }}</span>
                 </li>
               </ul>
             </div>

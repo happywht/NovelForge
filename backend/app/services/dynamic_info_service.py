@@ -180,10 +180,7 @@ class DynamicInfoService:
                             next_id += 1
                     
                     limit = DYNAMIC_INFO_LIMITS.get(cat, queue_size)
-                    if str(cat) == '心理想法/目标快照':
-                        model.dynamic_info[cat] = existing_items[-limit:]
-                    else:
-                        model.dynamic_info[cat] = existing_items[:limit]
+                    model.dynamic_info[cat] = existing_items[-limit:]
 
                 card.content = model.model_dump(exclude_unset=True)
                 updated_cards[card.title] = card

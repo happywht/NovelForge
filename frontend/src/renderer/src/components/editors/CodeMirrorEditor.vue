@@ -593,7 +593,9 @@ function extractParticipantsWithTypeForCurrentChapter() {
 }
 
 async function handleSave() {
+  console.log('[CodeMirrorEditor] handleSave called')
   if (props.chapter) {
+    console.log('[CodeMirrorEditor] handleSave: props.chapter is true, emitting save')
     emit('save')
     return
   }
@@ -612,12 +614,14 @@ async function handleSave() {
     title: trimmedTitle,
     content: localCard.content as any
   }
+  console.log('[CodeMirrorEditor] handleSave: modifying card...')
   await cardStore.modifyCard(localCard.id, updatePayload)
   originalContent.value = getText()
   isDirty.value = false
   emit('update:dirty', false)
 
   // 非阻塞自动提取
+  console.log('[CodeMirrorEditor] handleSave: triggering auto extraction...')
   triggerAutoExtraction()
   return updatePayload.content
 }
@@ -625,19 +629,28 @@ async function handleSave() {
 async function triggerAutoExtraction() {
   try {
     const typeName = (props.card as any)?.card_type?.name || ''
-    if (typeName !== '章节正文') return
+    console.log('[AutoExtract] Triggered, type:', typeName)
+    if (typeName !== '章节正文') {
+      console.log('[AutoExtract] Skipped: not 章节正文')
+      return
+    }
 
     const needDynamic = localStorage.getItem('nf:chapter:auto_extract_dynamic_on_save') === '1'
     const needRelations = localStorage.getItem('nf:chapter:auto_extract_relations_on_save') === '1'
+    console.log('[AutoExtract] Preferences:', { needDynamic, needRelations })
 
     if (needDynamic || needRelations) {
       const llmConfigId = resolveLlmConfigId()
+      console.log('[AutoExtract] LLM Config ID:', llmConfigId)
       if (llmConfigId) {
         if (needDynamic) {
+          console.log('[AutoExtract] Extracting dynamic info...')
           const data = await extractDynamicInfoWithLlm(llmConfigId, localCard.id, getText())
+          console.log('[AutoExtract] Dynamic info data:', data)
           suggestionsStore.addDynamicInfoSuggestion(data)
         }
         if (needRelations) {
+          console.log('[AutoExtract] Extracting relations...')
           const participants = extractParticipantsWithTypeForCurrentChapter()
           const vol =
             (localCard as any)?.content?.volume_number ??
@@ -646,6 +659,7 @@ async function triggerAutoExtraction() {
             (localCard as any)?.content?.chapter_number ??
             (props.contextParams as any)?.chapter_number
           const data = await extractRelationsWithLlm(llmConfigId, getText(), participants, vol, ch)
+          console.log('[AutoExtract] Relations data:', data)
           suggestionsStore.addRelationSuggestion(data)
         }
       }
@@ -842,11 +856,45 @@ onMounted(async () => {
   expandPrompts.value = names.length ? names : ['扩写']
   currentPolishPrompt.value = names.includes('润色') ? '润色' : names[0] || '润色'
   currentExpandPrompt.value = names.includes('扩写') ? '扩写' : names[0] || '扩写'
+
+  // 注册提取回调给 Store，供侧边栏等外部组件调用
+  editorStore.setTriggerExtractDynamicInfo(async (opts) => {
+    const llmConfigId = opts.llm_config_id || resolveLlmConfigId()
+    if (!llmConfigId) {
+      ElMessage.warning('请先设置有效的模型ID')
+      return
+    }
+    const data = await extractDynamicInfoWithLlm(llmConfigId, localCard.id, getText())
+    suggestionsStore.addDynamicInfoSuggestion(data)
+    ElMessage.success('动态信息提取完成，请在“建议”面板查看')
+  })
+
+  // 监听关系提取事件
+  window.addEventListener('nf:extract-relations', handleExtractRelationsEvent as any)
 })
+
+async function handleExtractRelationsEvent(e: CustomEvent) {
+  const { llm_config_id } = e.detail || {}
+  const llmConfigId = llm_config_id || resolveLlmConfigId()
+  if (!llmConfigId) {
+    ElMessage.warning('请先设置有效的模型ID')
+    return
+  }
+  const participants = extractParticipantsWithTypeForCurrentChapter()
+  const vol =
+    (localCard as any)?.content?.volume_number ?? (props.contextParams as any)?.volume_number
+  const ch =
+    (localCard as any)?.content?.chapter_number ?? (props.contextParams as any)?.chapter_number
+  const data = await extractRelationsWithLlm(llmConfigId, getText(), participants, vol, ch)
+  suggestionsStore.addRelationSuggestion(data)
+  ElMessage.success('关系提取完成，请在“建议”面板查看')
+}
 
 onUnmounted(() => {
   view?.destroy()
   if (streamHandle.value) streamHandle.value.cancel()
+  editorStore.setTriggerExtractDynamicInfo(null)
+  window.removeEventListener('nf:extract-relations', handleExtractRelationsEvent as any)
 })
 
 defineExpose({

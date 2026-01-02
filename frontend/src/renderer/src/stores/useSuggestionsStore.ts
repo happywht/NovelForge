@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import type { UpdateDynamicInfoOutput, RelationExtractionOutput } from '@renderer/api/memory'
 import { updateDynamicInfoOnly, ingestRelationsFromPreview } from '@renderer/api/memory'
 import { ElMessage } from 'element-plus'
+import { useCardStore } from './useCardStore'
 
 export interface Suggestion {
   id: string
@@ -16,6 +17,7 @@ export interface Suggestion {
 export const useSuggestionsStore = defineStore('suggestions', () => {
   const suggestions = ref<Suggestion[]>([])
   const loading = ref(false)
+  const cardStore = useCardStore()
 
   function addDynamicInfoSuggestion(data: UpdateDynamicInfoOutput): void {
     const id = `dyn_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`
@@ -53,17 +55,25 @@ export const useSuggestionsStore = defineStore('suggestions', () => {
         if (resp.success) {
           ElMessage.success(`已更新 ${resp.updated_card_count} 个角色卡`)
           removeSuggestion(suggestion.id)
+          // 刷新卡片列表以同步更新内容
+          await cardStore.fetchCards(projectId)
         }
       } else if (suggestion.type === 'relation') {
+        const participants = (context?.participants || []).map((p: any) => {
+          if (typeof p === 'string') return { name: p, type: '角色' }
+          return { name: p.name || '', type: p.type || '角色' }
+        })
         const resp = await ingestRelationsFromPreview({
           project_id: projectId,
           data: suggestion.data,
-          participants: context?.participants || [],
+          participants,
           volume_number: context?.volume_number,
           chapter_number: context?.chapter_number
         })
         ElMessage.success(`已写入 ${resp.written} 条关系/别名`)
         removeSuggestion(suggestion.id)
+        // 刷新卡片列表以同步更新内容
+        await cardStore.fetchCards(projectId)
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)

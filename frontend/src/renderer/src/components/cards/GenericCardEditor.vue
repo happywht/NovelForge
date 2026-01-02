@@ -664,10 +664,12 @@ function openSelectorFromDrawer() {
 const previewText = computed(() => localAiContextTemplate.value)
 
 async function handleSave() {
+  console.log('[GenericCardEditor] handleSave called, activeContentEditor:', !!activeContentEditor.value, 'contentEditorRef:', !!contentEditorRef.value)
   // 自定义内容编辑器的保存逻辑（如 CodeMirrorEditor）
   if (activeContentEditor.value && contentEditorRef.value) {
     try {
       isSaving.value = true
+      console.log('[GenericCardEditor] Calling contentEditorRef.handleSave()...')
       const savedContent = await contentEditorRef.value.handleSave()
 
       // 保存上下文模板（如果有修改）
