@@ -48,7 +48,9 @@ async function syncViewFromHash() {
   const hash = window.location.hash || ''
   if (hash.startsWith('#/ideas-home')) {
     appStore.goToIdeas()
-    try { await projectStore.loadFreeProject() } catch {}
+    try {
+      await projectStore.loadFreeProject()
+    } catch {}
   }
   if (hash.startsWith('#/workflows')) {
     appStore.goToWorkflows()
@@ -81,10 +83,7 @@ onBeforeUnmount(() => {
       <IdeasHome v-else-if="currentView === 'ideas'" />
       <WorkflowStudio v-else-if="currentView === 'workflows'" />
     </main>
-    <SettingsDialog 
-      v-model="settingsDialogVisible"
-      @close="handleCloseSettings"
-    />
+    <SettingsDialog v-model="settingsDialogVisible" @close="handleCloseSettings" />
   </div>
 </template>
 

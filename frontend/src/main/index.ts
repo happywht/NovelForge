@@ -55,7 +55,10 @@ function createWindow(): void {
 function openIdeasHome() {
   const key = `ideas-home`
   const existing = studioWindows.get(key)
-  if (existing && !existing.isDestroyed()) { existing.focus(); return }
+  if (existing && !existing.isDestroyed()) {
+    existing.focus()
+    return
+  }
   const win = new BrowserWindow({
     width: 1100,
     height: 760,
@@ -113,7 +116,10 @@ app.whenReady().then(() => {
     }
   })
 
-  ipcMain.handle('ideas:open-home', async () => { openIdeasHome(); return { success: true } })
+  ipcMain.handle('ideas:open-home', async () => {
+    openIdeasHome()
+    return { success: true }
+  })
 
   createWindow()
 

@@ -31,7 +31,9 @@ export const usePerCardAISettingsStore = defineStore('perCardAISettings', {
       } catch {}
     },
     saveToLocal() {
-      try { localStorage.setItem('per-card-ai-settings', JSON.stringify(this.byCardId)) } catch {}
+      try {
+        localStorage.setItem('per-card-ai-settings', JSON.stringify(this.byCardId))
+      } catch {}
     },
     setForCard(cardId: string | number, params: PerCardAIParams) {
       this.byCardId[String(cardId)] = { ...(this.byCardId[String(cardId)] || {}), ...params }
@@ -42,4 +44,4 @@ export const usePerCardAISettingsStore = defineStore('perCardAISettings', {
       this.saveToLocal()
     }
   }
-}) 
+})

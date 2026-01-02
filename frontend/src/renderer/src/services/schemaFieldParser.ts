@@ -2,7 +2,7 @@
  * Schema字段解析服务
  * 用于解析JSON Schema的字段结构，支持嵌套对象、引用和anyOf
  * 与现有的schemaService集成，提供统一的Schema解析能力
- * 
+ *
  * 统一解析入口：
  * - 卡片渲染时：ModelDrivenForm.vue -> resolveActualSchema()
  * - 工作流预览时：WorkflowParamPanel.vue -> parseSchemaFields()
@@ -11,7 +11,6 @@
  */
 
 import { schemaService } from '@renderer/api/schema'
-
 
 export interface ParsedField {
   name: string
@@ -169,13 +168,19 @@ export function resolveSchemaRef(schema: any, localDefs?: any, rootSchema?: any)
  */
 export function getFieldIcon(type: string): string {
   switch (type) {
-    case 'object': return '📁'
-    case 'array': return '📊'
-    case 'string': return '📄'
+    case 'object':
+      return '📁'
+    case 'array':
+      return '📊'
+    case 'string':
+      return '📄'
     case 'number':
-    case 'integer': return '🔢'
-    case 'boolean': return '☑️'
-    default: return '📄'
+    case 'integer':
+      return '🔢'
+    case 'boolean':
+      return '☑️'
+    default:
+      return '📄'
   }
 }
 
@@ -202,7 +207,10 @@ export function toggleFieldExpanded(fields: ParsedField[], targetPath: string): 
  * @param options 累积的选项数组
  * @returns 字段路径选项数组
  */
-export function extractFieldPathOptions(fields: ParsedField[], options: Array<{ label: string; value: string }> = []): Array<{ label: string; value: string }> {
+export function extractFieldPathOptions(
+  fields: ParsedField[],
+  options: Array<{ label: string; value: string }> = []
+): Array<{ label: string; value: string }> {
   for (const field of fields) {
     // 只添加非对象类型的字段，或者没有子字段的对象
     if (field.type !== 'object' || !field.children?.length) {
@@ -281,7 +289,7 @@ export function matchSchemaForValue(anyOfSchemas: any[], value: any, rootSchema?
 
   // 如果值不存在，返回第一个非空 Schema
   if (value === undefined || value === null) {
-    return anyOfSchemas.find(s => s.type !== 'null') || anyOfSchemas[0]
+    return anyOfSchemas.find((s) => s.type !== 'null') || anyOfSchemas[0]
   }
 
   // 简单的启发式匹配
@@ -290,13 +298,16 @@ export function matchSchemaForValue(anyOfSchemas: any[], value: any, rootSchema?
     if (!resolved || resolved.type === 'null') continue
 
     // 类型匹配
-    if (typeof value === resolved.type || (resolved.type === 'integer' && Number.isInteger(value))) {
+    if (
+      typeof value === resolved.type ||
+      (resolved.type === 'integer' && Number.isInteger(value))
+    ) {
       // 如果是对象，进一步检查属性匹配度
       if (resolved.type === 'object' && resolved.properties && typeof value === 'object') {
         const schemaProps = Object.keys(resolved.properties)
         const valueProps = Object.keys(value)
         // 如果值包含 Schema 中定义的关键属性，则认为匹配
-        if (valueProps.some(p => schemaProps.includes(p))) {
+        if (valueProps.some((p) => schemaProps.includes(p))) {
           return schema
         }
       } else {
@@ -306,7 +317,7 @@ export function matchSchemaForValue(anyOfSchemas: any[], value: any, rootSchema?
   }
 
   // 回退到第一个非空 Schema
-  return anyOfSchemas.find(s => s.type !== 'null') || anyOfSchemas[0]
+  return anyOfSchemas.find((s) => s.type !== 'null') || anyOfSchemas[0]
 }
 
 /**
@@ -321,4 +332,3 @@ export function resolveActualSchema(schema: any, parentSchema?: any, rootSchema?
   const localDefs = parentSchema?.$defs || {}
   return resolveSchemaRef(schema, localDefs, rootSchema)
 }
-

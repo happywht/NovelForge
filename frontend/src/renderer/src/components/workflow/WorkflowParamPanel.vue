@@ -5,24 +5,39 @@ import { getCardTypes } from '@renderer/api/cards'
 import FieldTreeNode from './FieldTreeNode.vue'
 import { QuestionFilled, DocumentCopy } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { parseSchemaFields, toggleFieldExpanded, extractFieldPathOptions, type ParsedField } from '@renderer/services/schemaFieldParser'
+import {
+  parseSchemaFields,
+  toggleFieldExpanded,
+  extractFieldPathOptions,
+  type ParsedField
+} from '@renderer/services/schemaFieldParser'
 
 const props = defineProps<{ node: any | null; contextTypeName?: string }>()
 const emit = defineEmits<{ 'update-params': [any] }>()
 
 const state = reactive({ types: [] as CardTypeRead[] })
-getCardTypes().then(v => state.types = v).catch(() => {})
+getCardTypes()
+  .then((v) => (state.types = v))
+  .catch(() => {})
 
 const typeName = computed(() => props.node?.data?.type || '')
 const params = computed({
-  get() { return (props.node?.data?.params || {}) },
+  get() {
+    return props.node?.data?.params || {}
+  },
   set(v: any) {
     // 主动透传父层，防止 v-model 不触发
     emit('update-params', v)
   }
 })
 
-watch(() => props.node, (n) => { /* noop: 直接读计算属性 */ }, { immediate: true })
+watch(
+  () => props.node,
+  (n) => {
+    /* noop: 直接读计算属性 */
+  },
+  { immediate: true }
+)
 
 function update(key: string, value: any) {
   const next = { ...(params.value || {}) }
@@ -34,8 +49,8 @@ function update(key: string, value: any) {
 const suggestions = computed(() => {
   const nodeType = typeName.value
   const currentParams = params.value || {}
-  const hints: Array<{key: string, value: any, description: string}> = []
-  
+  const hints: Array<{ key: string; value: any; description: string }> = []
+
   // 根据节点类型提供智能建议
   switch (nodeType) {
     case 'Card.Read':
@@ -55,14 +70,30 @@ const suggestions = computed(() => {
       }
       if (!currentParams.title) {
         hints.push({ key: 'title', value: '{item.name}', description: '使用item.name作为标题' })
-        hints.push({ key: 'title', value: '第{item.chapter_number}章', description: '使用章节号作为标题' })
+        hints.push({
+          key: 'title',
+          value: '第{item.chapter_number}章',
+          description: '使用章节号作为标题'
+        })
       }
       break
     case 'List.ForEach':
       if (!currentParams.listPath) {
-        hints.push({ key: 'listPath', value: '$.content.character_cards', description: '遍历角色卡列表' })
-        hints.push({ key: 'listPath', value: '$.content.scene_cards', description: '遍历场景卡列表' })
-        hints.push({ key: 'listPath', value: '$.content.chapter_outline_list', description: '遍历章节大纲列表' })
+        hints.push({
+          key: 'listPath',
+          value: '$.content.character_cards',
+          description: '遍历角色卡列表'
+        })
+        hints.push({
+          key: 'listPath',
+          value: '$.content.scene_cards',
+          description: '遍历场景卡列表'
+        })
+        hints.push({
+          key: 'listPath',
+          value: '$.content.chapter_outline_list',
+          description: '遍历章节大纲列表'
+        })
       }
       break
     case 'List.ForEachRange':
@@ -75,18 +106,41 @@ const suggestions = computed(() => {
       }
       break
     case 'Card.ClearFields':
-      if (!currentParams.fields || (Array.isArray(currentParams.fields) && currentParams.fields.length === 0)) {
-        hints.push({ key: 'fields', value: ['$.content.character_cards'], description: '清空角色卡列表' })
-        hints.push({ key: 'fields', value: ['$.content.scene_cards'], description: '清空场景卡列表' })
+      if (
+        !currentParams.fields ||
+        (Array.isArray(currentParams.fields) && currentParams.fields.length === 0)
+      ) {
+        hints.push({
+          key: 'fields',
+          value: ['$.content.character_cards'],
+          description: '清空角色卡列表'
+        })
+        hints.push({
+          key: 'fields',
+          value: ['$.content.scene_cards'],
+          description: '清空场景卡列表'
+        })
       }
       break
     case 'Card.ModifyContent':
       if (currentParams.contentMerge) {
         // 合并模式建议
         if (!currentParams.contentMerge || Object.keys(currentParams.contentMerge).length === 0) {
-          hints.push({ key: 'contentMerge', value: { character_cards: [] }, description: '清空角色卡列表' })
-          hints.push({ key: 'contentMerge', value: { scene_cards: [] }, description: '清空场景卡列表' })
-          hints.push({ key: 'contentMerge', value: { status: 'completed' }, description: '设置状态为已完成' })
+          hints.push({
+            key: 'contentMerge',
+            value: { character_cards: [] },
+            description: '清空角色卡列表'
+          })
+          hints.push({
+            key: 'contentMerge',
+            value: { scene_cards: [] },
+            description: '清空场景卡列表'
+          })
+          hints.push({
+            key: 'contentMerge',
+            value: { status: 'completed' },
+            description: '设置状态为已完成'
+          })
         }
       } else {
         // 路径模式建议
@@ -105,12 +159,12 @@ const suggestions = computed(() => {
       }
       break
   }
-  
+
   return hints.slice(0, 3) // 最多显示3个建议
 })
 
 // 应用建议
-function applySuggestion(suggestion: {key: string, value: any, description: string}) {
+function applySuggestion(suggestion: { key: string; value: any; description: string }) {
   update(suggestion.key, suggestion.value)
 }
 
@@ -118,10 +172,10 @@ function applySuggestion(suggestion: {key: string, value: any, description: stri
 const fieldPathOptions = computed(() => {
   const typeName = props.contextTypeName
   if (!typeName) return []
-  
-  const selectedType = state.types.find(t => t.name === typeName)
+
+  const selectedType = state.types.find((t) => t.name === typeName)
   if (!selectedType?.json_schema) return []
-  
+
   const fields = parseSchemaFields(selectedType.json_schema)
   return extractFieldPathOptions(fields)
 })
@@ -179,7 +233,7 @@ const paramErrors = computed(() => {
   const nodeType = typeName.value
   const currentParams = params.value || {}
   const errors: string[] = []
-  
+
   // 必填参数检查
   switch (nodeType) {
     case 'List.ForEach':
@@ -214,7 +268,11 @@ const paramErrors = computed(() => {
       }
       break
     case 'Card.ClearFields':
-      if (!currentParams.fields || !Array.isArray(currentParams.fields) || currentParams.fields.length === 0) {
+      if (
+        !currentParams.fields ||
+        !Array.isArray(currentParams.fields) ||
+        currentParams.fields.length === 0
+      ) {
         errors.push('fields 必须是非空数组')
       }
       break
@@ -224,7 +282,7 @@ const paramErrors = computed(() => {
       }
       break
   }
-  
+
   return errors
 })
 
@@ -234,7 +292,9 @@ function formatTemplate(val: any): string {
     if (typeof val === 'string') return val
     if (val == null) return ''
     return JSON.stringify(val, null, 2)
-  } catch { return String(val ?? '') }
+  } catch {
+    return String(val ?? '')
+  }
 }
 function updateTemplateFromText(text: string) {
   try {
@@ -252,46 +312,80 @@ const templatePlaceholder = `例如：{\n  "title": "{item.name}",\n  "entity_li
 const simpleMode = ref(true)
 let syncing = false
 let rowUid = 0
-type Row = { id: number; key: string; source: 'item'|'card'|'text'|'number'; path?: string; text?: string; number?: number }
+type Row = {
+  id: number
+  key: string
+  source: 'item' | 'card' | 'text' | 'number'
+  path?: string
+  text?: string
+  number?: number
+}
 const rows = ref<Row[]>([])
 const rowsVersion = ref<number>(0)
 // 同步 props.params -> 本地 UI 状态
-watch(params, (p) => {
-  syncing = true
-  try {
-    simpleMode.value = !!(p && (p.__ui_simple_mode ?? true))
-    const raw: any[] = Array.isArray((p as any)?.__ui_rows) ? (p as any).__ui_rows : []
-    rows.value = raw.map((r: any) => ({
-      id: Number.isFinite(Number(r?.id)) ? Number(r.id) : (++rowUid),
-      key: String(r?.key || ''),
-      source: (['item','card','text','number'].includes(r?.source) ? (r.source as Row['source']) : 'item'),
-      path: String(r?.path || ''),
-      text: String(r?.text || ''),
-      number: Number.isFinite(Number(r.number)) ? Number(r.number) : undefined,
-    }))
-    // 维护自增游标
-    try { rowUid = Math.max(rowUid, ...rows.value.map(r => r.id)) } catch {}
-    rowsVersion.value++
-    // 若没有 rows 但已有模板，则从模板反推简单模式行
-    if (rows.value.length === 0 && (p as any)?.contentTemplate) {
-      loadRowsFromTemplate()
+watch(
+  params,
+  (p) => {
+    syncing = true
+    try {
+      simpleMode.value = !!(p && (p.__ui_simple_mode ?? true))
+      const raw: any[] = Array.isArray((p as any)?.__ui_rows) ? (p as any).__ui_rows : []
+      rows.value = raw.map((r: any) => ({
+        id: Number.isFinite(Number(r?.id)) ? Number(r.id) : ++rowUid,
+        key: String(r?.key || ''),
+        source: ['item', 'card', 'text', 'number'].includes(r?.source)
+          ? (r.source as Row['source'])
+          : 'item',
+        path: String(r?.path || ''),
+        text: String(r?.text || ''),
+        number: Number.isFinite(Number(r.number)) ? Number(r.number) : undefined
+      }))
+      // 维护自增游标
+      try {
+        rowUid = Math.max(rowUid, ...rows.value.map((r) => r.id))
+      } catch {}
+      rowsVersion.value++
+      // 若没有 rows 但已有模板，则从模板反推简单模式行
+      if (rows.value.length === 0 && (p as any)?.contentTemplate) {
+        loadRowsFromTemplate()
+      }
+    } finally {
+      queueMicrotask(() => {
+        syncing = false
+      })
     }
-  } finally {
-    queueMicrotask(() => { syncing = false })
-  }
-}, { immediate: true, deep: true })
+  },
+  { immediate: true, deep: true }
+)
 // 同步 UI -> params（带循环保护）
-watch(simpleMode, (v) => { if (!syncing) update('__ui_simple_mode', v) })
-watch(rows, (v) => { if (!syncing) { update('__ui_rows', v); syncRowsToTemplate() } }, { deep: true })
+watch(simpleMode, (v) => {
+  if (!syncing) update('__ui_simple_mode', v)
+})
+watch(
+  rows,
+  (v) => {
+    if (!syncing) {
+      update('__ui_rows', v)
+      syncRowsToTemplate()
+    }
+  },
+  { deep: true }
+)
 function addRow() {
   const newRow: Row = { id: ++rowUid, key: '', source: 'item', path: '' }
   rows.value = [...rows.value, newRow]
   // 立即写回 params，避免由父层回写后触发的二次同步覆盖本地新增行的可见性
   update('__ui_rows', rows.value)
-  nextTick(() => { /* ensure UI updates */ })
+  nextTick(() => {
+    /* ensure UI updates */
+  })
 }
 function removeRow(i: number) {
-  const next = rows.value.slice(); next.splice(i,1); rows.value = next; update('__ui_rows', rows.value); syncRowsToTemplate()
+  const next = rows.value.slice()
+  next.splice(i, 1)
+  rows.value = next
+  update('__ui_rows', rows.value)
+  syncRowsToTemplate()
 }
 function _computeDefaultPath(r: Row): string {
   if (r.source === 'item') {
@@ -308,10 +402,13 @@ function _computeDefaultPath(r: Row): string {
 }
 
 function setRow(i: number, patch: Partial<Row>) {
-  const next = rows.value.slice();
+  const next = rows.value.slice()
   const merged = { ...next[i], ...patch } as Row
   // 若用户切换了 source 或刚设置了 key，而 path 为空，则给出合理默认
-  if (('source' in (patch as any) || ('key' in (patch as any))) && (!merged.path || !String(merged.path).trim())) {
+  if (
+    ('source' in (patch as any) || 'key' in (patch as any)) &&
+    (!merged.path || !String(merged.path).trim())
+  ) {
     merged.path = _computeDefaultPath(merged)
   }
   next[i] = merged
@@ -325,14 +422,16 @@ function syncRowsToTemplate() {
     if (!r || !r.key) continue
     if (r.source === 'item') {
       const p = (r.path || '').replace(/^item\.?/, '')
-      obj[r.key] = `{item${p ? '.'+p : ''}}`
+      obj[r.key] = `{item${p ? '.' + p : ''}}`
     } else if (r.source === 'card') {
-      const p = r.path && r.path.startsWith('$.') ? r.path : (`$.content${r.path ? '.'+r.path : ''}`)
+      const p =
+        r.path && r.path.startsWith('$.') ? r.path : `$.content${r.path ? '.' + r.path : ''}`
       obj[r.key] = `{${p}}`
     } else if (r.source === 'text') {
       obj[r.key] = String(r.text ?? '')
     } else if (r.source === 'number') {
-      const n = Number(r.number); obj[r.key] = Number.isFinite(n) ? n : 0
+      const n = Number(r.number)
+      obj[r.key] = Number.isFinite(n) ? n : 0
     }
   }
   update('contentTemplate', obj)
@@ -351,8 +450,15 @@ function loadRowsFromTemplate() {
       const m = v.match(/^\{([^}]+)\}$/)
       if (m) {
         const expr = m[1]
-        if (expr.startsWith('item')) next.push({ id: ++rowUid, key: k, source: 'item', path: expr.replace(/^item\.?/, '') })
-        else next.push({ id: ++rowUid, key: k, source: 'card', path: expr.replace(/^\$\.content\.?/, '') })
+        if (expr.startsWith('item'))
+          next.push({ id: ++rowUid, key: k, source: 'item', path: expr.replace(/^item\.?/, '') })
+        else
+          next.push({
+            id: ++rowUid,
+            key: k,
+            source: 'card',
+            path: expr.replace(/^\$\.content\.?/, '')
+          })
         continue
       }
     }
@@ -406,14 +512,18 @@ const selectedTypeName = computed(() => {
   if (!t && state.types.length) return state.types[0].name
   return t || ''
 })
-const selectedType = computed(() => state.types.find(t => t.name === selectedTypeName.value))
-const fieldSuggestions = computed(() => extractContentPaths((selectedType.value as any)?.json_schema || {}))
+const selectedType = computed(() => state.types.find((t) => t.name === selectedTypeName.value))
+const fieldSuggestions = computed(() =>
+  extractContentPaths((selectedType.value as any)?.json_schema || {})
+)
 // 针对"子卡内容键名"的建议：来自子卡类型 schema 的根部一级 keys
 function extractContentKeys(schema: any): string[] {
   try {
     const props = (schema?.properties || {}) as Record<string, any>
     return Object.keys(props)
-  } catch { return [] }
+  } catch {
+    return []
+  }
 }
 
 // 数组编辑辅助函数
@@ -434,34 +544,48 @@ function updateFieldsArray() {
   update('fields', fields)
 }
 
-const childType = computed(() => state.types.find(t => t.name === (params.value as any)?.cardType))
-const childContentKeys = computed(() => extractContentKeys((childType.value as any)?.json_schema || {}))
+const childType = computed(() =>
+  state.types.find((t) => t.name === (params.value as any)?.cardType)
+)
+const childContentKeys = computed(() =>
+  extractContentKeys((childType.value as any)?.json_schema || {})
+)
 // 父卡（当前上下文）类型，用于“来源=卡片字段”的字段建议
-const parentType = computed(() => state.types.find(t => t.name === (props.contextTypeName || '')))
+const parentType = computed(() => state.types.find((t) => t.name === (props.contextTypeName || '')))
 
 // --- 本地输入态：标题模板，避免深层重渲导致输入闪回 ---
 const titleLocal = ref('')
-watch(() => (params.value?.title ?? params.value?.titlePath ?? ''), (v) => {
-  titleLocal.value = String(v ?? '')
-}, { immediate: true })
-watch(titleLocal, (v) => { update('title', v) })
+watch(
+  () => params.value?.title ?? params.value?.titlePath ?? '',
+  (v) => {
+    titleLocal.value = String(v ?? '')
+  },
+  { immediate: true }
+)
+watch(titleLocal, (v) => {
+  update('title', v)
+})
 
 // Card.Read 节点增强功能
 const selectedCardType = computed(() => {
   const typeName = params.value?.type_name
-  return typeName ? state.types.find(t => t.name === typeName) : null
+  return typeName ? state.types.find((t) => t.name === typeName) : null
 })
 
 const parsedFields = ref<ParsedField[]>([])
 
 // 监听卡片类型变化，重新解析字段
-watch(selectedCardType, (newType) => {
-  if (newType?.json_schema) {
-    parsedFields.value = parseSchemaFields(newType.json_schema)
-  } else {
-    parsedFields.value = []
-  }
-}, { immediate: true })
+watch(
+  selectedCardType,
+  (newType) => {
+    if (newType?.json_schema) {
+      parsedFields.value = parseSchemaFields(newType.json_schema)
+    } else {
+      parsedFields.value = []
+    }
+  },
+  { immediate: true }
+)
 
 function handleTypeChange(typeName: string) {
   update('type_name', typeName)
@@ -470,11 +594,14 @@ function handleTypeChange(typeName: string) {
 function handleFieldSelect(fieldPath: string) {
   // 复制字段路径到剪贴板
   if (navigator.clipboard) {
-    navigator.clipboard.writeText(fieldPath).then(() => {
-      ElMessage.success(`已复制路径: ${fieldPath}`)
-    }).catch(() => {
-      console.log(`已复制路径: ${fieldPath}`)
-    })
+    navigator.clipboard
+      .writeText(fieldPath)
+      .then(() => {
+        ElMessage.success(`已复制路径: ${fieldPath}`)
+      })
+      .catch(() => {
+        console.log(`已复制路径: ${fieldPath}`)
+      })
   } else {
     console.log(`路径: ${fieldPath}`)
   }
@@ -483,18 +610,17 @@ function handleFieldSelect(fieldPath: string) {
 function handleFieldToggle(fieldPath: string) {
   toggleFieldExpanded(parsedFields.value, fieldPath)
 }
-
 </script>
 
 <template>
-  <div class="panel" v-if="node">
+  <div v-if="node" class="panel">
     <div class="panel-title">参数 · {{ typeName }}</div>
-    
+
     <!-- 错误提示 -->
     <div v-if="paramErrors.length > 0" class="error-alert">
-      <el-alert 
-        type="error" 
-        :title="`参数错误 (${paramErrors.length})`" 
+      <el-alert
+        type="error"
+        :title="`参数错误 (${paramErrors.length})`"
         :closable="false"
         show-icon
       >
@@ -503,7 +629,7 @@ function handleFieldToggle(fieldPath: string) {
         </ul>
       </el-alert>
     </div>
-    
+
     <!-- 智能建议 -->
     <div v-if="suggestions.length > 0" class="suggestions">
       <div class="suggestions-title">
@@ -511,8 +637,8 @@ function handleFieldToggle(fieldPath: string) {
         智能建议
       </div>
       <div class="suggestions-list">
-        <div 
-          v-for="(suggestion, index) in suggestions" 
+        <div
+          v-for="(suggestion, index) in suggestions"
           :key="index"
           class="suggestion-item"
           @click="applySuggestion(suggestion)"
@@ -530,14 +656,23 @@ function handleFieldToggle(fieldPath: string) {
     <template v-if="typeName === 'Card.Read'">
       <el-form label-width="110px" size="small">
         <el-form-item label="目标卡片">
-          <el-input :model-value="params.target || '$self'" @update:model-value="v=>update('target', v)" placeholder="$self" />
+          <el-input
+            :model-value="params.target || '$self'"
+            placeholder="$self"
+            @update:model-value="(v) => update('target', v)"
+          />
         </el-form-item>
         <el-form-item label="卡片类型">
-          <el-select :model-value="params.type_name || selectedTypeName" @update:model-value="handleTypeChange" placeholder="请选择此工作流绑定的卡片类型" clearable>
+          <el-select
+            :model-value="params.type_name || selectedTypeName"
+            placeholder="请选择此工作流绑定的卡片类型"
+            clearable
+            @update:model-value="handleTypeChange"
+          >
             <el-option v-for="t in state.types" :key="t.id" :label="t.name" :value="t.name" />
           </el-select>
         </el-form-item>
-        
+
         <!-- 字段结构展示 -->
         <div v-if="selectedCardType && parsedFields.length > 0" class="field-structure">
           <div class="field-structure-title">
@@ -545,8 +680,8 @@ function handleFieldToggle(fieldPath: string) {
             字段结构
           </div>
           <div class="field-tree">
-            <FieldTreeNode 
-              v-for="field in parsedFields" 
+            <FieldTreeNode
+              v-for="field in parsedFields"
               :key="field.path"
               :field="field"
               :level="0"
@@ -555,8 +690,10 @@ function handleFieldToggle(fieldPath: string) {
             />
           </div>
         </div>
-        
-        <div class="tip">说明：选择卡片类型后可查看其字段结构，点击字段可复制路径。后续节点会使用该类型进行路径选择与校验。</div>
+
+        <div class="tip">
+          说明：选择卡片类型后可查看其字段结构，点击字段可复制路径。后续节点会使用该类型进行路径选择与校验。
+        </div>
       </el-form>
     </template>
 
@@ -565,9 +702,26 @@ function handleFieldToggle(fieldPath: string) {
       <el-form label-width="110px" size="small">
         <el-form-item label="listPath">
           <div class="horiz">
-            <el-input class="flex1" :model-value="params.listPath || params.list" @update:model-value="v=>update('listPath', v)" placeholder="如：$.content.xxx" />
-            <el-select style="width: 180px" :model-value="params.listPath" @update:model-value="v=>update('listPath', v)" filterable clearable placeholder="选择字段">
-              <el-option v-for="option in fieldPathOptions" :key="option.value" :label="option.label" :value="option.value" />
+            <el-input
+              class="flex1"
+              :model-value="params.listPath || params.list"
+              placeholder="如：$.content.xxx"
+              @update:model-value="(v) => update('listPath', v)"
+            />
+            <el-select
+              style="width: 180px"
+              :model-value="params.listPath"
+              filterable
+              clearable
+              placeholder="选择字段"
+              @update:model-value="(v) => update('listPath', v)"
+            >
+              <el-option
+                v-for="option in fieldPathOptions"
+                :key="option.value"
+                :label="option.label"
+                :value="option.value"
+              />
             </el-select>
           </div>
         </el-form-item>
@@ -578,65 +732,100 @@ function handleFieldToggle(fieldPath: string) {
     <template v-else-if="typeName === 'Card.UpsertChildByTitle'">
       <el-form label-width="110px" size="small">
         <el-form-item label="子卡类型">
-          <el-select :model-value="params.cardType" @update:model-value="v=>update('cardType', v)">
+          <el-select
+            :model-value="params.cardType"
+            @update:model-value="(v) => update('cardType', v)"
+          >
             <el-option v-for="t in state.types" :key="t.id" :label="t.name" :value="t.name" />
           </el-select>
         </el-form-item>
         <el-form-item label="标题模板">
-          <el-input v-model="titleLocal" @input="update('title', titleLocal)" placeholder="如：{item.name}" />
+          <el-input
+            v-model="titleLocal"
+            placeholder="如：{item.name}"
+            @input="update('title', titleLocal)"
+          />
         </el-form-item>
         <el-form-item label="内容来源">
-          <el-radio-group :model-value="params.useItemAsContent ? 'item' : 'expr'" @update:model-value="(v:string)=>{
-            if (v==='item') { update('useItemAsContent', true); update('contentPath', undefined); update('contentTemplate', undefined) }
-            else { update('useItemAsContent', false) }
-          }">
+          <el-radio-group
+            :model-value="params.useItemAsContent ? 'item' : 'expr'"
+            @update:model-value="
+              (v: string) => {
+                if (v === 'item') {
+                  update('useItemAsContent', true)
+                  update('contentPath', undefined)
+                  update('contentTemplate', undefined)
+                } else {
+                  update('useItemAsContent', false)
+                }
+              }
+            "
+          >
             <el-radio label="item">使用 item</el-radio>
             <el-radio label="expr">表达式 / 模板</el-radio>
           </el-radio-group>
           <el-tooltip effect="dark" placement="top">
             <template #content>
-              <div style="max-width:300px; line-height:1.4">
-                使用 item：直接把 ForEach 循环项作为子卡 content。<br/>
-                表达式/模板：若输入以 { 或 [ 开头，按 JSON 模板解析；否则按表达式取值。<br/>
+              <div style="max-width: 300px; line-height: 1.4">
+                使用 item：直接把 ForEach 循环项作为子卡 content。<br />
+                表达式/模板：若输入以 { 或 [ 开头，按 JSON 模板解析；否则按表达式取值。<br />
                 表达式支持：item.xxx / $.content.yyy / scope.xxx / current.card.xxx。
               </div>
             </template>
-            <el-icon style="margin-left:6px; color: var(--el-text-color-secondary)"><QuestionFilled/></el-icon>
+            <el-icon style="margin-left: 6px; color: var(--el-text-color-secondary)"
+              ><QuestionFilled
+            /></el-icon>
           </el-tooltip>
         </el-form-item>
         <el-form-item v-if="!params.useItemAsContent" label="表达式/模板">
           <div class="horiz">
             <el-switch v-model="simpleMode" active-text="简单模式" inactive-text="自由编辑" />
             <el-tooltip placement="top" effect="dark">
-              <template #content>简单模式：逐行选择字段来源自动生成模板；自由编辑：直接写表达式或 JSON 模板。</template>
-              <el-icon style="margin-left:6px; color: var(--el-text-color-secondary)"><QuestionFilled/></el-icon>
+              <template #content
+                >简单模式：逐行选择字段来源自动生成模板；自由编辑：直接写表达式或 JSON
+                模板。</template
+              >
+              <el-icon style="margin-left: 6px; color: var(--el-text-color-secondary)"
+                ><QuestionFilled
+              /></el-icon>
             </el-tooltip>
           </div>
           <template v-if="simpleMode">
             <div class="rows" :data-revision="rowsVersion" style="width: 100%">
-              <div class="row" v-for="(r,i) in rows" :key="r.id">
-                <el-select class="k" placeholder="键名" v-model="rows[i].key" filterable allow-create default-first-option>
+              <div v-for="(r, i) in rows" :key="r.id" class="row">
+                <el-select
+                  v-model="rows[i].key"
+                  class="k"
+                  placeholder="键名"
+                  filterable
+                  allow-create
+                  default-first-option
+                >
                   <el-option v-for="k in childContentKeys" :key="k" :label="k" :value="k" />
                 </el-select>
-                <el-select class="s" v-model="rows[i].source">
+                <el-select v-model="rows[i].source" class="s">
                   <el-option label="item" value="item" />
                   <el-option label="卡片字段" value="card" />
                   <el-option label="文本" value="text" />
                   <el-option label="数字" value="number" />
                 </el-select>
-                <template v-if="rows[i].source==='item'">
-                  <el-input class="v flex1" placeholder="item.xxx" v-model="rows[i].path" />
+                <template v-if="rows[i].source === 'item'">
+                  <el-input v-model="rows[i].path" class="v flex1" placeholder="item.xxx" />
                 </template>
-                <template v-else-if="rows[i].source==='card'">
+                <template v-else-if="rows[i].source === 'card'">
                   <div class="horiz">
-                    <el-input class="v flex1" placeholder="如：title 或 content.xxx" v-model="rows[i].path" />
+                    <el-input
+                      v-model="rows[i].path"
+                      class="v flex1"
+                      placeholder="如：title 或 content.xxx"
+                    />
                   </div>
                 </template>
-                <template v-else-if="rows[i].source==='text'">
-                  <el-input class="v" placeholder="文本" v-model="rows[i].text" />
+                <template v-else-if="rows[i].source === 'text'">
+                  <el-input v-model="rows[i].text" class="v" placeholder="文本" />
                 </template>
                 <template v-else>
-                  <el-input class="v" placeholder="数字" v-model.number="rows[i].number" />
+                  <el-input v-model.number="rows[i].number" class="v" placeholder="数字" />
                 </template>
                 <el-button text type="danger" @click="removeRow(i)">删除</el-button>
               </div>
@@ -645,9 +834,28 @@ function handleFieldToggle(fieldPath: string) {
           </template>
           <template v-else>
             <div class="horiz">
-              <el-input class="flex1" type="textarea" :rows="6" :model-value="exprText" @update:model-value="v=>updateExprOrTemplate(v)" :placeholder="templatePlaceholder" />
-              <el-select style="width: 180px" :model-value="''" @update:model-value="v=>updateExprOrTemplate(v)" filterable clearable placeholder="插入字段">
-                <el-option v-for="option in fieldPathOptions" :key="option.value" :label="option.label" :value="option.value" />
+              <el-input
+                class="flex1"
+                type="textarea"
+                :rows="6"
+                :model-value="exprText"
+                :placeholder="templatePlaceholder"
+                @update:model-value="(v) => updateExprOrTemplate(v)"
+              />
+              <el-select
+                style="width: 180px"
+                :model-value="''"
+                filterable
+                clearable
+                placeholder="插入字段"
+                @update:model-value="(v) => updateExprOrTemplate(v)"
+              >
+                <el-option
+                  v-for="option in fieldPathOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </div>
           </template>
@@ -659,47 +867,71 @@ function handleFieldToggle(fieldPath: string) {
     <template v-else-if="typeName === 'Card.ModifyContent'">
       <el-form label-width="110px" size="small">
         <!-- 上下文说明 -->
-        <el-alert 
-          title="作用目标：当前卡片 (state.card)" 
-          description="此节点会修改由 Card.Read 节点读取的卡片，而不是连接线上游的卡片。" 
-          type="info" 
-          :closable="false" 
+        <el-alert
+          title="作用目标：当前卡片 (state.card)"
+          description="此节点会修改由 Card.Read 节点读取的卡片，而不是连接线上游的卡片。"
+          type="info"
+          :closable="false"
           show-icon
-          style="margin-bottom: 16px;"
+          style="margin-bottom: 16px"
         />
-        
+
         <!-- 模式选择 -->
         <el-form-item label="修改模式">
-          <el-radio-group :model-value="modifyContentMode" @update:model-value="switchModifyContentMode">
+          <el-radio-group
+            :model-value="modifyContentMode"
+            @update:model-value="switchModifyContentMode"
+          >
             <el-radio value="path">路径设置</el-radio>
             <el-radio value="merge">内容合并</el-radio>
           </el-radio-group>
         </el-form-item>
-        
+
         <!-- 路径设置模式 -->
         <template v-if="modifyContentMode === 'path'">
           <el-form-item label="setPath">
             <div class="horiz">
-              <el-input class="flex1" :model-value="params.setPath" @update:model-value="v=>update('setPath', v)" placeholder="$.content.xxx" />
-              <el-select style="width: 180px" :model-value="params.setPath" @update:model-value="v=>update('setPath', v)" filterable clearable placeholder="选择字段">
-                <el-option v-for="option in fieldPathOptions" :key="option.value" :label="option.label" :value="option.value" />
+              <el-input
+                class="flex1"
+                :model-value="params.setPath"
+                placeholder="$.content.xxx"
+                @update:model-value="(v) => update('setPath', v)"
+              />
+              <el-select
+                style="width: 180px"
+                :model-value="params.setPath"
+                filterable
+                clearable
+                placeholder="选择字段"
+                @update:model-value="(v) => update('setPath', v)"
+              >
+                <el-option
+                  v-for="option in fieldPathOptions"
+                  :key="option.value"
+                  :label="option.label"
+                  :value="option.value"
+                />
               </el-select>
             </div>
           </el-form-item>
           <el-form-item label="setValue">
-            <el-input :model-value="params.setValue" @update:model-value="v=>update('setValue', v)" placeholder="可用 {item.xxx}" />
+            <el-input
+              :model-value="params.setValue"
+              placeholder="可用 {item.xxx}"
+              @update:model-value="(v) => update('setValue', v)"
+            />
           </el-form-item>
         </template>
-        
+
         <!-- 内容合并模式 -->
         <template v-else>
           <el-form-item label="contentMerge">
-            <el-input 
-              type="textarea" 
-              :rows="6" 
-              :model-value="contentMergeText" 
-              @update:model-value="updateContentMerge" 
+            <el-input
+              type="textarea"
+              :rows="6"
+              :model-value="contentMergeText"
               placeholder='JSON格式，如：{"field1": "value1", "field2": []}'
+              @update:model-value="updateContentMerge"
             />
           </el-form-item>
         </template>
@@ -714,18 +946,13 @@ function handleFieldToggle(fieldPath: string) {
         </el-form-item>
         <el-form-item label="清空字段">
           <div class="fields-editor">
-            <div v-for="(field, index) in (params.fields || [])" :key="index" class="field-row">
-              <el-input 
-                v-model="params.fields[index]" 
+            <div v-for="(field, index) in params.fields || []" :key="index" class="field-row">
+              <el-input
+                v-model="params.fields[index]"
                 placeholder="$.content.field_name"
                 @input="updateFieldsArray"
               />
-              <el-button 
-                size="small" 
-                type="danger" 
-                @click="removeField(index)"
-                :icon="'Delete'"
-              />
+              <el-button size="small" type="danger" :icon="'Delete'" @click="removeField(index)" />
             </div>
             <el-button size="small" type="primary" @click="addField">添加字段</el-button>
           </div>
@@ -737,15 +964,22 @@ function handleFieldToggle(fieldPath: string) {
     <template v-else-if="typeName === 'CardTemplate.Apply'">
       <el-form label-width="110px" size="small">
         <el-form-item label="模板 ID">
-          <el-input-number :model-value="params.templateId" @update:model-value="v=>update('templateId', v)" :min="1" />
+          <el-input-number
+            :model-value="params.templateId"
+            :min="1"
+            @update:model-value="(v) => update('templateId', v)"
+          />
         </el-form-item>
         <el-form-item label="目标卡片">
-          <el-input :model-value="params.target || '$self'" @update:model-value="v=>update('target', v)" placeholder="$self" />
+          <el-input
+            :model-value="params.target || '$self'"
+            placeholder="$self"
+            @update:model-value="(v) => update('target', v)"
+          />
         </el-form-item>
         <div class="tip">说明：将指定模板的内容应用到目标卡片。</div>
       </el-form>
     </template>
-
 
     <template v-else>
       <div class="empty">暂不支持该节点的参数编辑</div>
@@ -754,13 +988,13 @@ function handleFieldToggle(fieldPath: string) {
 </template>
 
 <style scoped>
-.panel { 
-  padding: 8px; 
-  border-left: 1px solid var(--el-border-color); 
-  height: 60vh; 
-  overflow: auto; 
-  background: var(--el-bg-color); 
-  color: var(--el-text-color-primary); 
+.panel {
+  padding: 8px;
+  border-left: 1px solid var(--el-border-color);
+  height: 60vh;
+  overflow: auto;
+  background: var(--el-bg-color);
+  color: var(--el-text-color-primary);
 }
 
 /* 错误提示样式 */
@@ -914,19 +1148,56 @@ function handleFieldToggle(fieldPath: string) {
   background: var(--el-text-color-secondary, #909399);
 }
 
-.panel-title { font-weight: 600; margin-bottom: 8px; }
-.empty { color: var(--el-text-color-secondary); }
-.horiz { display: flex; gap: 6px; align-items: center; }
-.horiz .flex1 { flex: 1 1 auto; }
-.row .horiz { width: 100%; }
- .v { flex: 1 1 auto; width: 100%; min-width: 5vw;}
-.horiz .sugg { width: 180px; }
-.tip { color: var(--el-text-color-secondary); font-size: 12px; margin: 4px 0 0 110px; }
-.rows { display: flex; flex-direction: column; gap: 8px; margin: 6px 0; }
-.row { display: grid; grid-template-columns: 120px 110px 1fr auto; gap: 6px; align-items: center; }
-.row .k { width: 120px; }
-.row .s { width: 110px; }
-.row .v { width: 100%; }
+.panel-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.empty {
+  color: var(--el-text-color-secondary);
+}
+.horiz {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.horiz .flex1 {
+  flex: 1 1 auto;
+}
+.row .horiz {
+  width: 100%;
+}
+.v {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 5vw;
+}
+.horiz .sugg {
+  width: 180px;
+}
+.tip {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  margin: 4px 0 0 110px;
+}
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 6px 0;
+}
+.row {
+  display: grid;
+  grid-template-columns: 120px 110px 1fr auto;
+  gap: 6px;
+  align-items: center;
+}
+.row .k {
+  width: 120px;
+}
+.row .s {
+  width: 110px;
+}
+.row .v {
+  width: 100%;
+}
 </style>
-
-

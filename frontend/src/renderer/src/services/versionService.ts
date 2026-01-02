@@ -23,13 +23,16 @@ function save(projectId: number, data: Record<number, CardVersionSnapshot[]>) {
   localStorage.setItem(KEY(projectId), JSON.stringify(data))
 }
 
-export function addVersion(projectId: number, snapshot: Omit<CardVersionSnapshot, 'id' | 'createdAt'>) {
+export function addVersion(
+  projectId: number,
+  snapshot: Omit<CardVersionSnapshot, 'id' | 'createdAt'>
+) {
   const db = load(projectId)
   const list = db[snapshot.cardId] || []
   const item: CardVersionSnapshot = {
     ...snapshot,
     id: crypto.randomUUID ? crypto.randomUUID() : String(Date.now() + Math.random()),
-    createdAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
   }
   list.unshift(item)
   // 限制每卡片最多20条
@@ -56,6 +59,6 @@ export function clearVersions(projectId: number, cardId: number) {
 export function deleteVersion(projectId: number, cardId: number, versionId: string) {
   const db = load(projectId)
   const list = db[cardId] || []
-  db[cardId] = list.filter(v => v.id !== versionId)
+  db[cardId] = list.filter((v) => v.id !== versionId)
   save(projectId, db)
-} 
+}

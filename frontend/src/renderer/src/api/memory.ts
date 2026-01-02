@@ -6,41 +6,43 @@ export type UpdateDynamicInfoOutput = components['schemas']['UpdateDynamicInfo-O
 export type RelationExtractionOutput = components['schemas']['RelationExtraction-Output']
 
 export interface ExtractOnlyRequest {
-	project_id?: number
-	card_id?: number
-	text: string
-	participants?: string[]
-	llm_config_id: number
-	timeout?: number
-	extra_context?: string
+  project_id?: number
+  card_id?: number
+  text: string
+  participants?: string[]
+  llm_config_id: number
+  timeout?: number
+  extra_context?: string
 }
 
 export function extractDynamicInfoOnly(data: ExtractOnlyRequest) {
-	return aiHttpClient.post<UpdateDynamicInfoOutput>('/memory/extract-dynamic-info', data)
+  return aiHttpClient.post<UpdateDynamicInfoOutput>('/memory/extract-dynamic-info', data)
 }
 
 export type UpdateDynamicInfoOnlyReq = components['schemas']['UpdateDynamicInfoRequest']
 export type UpdateDynamicInfoOnlyResp = components['schemas']['UpdateDynamicInfoResponse']
 
 export function updateDynamicInfoOnly(data: UpdateDynamicInfoOnlyReq) {
-	return http.post<UpdateDynamicInfoOnlyResp>('/memory/update-dynamic-info', data)
+  return http.post<UpdateDynamicInfoOnlyResp>('/memory/update-dynamic-info', data)
 }
 
 // 入图关系（LLM抽取→Graphiti/Neo4j写入，一步到位）
 export type IngestRelationsLLMRequest = components['schemas']['IngestRelationsLLMRequest']
 export type IngestRelationsLLMResponse = components['schemas']['IngestRelationsLLMResponse']
 export function ingestRelationsLLM(data: IngestRelationsLLMRequest) {
-	return http.post<IngestRelationsLLMResponse>('/memory/ingest-relations-llm', data)
+  return http.post<IngestRelationsLLMResponse>('/memory/ingest-relations-llm', data)
 }
 
 // 预览→确认入图：使用后端 RelationExtraction-Output
 export type ExtractRelationsOnlyReq = components['schemas']['ExtractRelationsRequest']
 export function extractRelationsOnly(data: ExtractRelationsOnlyReq) {
-	return aiHttpClient.post<RelationExtractionOutput>('/memory/extract-relations-llm', data)
+  return aiHttpClient.post<RelationExtractionOutput>('/memory/extract-relations-llm', data)
 }
 
-export type IngestRelationsFromPreviewReq = components['schemas']['IngestRelationsFromPreviewRequest']
-export type IngestRelationsFromPreviewResp = components['schemas']['IngestRelationsFromPreviewResponse']
+export type IngestRelationsFromPreviewReq =
+  components['schemas']['IngestRelationsFromPreviewRequest']
+export type IngestRelationsFromPreviewResp =
+  components['schemas']['IngestRelationsFromPreviewResponse']
 export function ingestRelationsFromPreview(data: IngestRelationsFromPreviewReq) {
-	return http.post<IngestRelationsFromPreviewResp>('/memory/ingest-relations', data)
+  return http.post<IngestRelationsFromPreviewResp>('/memory/ingest-relations', data)
 }

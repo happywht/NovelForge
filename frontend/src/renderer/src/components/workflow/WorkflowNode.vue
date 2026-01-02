@@ -3,21 +3,31 @@ import { computed, ref, onMounted, watch } from 'vue'
 import { Handle, Position } from '@vue-flow/core'
 import { NodeToolbar } from '@vue-flow/node-toolbar'
 import { getCardTypes } from '@renderer/api/cards'
-import { parseSchemaFields, getFieldIcon, type ParsedField } from '@renderer/services/schemaFieldParser'
+import {
+  parseSchemaFields,
+  getFieldIcon,
+  type ParsedField
+} from '@renderer/services/schemaFieldParser'
 import NodeFieldSelector from './NodeFieldSelector.vue'
-import { 
-  ArrowDown, ArrowUp, Setting, Delete, DocumentCopy,
-  EditPen, Check, Close
+import {
+  ArrowDown,
+  ArrowUp,
+  Setting,
+  Delete,
+  DocumentCopy,
+  EditPen,
+  Check,
+  Close
 } from '@element-plus/icons-vue'
 
-const props = defineProps<{ 
-  id: string 
-  data: { 
+const props = defineProps<{
+  id: string
+  data: {
     type: string
     params?: any
     toolbarVisible?: boolean
     expanded?: boolean
-  } 
+  }
   selected?: boolean
 }>()
 
@@ -104,9 +114,9 @@ const nodeSummary = computed(() => {
   const config = nodeConfig.value
   const params = localParams.value || {}
   const summaryParts: string[] = []
-  
+
   // 根据主要字段生成摘要
-  config.primaryFields.forEach(field => {
+  config.primaryFields.forEach((field) => {
     const fieldValue = params[field]
     if (fieldValue !== undefined && fieldValue !== null && fieldValue !== '') {
       let value: string
@@ -141,7 +151,7 @@ const nodeSummary = computed(() => {
         // 特殊处理 contentTemplate 对象，显示关键字段
         const obj = fieldValue
         const keyFields = ['volume_number', 'stage_number', 'chapter_number', 'title']
-        const relevantKeys = Object.keys(obj).filter(k => keyFields.includes(k))
+        const relevantKeys = Object.keys(obj).filter((k) => keyFields.includes(k))
         if (relevantKeys.length > 0) {
           value = `模板: {${relevantKeys.join(', ')}}`
         } else {
@@ -153,7 +163,7 @@ const nodeSummary = computed(() => {
       } else {
         value = String(fieldValue)
       }
-      
+
       if (value.length > 25) {
         summaryParts.push(`${value.slice(0, 22)}...`)
       } else {
@@ -161,14 +171,14 @@ const nodeSummary = computed(() => {
       }
     }
   })
-  
+
   return summaryParts.join(' · ')
 })
 
 // 字段编辑器组件
 const getFieldEditor = (field: string, value: any) => {
   const config = nodeConfig.value
-  
+
   // 根据字段类型返回不同的编辑器配置
   if (field === 'target' && config.title === 'Card.Read') {
     return {
@@ -181,23 +191,23 @@ const getFieldEditor = (field: string, value: any) => {
       description: '指定要读取的卡片目标'
     }
   }
-  
+
   if (field === 'type_name') {
     return {
       type: 'select' as const,
-      options: cardTypeFields.value.map(f => ({ 
-        label: f.title || f.name, 
+      options: cardTypeFields.value.map((f) => ({
+        label: f.title || f.name,
         value: f.name,
         desc: `${f.name}类型的卡片`
       })),
       description: '指定要读取的卡片类型'
     }
   }
-  
+
   if (field === 'cardType') {
     return {
-      type: 'select' as const, 
-      options: cardTypeFields.value.map(f => ({
+      type: 'select' as const,
+      options: cardTypeFields.value.map((f) => ({
         label: f.title || f.name,
         value: f.name,
         desc: `${f.name}卡片`
@@ -206,7 +216,7 @@ const getFieldEditor = (field: string, value: any) => {
       description: '要创建的子卡片类型'
     }
   }
-  
+
   if (field === 'title') {
     return {
       type: 'input' as const,
@@ -214,7 +224,7 @@ const getFieldEditor = (field: string, value: any) => {
       description: '子卡片的标题模板，支持变量替换'
     }
   }
-  
+
   if (field === 'listPath') {
     return {
       type: 'input' as const,
@@ -222,7 +232,7 @@ const getFieldEditor = (field: string, value: any) => {
       description: 'JSONPath表达式，指向要遍历的数组字段'
     }
   }
-  
+
   if (field === 'contentMerge') {
     return {
       type: 'textarea' as const,
@@ -230,7 +240,7 @@ const getFieldEditor = (field: string, value: any) => {
       description: 'JSON格式的内容合并对象'
     }
   }
-  
+
   if (field === 'contentTemplate') {
     return {
       type: 'textarea' as const,
@@ -238,7 +248,7 @@ const getFieldEditor = (field: string, value: any) => {
       description: 'JSON格式的内容模板对象'
     }
   }
-  
+
   if (field === 'countPath') {
     return {
       type: 'input' as const,
@@ -246,7 +256,7 @@ const getFieldEditor = (field: string, value: any) => {
       description: 'JSONPath表达式，指向表示数量的字段'
     }
   }
-  
+
   if (field === 'start') {
     return {
       type: 'number' as const,
@@ -254,7 +264,7 @@ const getFieldEditor = (field: string, value: any) => {
       description: '遍历的起始数字'
     }
   }
-  
+
   return {
     type: 'input' as const,
     placeholder: `请输入 ${field}`
@@ -270,7 +280,7 @@ const getSecondaryFieldEditor = (field: string, value: any) => {
       description: 'JSON对象，要合并到卡片内容的数据'
     }
   }
-  
+
   if (field === 'contentTemplate') {
     return {
       type: 'textarea' as const,
@@ -278,7 +288,7 @@ const getSecondaryFieldEditor = (field: string, value: any) => {
       description: 'JSON格式的内容模板对象'
     }
   }
-  
+
   if (field === 'contentPath') {
     return {
       type: 'input' as const,
@@ -286,14 +296,14 @@ const getSecondaryFieldEditor = (field: string, value: any) => {
       description: 'JSONPath表达式，从源数据提取内容'
     }
   }
-  
+
   if (field === 'useItemAsContent') {
     return {
       type: 'switch' as const,
       description: '是否直接将遍历的item作为卡片内容'
     }
   }
-  
+
   if (field === 'setPath') {
     return {
       type: 'input' as const,
@@ -301,7 +311,7 @@ const getSecondaryFieldEditor = (field: string, value: any) => {
       description: 'JSONPath表达式，指定要设置的字段路径'
     }
   }
-  
+
   if (field === 'setValue') {
     return {
       type: 'input' as const,
@@ -309,7 +319,7 @@ const getSecondaryFieldEditor = (field: string, value: any) => {
       description: '要写入指定路径的数据'
     }
   }
-  
+
   if (field === 'fields') {
     return {
       type: 'textarea' as const,
@@ -317,7 +327,7 @@ const getSecondaryFieldEditor = (field: string, value: any) => {
       description: 'JSON数组，指定要清空的字段路径列表'
     }
   }
-  
+
   return {
     type: 'textarea' as const,
     placeholder: `请输入 ${field}`
@@ -329,33 +339,39 @@ const getSecondaryFieldEditor = (field: string, value: any) => {
 // 更新参数
 const updateParam = (key: string, value: any) => {
   localParams.value = { ...localParams.value, [key]: value }
-  
+
   // 发射DOM事件
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('update-params', {
-      detail: { nodeId: props.id, params: localParams.value }
-    }))
+    window.dispatchEvent(
+      new CustomEvent('update-params', {
+        detail: { nodeId: props.id, params: localParams.value }
+      })
+    )
   }
 }
 
 // 切换展开状态
 const toggleExpanded = () => {
   isExpanded.value = !isExpanded.value
-  
+
   // 发射DOM事件
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('update-expanded', {
-      detail: { nodeId: props.id, expanded: isExpanded.value }
-    }))
+    window.dispatchEvent(
+      new CustomEvent('update-expanded', {
+        detail: { nodeId: props.id, expanded: isExpanded.value }
+      })
+    )
   }
 }
 
 // 删除节点
 const deleteNode = () => {
   if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('delete-node', {
-      detail: { nodeId: props.id }
-    }))
+    window.dispatchEvent(
+      new CustomEvent('delete-node', {
+        detail: { nodeId: props.id }
+      })
+    )
   }
 }
 
@@ -363,7 +379,7 @@ const deleteNode = () => {
 const loadCardTypes = async () => {
   try {
     const types = await getCardTypes()
-    cardTypeFields.value = types.map(t => ({
+    cardTypeFields.value = types.map((t) => ({
       name: t.name,
       title: t.name,
       type: 'object',
@@ -379,13 +395,20 @@ const loadCardTypes = async () => {
 }
 
 // 监听参数变化，同步本地状态
-watch(() => props.data.params, (newParams) => {
-  localParams.value = { ...newParams }
-}, { deep: true })
+watch(
+  () => props.data.params,
+  (newParams) => {
+    localParams.value = { ...newParams }
+  },
+  { deep: true }
+)
 
-watch(() => props.data.expanded, (expanded) => {
-  isExpanded.value = expanded ?? false
-})
+watch(
+  () => props.data.expanded,
+  (expanded) => {
+    isExpanded.value = expanded ?? false
+  }
+)
 
 onMounted(() => {
   loadCardTypes()
@@ -406,14 +429,14 @@ onMounted(() => {
     <Handle id="l" type="target" :position="Position.Left" class="node-handle" />
     <Handle id="r" type="source" :position="Position.Right" class="node-handle" />
     <Handle id="b" type="source" :position="Position.Bottom" class="node-handle" />
-    
+
     <!-- Node Toolbar -->
     <NodeToolbar :is-visible="!!props.data?.toolbarVisible" :position="Position.Top">
       <div class="node-toolbar">
-        <el-button size="small" @click="toggleExpanded" :icon="isExpanded ? ArrowUp : ArrowDown">
+        <el-button size="small" :icon="isExpanded ? ArrowUp : ArrowDown" @click="toggleExpanded">
           {{ isExpanded ? '收起' : '展开' }}
         </el-button>
-        <el-button size="small" @click="deleteNode" :icon="Delete" type="danger">删除</el-button>
+        <el-button size="small" :icon="Delete" type="danger" @click="deleteNode">删除</el-button>
       </div>
     </NodeToolbar>
 
@@ -422,20 +445,22 @@ onMounted(() => {
       <div class="node-icon">{{ nodeConfig.icon }}</div>
       <div class="node-title">
         <div class="node-type">{{ nodeConfig.title }}</div>
-        <div class="node-summary" v-if="nodeSummary">{{ nodeSummary }}</div>
-        <div class="node-context-hint" v-if="nodeConfig.contextHint">{{ nodeConfig.contextHint }}</div>
+        <div v-if="nodeSummary" class="node-summary">{{ nodeSummary }}</div>
+        <div v-if="nodeConfig.contextHint" class="node-context-hint">
+          {{ nodeConfig.contextHint }}
         </div>
+      </div>
       <div class="node-actions">
-        <el-button 
-          text 
-          size="small" 
+        <el-button
+          text
+          size="small"
           :icon="isExpanded ? ArrowUp : ArrowDown"
-          @click="toggleExpanded"
           class="expand-btn"
+          @click="toggleExpanded"
         />
       </div>
     </div>
-    
+
     <!-- Primary Fields (Always Visible) -->
     <div class="node-fields primary-fields">
       <NodeFieldSelector
@@ -464,8 +489,8 @@ onMounted(() => {
     </div>
 
     <!-- Card.Read 字段结构预览 -->
-    <div 
-      v-if="isExpanded && nodeConfig.title === 'Card.Read' && localParams.type_name" 
+    <div
+      v-if="isExpanded && nodeConfig.title === 'Card.Read' && localParams.type_name"
       class="node-schema-preview"
     >
       <div class="schema-title">字段结构</div>
@@ -476,7 +501,7 @@ onMounted(() => {
 
 <style scoped>
 .workflow-node {
-  background: var(--el-bg-color); 
+  background: var(--el-bg-color);
   border: 2px solid var(--el-border-color);
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -523,7 +548,7 @@ onMounted(() => {
   align-items: center;
   padding: 12px 16px;
   border-bottom: 1px solid var(--el-border-color-lighter);
-  background: linear-gradient(135deg, var(--node-color, var(--el-color-primary))22, transparent);
+  background: linear-gradient(135deg, var(--node-color, var(--el-color-primary)) 22, transparent);
 }
 
 .node-icon {
@@ -646,7 +671,7 @@ onMounted(() => {
   .workflow-node {
     width: 220px;
   }
-  
+
   .node-expanded {
     width: 260px;
   }

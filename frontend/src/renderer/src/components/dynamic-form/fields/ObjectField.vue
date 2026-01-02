@@ -9,10 +9,10 @@
     </template>
     <ModelDrivenForm
       :schema="effectiveSchema"
-      :modelValue="modelValue || {}"
+      :model-value="modelValue || {}"
       :root-schema="rootSchema"
       :readonly-fields="readonly ? Object.keys(modelValue || {}) : []"
-      @update:modelValue="emit('update:modelValue', $event)"
+      @update:model-value="emit('update:modelValue', $event)"
     />
   </el-card>
 </template>
@@ -37,7 +37,11 @@ const emit = defineEmits(['update:modelValue'])
 // 当 schema 未声明 properties 但数据存在时，按数据键名动态补齐，保证可渲染
 const effectiveSchema = computed<JSONSchema>(() => {
   const sch = props.schema || { type: 'object' }
-  const hasProps = sch && typeof sch === 'object' && (sch as any).properties && Object.keys((sch as any).properties as any).length > 0
+  const hasProps =
+    sch &&
+    typeof sch === 'object' &&
+    (sch as any).properties &&
+    Object.keys((sch as any).properties as any).length > 0
   if (hasProps) return sch
   const dataKeys = Object.keys(props.modelValue || {})
   if (dataKeys.length === 0) return sch
@@ -47,7 +51,7 @@ const effectiveSchema = computed<JSONSchema>(() => {
     properties: {
       id: { type: 'integer', title: 'id' },
       info: { type: 'string', title: 'info' }
-    },
+    }
   }
   const propsMap: Record<string, JSONSchema> = {}
   for (const k of dataKeys) {

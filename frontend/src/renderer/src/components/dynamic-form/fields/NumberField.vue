@@ -1,13 +1,13 @@
 <template>
   <el-form-item :label="label" :prop="prop">
-    <template #label v-if="$slots.label">
+    <template v-if="$slots.label" #label>
       <slot name="label"></slot>
     </template>
-    <el-input-number 
-      v-model="internalValue" 
-      @change="handleChange" 
+    <el-input-number
+      v-model="internalValue"
       :disabled="readonly"
       class="full-width"
+      @change="handleChange"
     />
   </el-form-item>
 </template>
@@ -27,9 +27,12 @@ const emit = defineEmits(['update:modelValue'])
 
 const internalValue = ref(props.modelValue)
 
-watch(() => props.modelValue, (newValue) => {
-  internalValue.value = newValue
-})
+watch(
+  () => props.modelValue,
+  (newValue) => {
+    internalValue.value = newValue
+  }
+)
 
 function handleChange(value: number | undefined) {
   emit('update:modelValue', value)

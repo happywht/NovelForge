@@ -1,12 +1,12 @@
 <template>
   <div class="editor-layout">
     <!-- 左侧卡片导航树 -->
-    <CardNavigationSidebar 
-      :left-sidebar-width="leftSidebarWidth" 
+    <CardNavigationSidebar
+      :left-sidebar-width="leftSidebarWidth"
       @open-import-free-cards="importVisible = true"
-      @active-tab-change="(tab: string) => activeTab = tab"
+      @active-tab-change="(tab: string) => (activeTab = tab)"
     />
-    
+
     <!-- 拖拽条 -->
     <div class="resizer left-resizer" @mousedown="startResizing('left')"></div>
 
@@ -53,109 +53,117 @@ import CardNavigationSidebar from '@renderer/components/cards/CardNavigationSide
 import AssistantSidebar from '@renderer/components/assistants/AssistantSidebar.vue'
 import CardImportDialog from '@renderer/components/cards/CardImportDialog.vue'
 
- // Mock components that will be created later
- const CardEditorHost = defineAsyncComponent(() => import('@renderer/components/cards/CardEditorHost.vue'));
- const CardMarket = defineAsyncComponent(() => import('@renderer/components/cards/CardMarket.vue'));
+// Mock components that will be created later
+const CardEditorHost = defineAsyncComponent(
+  () => import('@renderer/components/cards/CardEditorHost.vue')
+)
+const CardMarket = defineAsyncComponent(() => import('@renderer/components/cards/CardMarket.vue'))
 
- type Project = components['schemas']['ProjectRead']
+type Project = components['schemas']['ProjectRead']
 
- // Props
- const props = defineProps<{
-   initialProject: Project
- }>()
+// Props
+const props = defineProps<{
+  initialProject: Project
+}>()
 
- // Store
- const cardStore = useCardStore()
- const { activeCard, cards } = storeToRefs(cardStore)
- const projectStore = useProjectStore()
+// Store
+const cardStore = useCardStore()
+const { activeCard, cards } = storeToRefs(cardStore)
+const projectStore = useProjectStore()
 
- // Local State
- const activeTab = ref('market')
- const prefetchedContext = ref<any>(null)
- const importVisible = ref(false)
- const assistantSidebarRef = ref<any>(null)
+// Local State
+const activeTab = ref('market')
+const prefetchedContext = ref<any>(null)
+const importVisible = ref(false)
+const assistantSidebarRef = ref<any>(null)
 
- // Composables
- const { leftSidebarWidth, rightSidebarWidth, startResizing } = useSidebarResizer()
+// Composables
+const { leftSidebarWidth, rightSidebarWidth, startResizing } = useSidebarResizer()
 
- // 判断当前是否为章节正文卡片
- const isChapterContent = computed(() => {
-   return activeCard.value?.card_type?.name === '章节正文'
- })
+// 判断当前是否为章节正文卡片
+const isChapterContent = computed(() => {
+  return activeCard.value?.card_type?.name === '章节正文'
+})
 
- // 章节信息提取
- const chapterVolumeNumber = computed(() => {
-   if (!isChapterContent.value) return null
-   const content: any = activeCard.value?.content || {}
-   return content.volume_number ?? null
- })
+// 章节信息提取
+const chapterVolumeNumber = computed(() => {
+  if (!isChapterContent.value) return null
+  const content: any = activeCard.value?.content || {}
+  return content.volume_number ?? null
+})
 
- const chapterChapterNumber = computed(() => {
-   if (!isChapterContent.value) return null
-   const content: any = activeCard.value?.content || {}
-   return content.chapter_number ?? null
- })
+const chapterChapterNumber = computed(() => {
+  if (!isChapterContent.value) return null
+  const content: any = activeCard.value?.content || {}
+  return content.chapter_number ?? null
+})
 
- const chapterParticipants = computed(() => {
-   if (!isChapterContent.value) return []
-   const content: any = activeCard.value?.content || {}
-   const list = content.entity_list || []
-   if (Array.isArray(list)) {
-     return list.map((x: any) => typeof x === 'string' ? x : (x?.name || '')).filter(Boolean).slice(0, 6)
-   }
-   return []
- })
+const chapterParticipants = computed(() => {
+  if (!isChapterContent.value) return []
+  const content: any = activeCard.value?.content || {}
+  const list = content.entity_list || []
+  if (Array.isArray(list)) {
+    return list
+      .map((x: any) => (typeof x === 'string' ? x : x?.name || ''))
+      .filter(Boolean)
+      .slice(0, 6)
+  }
+  return []
+})
 
- // 自动装配章节上下文
- watch(isChapterContent, async (val) => {
-   if (val && activeCard.value) {
-     await assembleChapterContext()
-   }
- }, { immediate: true })
+// 自动装配章节上下文
+watch(
+  isChapterContent,
+  async (val) => {
+    if (val && activeCard.value) {
+      await assembleChapterContext()
+    }
+  },
+  { immediate: true }
+)
 
- async function assembleChapterContext() {
-   if (!isChapterContent.value || !projectStore.currentProject?.id) return
-   
-   try {
-     const { assembleContext } = await import('@renderer/api/ai')
-     const res = await assembleContext({
-       project_id: projectStore.currentProject.id,
-       volume_number: chapterVolumeNumber.value ?? undefined,
-       chapter_number: chapterChapterNumber.value ?? undefined,
-       participants: chapterParticipants.value,
-       current_draft_tail: ''
-     })
-     prefetchedContext.value = res
-   } catch (e) {
-     console.error('Failed to assemble chapter context:', e)
-   }
- }
+async function assembleChapterContext() {
+  if (!isChapterContent.value || !projectStore.currentProject?.id) return
 
- async function handleJumpToCard(payload: { projectId: number; cardId: number }) {
-   cardStore.setActiveCard(payload.cardId)
-   activeTab.value = 'editor'
- }
+  try {
+    const { assembleContext } = await import('@renderer/api/ai')
+    const res = await assembleContext({
+      project_id: projectStore.currentProject.id,
+      volume_number: chapterVolumeNumber.value ?? undefined,
+      chapter_number: chapterChapterNumber.value ?? undefined,
+      participants: chapterParticipants.value,
+      current_draft_tail: ''
+    })
+    prefetchedContext.value = res
+  } catch (e) {
+    console.error('Failed to assemble chapter context:', e)
+  }
+}
 
- async function handleHistoryRestored(content: string) {
-   if (activeCard.value) {
-     cardStore.updateCardContentLocally(activeCard.value.id, content)
-     ElMessage.success('已恢复历史版本内容')
-   }
- }
+async function handleJumpToCard(payload: { projectId: number; cardId: number }) {
+  cardStore.setActiveCard(payload.cardId)
+  activeTab.value = 'editor'
+}
 
- function handleEditCard(cardId: number) {
-   cardStore.setActiveCard(cardId);
-   activeTab.value = 'editor';
- }
+async function handleHistoryRestored(content: string) {
+  if (activeCard.value) {
+    cardStore.updateCardContentLocally(activeCard.value.id, content)
+    ElMessage.success('已恢复历史版本内容')
+  }
+}
 
- onMounted(async () => {
-   if (props.initialProject?.id) {
-     projectStore.setCurrentProject(props.initialProject)
-     await cardStore.fetchCardTypes()
-     await cardStore.fetchCards(props.initialProject.id)
-   }
- })
+function handleEditCard(cardId: number) {
+  cardStore.setActiveCard(cardId)
+  activeTab.value = 'editor'
+}
 
+onMounted(async () => {
+  if (props.initialProject?.id) {
+    projectStore.setCurrentProject(props.initialProject)
+    await cardStore.fetchCardTypes()
+    await cardStore.fetchCards(props.initialProject.id)
+  }
+})
 </script>
 
 <style scoped>
@@ -206,6 +214,12 @@ import CardImportDialog from '@renderer/components/cards/CardImportDialog.vue'
   height: 100%;
 }
 
-.right-resizer { cursor: col-resize; width: 5px; background: transparent; }
-.right-resizer:hover { background: var(--el-color-primary-light-7); }
+.right-resizer {
+  cursor: col-resize;
+  width: 5px;
+  background: transparent;
+}
+.right-resizer:hover {
+  background: var(--el-color-primary-light-7);
+}
 </style>

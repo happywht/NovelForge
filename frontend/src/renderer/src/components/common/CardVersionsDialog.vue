@@ -10,7 +10,7 @@
       <span class="tip">历史版本仅保存在前端，最多保留最近20条。</span>
     </div>
 
-    <el-table :data="versions" style="width:100%" height="50vh" size="small" v-loading="loading">
+    <el-table v-loading="loading" :data="versions" style="width: 100%" height="50vh" size="small">
       <el-table-column label="时间" width="200">
         <template #default="{ row }">{{ format(row.createdAt) }}</template>
       </el-table-column>
@@ -43,7 +43,7 @@
     </el-table>
 
     <template #footer>
-      <el-button @click="visible=false">关闭</el-button>
+      <el-button @click="visible = false">关闭</el-button>
     </template>
 
     <!-- 预览抽屉：改为并排差异高亮渲染 -->
@@ -54,9 +54,17 @@
           <div class="diff-table">
             <div class="diff-header">所选版本</div>
             <div class="diff-header">当前</div>
-            <template v-for="(row, idx) in contentDiffRows" :key="'c-'+idx">
-              <pre class="diff-cell" :class="row.left?.type ? 'diff-' + row.left.type : 'diff-empty'">{{ row.left?.text || '' }}</pre>
-              <pre class="diff-cell" :class="row.right?.type ? 'diff-' + row.right.type : 'diff-empty'">{{ row.right?.text || '' }}</pre>
+            <template v-for="(row, idx) in contentDiffRows" :key="'c-' + idx">
+              <pre
+                class="diff-cell"
+                :class="row.left?.type ? 'diff-' + row.left.type : 'diff-empty'"
+                >{{ row.left?.text || '' }}</pre
+              >
+              <pre
+                class="diff-cell"
+                :class="row.right?.type ? 'diff-' + row.right.type : 'diff-empty'"
+                >{{ row.right?.text || '' }}</pre
+              >
             </template>
           </div>
         </div>
@@ -65,9 +73,17 @@
           <div class="diff-table">
             <div class="diff-header">所选版本</div>
             <div class="diff-header">当前</div>
-            <template v-for="(row, idx) in contextDiffRows" :key="'x-'+idx">
-              <pre class="diff-cell" :class="row.left?.type ? 'diff-' + row.left.type : 'diff-empty'">{{ row.left?.text || '' }}</pre>
-              <pre class="diff-cell" :class="row.right?.type ? 'diff-' + row.right.type : 'diff-empty'">{{ row.right?.text || '' }}</pre>
+            <template v-for="(row, idx) in contextDiffRows" :key="'x-' + idx">
+              <pre
+                class="diff-cell"
+                :class="row.left?.type ? 'diff-' + row.left.type : 'diff-empty'"
+                >{{ row.left?.text || '' }}</pre
+              >
+              <pre
+                class="diff-cell"
+                :class="row.right?.type ? 'diff-' + row.right.type : 'diff-empty'"
+                >{{ row.right?.text || '' }}</pre
+              >
             </template>
           </div>
         </div>
@@ -78,15 +94,29 @@
 
 <script setup lang="ts">
 import { ref, watch, computed } from 'vue'
-import { listVersions, clearVersions, deleteVersion, type CardVersionSnapshot } from '@renderer/services/versionService'
+import {
+  listVersions,
+  clearVersions,
+  deleteVersion,
+  type CardVersionSnapshot
+} from '@renderer/services/versionService'
 import { ElMessage } from 'element-plus'
 
-const props = defineProps<{ projectId: number; cardId: number; modelValue: boolean; currentContent: any; currentContextTemplate: string }>()
-const emit = defineEmits(['update:modelValue','restore'])
+const props = defineProps<{
+  projectId: number
+  cardId: number
+  modelValue: boolean
+  currentContent: any
+  currentContextTemplate: string
+}>()
+const emit = defineEmits(['update:modelValue', 'restore'])
 
 const visible = ref(props.modelValue)
-watch(() => props.modelValue, v => visible.value = v)
-watch(visible, v => emit('update:modelValue', v))
+watch(
+  () => props.modelValue,
+  (v) => (visible.value = v)
+)
+watch(visible, (v) => emit('update:modelValue', v))
 
 const versions = ref<CardVersionSnapshot[]>([])
 const loading = ref(false)
@@ -99,7 +129,9 @@ function reload() {
 
 watch(() => props.cardId, reload, { immediate: true })
 
-function format(iso: string) { return new Date(iso).toLocaleString() }
+function format(iso: string) {
+  return new Date(iso).toLocaleString()
+}
 function summarize(content: any) {
   const s = JSON.stringify(content ?? {})
   return s.length > 100 ? s.slice(0, 100) + '…' : s
@@ -139,13 +171,20 @@ function restore(v: CardVersionSnapshot) {
 
 // 轻量行级差异算法（LCS 对齐）
 // 输入两段文本，按行拆分后计算最短编辑路径对齐，输出左右并排渲染所需的数据结构
-interface DiffPart { text: string; type: 'equal' | 'add' | 'del' }
-interface DiffRow { left?: DiffPart; right?: DiffPart }
+interface DiffPart {
+  text: string
+  type: 'equal' | 'add' | 'del'
+}
+interface DiffRow {
+  left?: DiffPart
+  right?: DiffPart
+}
 
 function computeDiffRows(left: string, right: string): DiffRow[] {
   const a = (left || '').split('\n')
   const b = (right || '').split('\n')
-  const m = a.length, n = b.length
+  const m = a.length,
+    n = b.length
   // dp[i][j] 表示 a[0..i-1] 与 b[0..j-1] 的 LCS 长度
   const dp: number[][] = Array.from({ length: m + 1 }, () => Array(n + 1).fill(0))
   for (let i = 1; i <= m; i++) {
@@ -155,11 +194,16 @@ function computeDiffRows(left: string, right: string): DiffRow[] {
   }
   // 回溯获取对齐路径
   const rows: DiffRow[] = []
-  let i = m, j = n
+  let i = m,
+    j = n
   while (i > 0 && j > 0) {
     if (a[i - 1] === b[j - 1]) {
-      rows.push({ left: { text: a[i - 1], type: 'equal' }, right: { text: b[j - 1], type: 'equal' } })
-      i--; j--
+      rows.push({
+        left: { text: a[i - 1], type: 'equal' },
+        right: { text: b[j - 1], type: 'equal' }
+      })
+      i--
+      j--
     } else if (dp[i - 1][j] >= dp[i][j - 1]) {
       rows.push({ left: { text: a[i - 1], type: 'del' } })
       i--
@@ -168,30 +212,92 @@ function computeDiffRows(left: string, right: string): DiffRow[] {
       j--
     }
   }
-  while (i > 0) { rows.push({ left: { text: a[i - 1], type: 'del' } }); i-- }
-  while (j > 0) { rows.push({ right: { text: b[j - 1], type: 'add' } }); j-- }
+  while (i > 0) {
+    rows.push({ left: { text: a[i - 1], type: 'del' } })
+    i--
+  }
+  while (j > 0) {
+    rows.push({ right: { text: b[j - 1], type: 'add' } })
+    j--
+  }
   rows.reverse()
   return rows
 }
 
 // 内容与上下文的并排差异结果
-const contentDiffRows = computed<DiffRow[]>(() => computeDiffRows(selectedText.value, currentText.value))
-const contextDiffRows = computed<DiffRow[]>(() => computeDiffRows(selectedCtx.value, currentCtx.value))
+const contentDiffRows = computed<DiffRow[]>(() =>
+  computeDiffRows(selectedText.value, currentText.value)
+)
+const contextDiffRows = computed<DiffRow[]>(() =>
+  computeDiffRows(selectedCtx.value, currentCtx.value)
+)
 </script>
 
 <style scoped>
-.toolbar { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-.tip { color: var(--el-text-color-secondary); font-size: 12px; margin-left: auto; }
-.preview-wrap2 { display: grid; grid-template-columns: 1fr 1fr; grid-auto-rows: minmax(140px, auto); gap: 12px; }
-.pane { overflow: auto; border: 1px solid var(--el-border-color-light); border-radius: 6px; padding: 8px; }
-.summary { color: var(--el-text-color-secondary); }
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.tip {
+  color: var(--el-text-color-secondary);
+  font-size: 12px;
+  margin-left: auto;
+}
+.preview-wrap2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-auto-rows: minmax(140px, auto);
+  gap: 12px;
+}
+.pane {
+  overflow: auto;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 6px;
+  padding: 8px;
+}
+.summary {
+  color: var(--el-text-color-secondary);
+}
 
 /* 差异渲染：两列并排，行级高亮 */
-.diff-table { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--el-border-color-light); border-radius: 4px; overflow: hidden; }
-.diff-header { background: var(--el-fill-color-light); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--el-border-color-light); }
-.diff-cell { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; padding: 2px 6px; border-left: 3px solid transparent; border-bottom: 1px solid var(--el-border-color-extra-light); }
-.diff-equal { background: transparent; }
-.diff-add { background: rgba(46, 204, 113, 0.12); border-left-color: #2ecc71; }
-.diff-del { background: rgba(231, 76, 60, 0.13); border-left-color: #e74c3c; }
-.diff-empty { background: var(--el-fill-color-blank); }
-</style> 
+.diff-table {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--el-border-color-light);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.diff-header {
+  background: var(--el-fill-color-light);
+  font-weight: 600;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+.diff-cell {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
+    monospace;
+  padding: 2px 6px;
+  border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--el-border-color-extra-light);
+}
+.diff-equal {
+  background: transparent;
+}
+.diff-add {
+  background: rgba(46, 204, 113, 0.12);
+  border-left-color: #2ecc71;
+}
+.diff-del {
+  background: rgba(231, 76, 60, 0.13);
+  border-left-color: #e74c3c;
+}
+.diff-empty {
+  background: var(--el-fill-color-blank);
+}
+</style>

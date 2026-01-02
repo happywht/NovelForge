@@ -12,6 +12,8 @@ import { useProjectStore } from '@renderer/stores/useProjectStore'
 import { useAssistantStore } from '@renderer/stores/useAssistantStore'
 import { getCardSchema } from '@renderer/api/setting'
 import { getCardAIParams } from '@renderer/api/cards'
+import { useSuggestionsStore } from '@renderer/stores/useSuggestionsStore'
+import SuggestionsPanel from '@renderer/components/editors/cm-editor/SuggestionsPanel.vue'
 
 const props = defineProps<{
   width: number
@@ -27,13 +29,27 @@ const emit = defineEmits<{
 const cardStore = useCardStore()
 const projectStore = useProjectStore()
 const assistantStore = useAssistantStore()
+const suggestionsStore = useSuggestionsStore()
 const { cards } = storeToRefs(cardStore)
+const { suggestions } = storeToRefs(suggestionsStore)
 
 const activeRightTab = ref('assistant')
 const assistantResolvedContext = ref<string>('')
 const assistantEffectiveSchema = ref<any>(null)
 const assistantSelectionCleared = ref<boolean>(false)
-const assistantParams = ref<{ llm_config_id: number | null; prompt_name: string | null; temperature: number | null; max_tokens: number | null; timeout: number | null }>({ llm_config_id: null, prompt_name: '灵感对话', temperature: null, max_tokens: null, timeout: null })
+const assistantParams = ref<{
+  llm_config_id: number | null
+  prompt_name: string | null
+  temperature: number | null
+  max_tokens: number | null
+  timeout: number | null
+}>({
+  llm_config_id: null,
+  prompt_name: '灵感对话',
+  temperature: null,
+  max_tokens: null,
+  timeout: null
+})
 
 // 判断当前是否为章节正文卡片
 const isChapterContent = computed(() => {
@@ -58,7 +74,10 @@ const chapterParticipants = computed(() => {
   const content: any = props.activeCard?.content || {}
   const list = content.entity_list || []
   if (Array.isArray(list)) {
-    return list.map((x: any) => typeof x === 'string' ? x : (x?.name || '')).filter(Boolean).slice(0, 6)
+    return list
+      .map((x: any) => (typeof x === 'string' ? x : x?.name || ''))
+      .filter(Boolean)
+      .slice(0, 6)
   }
   return []
 })
@@ -66,9 +85,17 @@ const chapterParticipants = computed(() => {
 async function refreshAssistantContext() {
   try {
     const card = assistantSelectionCleared.value ? null : (props.activeCard as any)
-    if (!card) { assistantResolvedContext.value = ''; assistantEffectiveSchema.value = null; return }
+    if (!card) {
+      assistantResolvedContext.value = ''
+      assistantEffectiveSchema.value = null
+      return
+    }
     const { resolveTemplate } = await import('@renderer/services/contextResolver')
-    const resolved = resolveTemplate({ template: card.ai_context_template || '', cards: cards.value, currentCard: card })
+    const resolved = resolveTemplate({
+      template: card.ai_context_template || '',
+      cards: cards.value,
+      currentCard: card
+    })
     assistantResolvedContext.value = resolved
     const resp = await getCardSchema(card.id)
     assistantEffectiveSchema.value = resp?.effective_schema || resp?.json_schema || null
@@ -80,7 +107,7 @@ async function refreshAssistantContext() {
         prompt_name: (eff.prompt_name ?? '灵感对话') as any,
         temperature: eff.temperature ?? null,
         max_tokens: eff.max_tokens ?? null,
-        timeout: eff.timeout ?? null,
+        timeout: eff.timeout ?? null
       }
     } catch {
       const p = (card?.ai_params || {}) as any
@@ -89,15 +116,20 @@ async function refreshAssistantContext() {
         prompt_name: (p.prompt_name ?? '灵感对话') as any,
         temperature: p.temperature ?? null,
         max_tokens: p.max_tokens ?? null,
-        timeout: p.timeout ?? null,
+        timeout: p.timeout ?? null
       }
     }
-  } catch { assistantResolvedContext.value = '' }
+  } catch {
+    assistantResolvedContext.value = ''
+  }
 }
 
-watch(() => props.activeCard, () => { 
-  if (!assistantSelectionCleared.value) refreshAssistantContext() 
-})
+watch(
+  () => props.activeCard,
+  () => {
+    if (!assistantSelectionCleared.value) refreshAssistantContext()
+  }
+)
 
 function resetAssistantSelection() {
   assistantSelectionCleared.value = true
@@ -150,9 +182,9 @@ defineExpose({
             @jump-to-card="handleJumpToCard"
           />
         </el-tab-pane>
-        
+
         <el-tab-pane label="参与实体" name="context">
-          <ContextPanel 
+          <ContextPanel
             :project-id="projectStore.currentProject?.id"
             :prefetched="prefetchedContext"
             :volume-number="chapterVolumeNumber"
@@ -160,13 +192,13 @@ defineExpose({
             :participants="chapterParticipants"
           />
         </el-tab-pane>
-        
+
         <el-tab-pane label="提取" name="extract">
           <ChapterToolsPanel />
         </el-tab-pane>
-        
+
         <el-tab-pane label="大纲" name="outline">
-          <OutlinePanel 
+          <OutlinePanel
             :active-card="activeCard"
             :volume-number="chapterVolumeNumber"
             :chapter-number="chapterChapterNumber"
@@ -176,9 +208,29 @@ defineExpose({
         <el-tab-pane label="历史" name="history">
           <HistoryPanel :card-id="activeCard?.id" @restored="handleHistoryRestored" />
         </el-tab-pane>
+
+        <el-tab-pane name="suggestions">
+          <template #label>
+            <el-badge
+              :value="suggestions.length"
+              :hidden="suggestions.length === 0"
+              :max="99"
+              class="suggestion-badge"
+            >
+              建议
+            </el-badge>
+          </template>
+          <SuggestionsPanel
+            :context="{
+              participants: chapterParticipants,
+              volume_number: chapterVolumeNumber,
+              chapter_number: chapterChapterNumber
+            }"
+          />
+        </el-tab-pane>
       </el-tabs>
     </template>
-    
+
     <!-- 其他卡片：仅显示助手 -->
     <AssistantPanel
       v-else
@@ -210,10 +262,10 @@ defineExpose({
   overflow: hidden;
 }
 
-.assistant-sidebar { 
-  border-left: none; 
-  background: transparent; 
-  flex-shrink: 0; 
+.assistant-sidebar {
+  border-left: none;
+  background: transparent;
+  flex-shrink: 0;
   padding: 16px 8px 16px 0;
 }
 

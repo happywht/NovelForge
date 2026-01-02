@@ -5,9 +5,17 @@ export function unwrapChapterOutline(obj: any): any {
   if (obj.ChapterOutline && typeof obj.ChapterOutline === 'object') return obj.ChapterOutline
   if (obj.chapterOutline && typeof obj.chapterOutline === 'object') return obj.chapterOutline
   // 直接识别：出现关键字段即可视为章节大纲形态
-  const hallmark = ['volume_number', 'chapter_number', 'character_list', 'overview', 'characters', 'participants', 'roles']
+  const hallmark = [
+    'volume_number',
+    'chapter_number',
+    'character_list',
+    'overview',
+    'characters',
+    'participants',
+    'roles'
+  ]
   const keys = Object.keys(obj || {})
-  return keys.some(k => hallmark.includes(k)) ? obj : {}
+  return keys.some((k) => hallmark.includes(k)) ? obj : {}
 }
 
 // 统一清洗姓名：去除括号备注、全角/半角空格、尾部顿号等
@@ -26,7 +34,8 @@ export function sanitizeName(raw: string): string {
 
 export function toNameList(arr: any): string[] {
   if (!Array.isArray(arr)) return []
-  if (arr.every(x => typeof x === 'string')) return (arr as string[]).map(s => sanitizeName(s)).filter(Boolean)
+  if (arr.every((x) => typeof x === 'string'))
+    return (arr as string[]).map((s) => sanitizeName(s)).filter(Boolean)
   const out: string[] = []
   for (const it of arr) {
     if (typeof it === 'object' && it) {
@@ -39,7 +48,7 @@ export function toNameList(arr: any): string[] {
 
 export function extractParticipantsFrom(obj: any): string[] {
   if (!obj || typeof obj !== 'object') return []
-  const keys = ['character_list','characters','participants','roles','人物列表','角色列表']
+  const keys = ['character_list', 'characters', 'participants', 'roles', '人物列表', '角色列表']
   for (const k of keys) {
     if (k in obj) {
       const names = toNameList((obj as any)[k])
@@ -47,4 +56,4 @@ export function extractParticipantsFrom(obj: any): string[] {
     }
   }
   return []
-} 
+}

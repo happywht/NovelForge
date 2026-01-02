@@ -1,25 +1,25 @@
 <template>
   <el-form-item :label="label" :prop="prop">
-    <template #label v-if="$slots.label">
+    <template v-if="$slots.label" #label>
       <slot name="label"></slot>
     </template>
     <el-input
       v-if="!isLongText"
       :model-value="modelValue"
-      @update:modelValue="emit('update:modelValue', $event)"
       :placeholder="placeholder"
       :disabled="readonly"
       clearable
+      @update:model-value="emit('update:modelValue', $event)"
     />
     <el-input
       v-else
       type="textarea"
       :model-value="modelValue"
-      @update:modelValue="emit('update:modelValue', $event)"
       :placeholder="placeholder"
       :autosize="{ minRows: 3, maxRows: 10 }"
       :disabled="readonly"
       clearable
+      @update:model-value="emit('update:modelValue', $event)"
     />
   </el-form-item>
 </template>

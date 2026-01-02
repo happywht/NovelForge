@@ -16,10 +16,10 @@
             <el-table-column prop="info" label="信息" min-width="360" />
             <el-table-column label="操作" width="90">
               <template #default="scope">
-                <el-button 
-                  type="danger" 
-                  text 
-                  size="small" 
+                <el-button
+                  type="danger"
+                  text
+                  size="small"
                   @click="$emit('remove-item', role.name, String(catKey), scope.$index)"
                 >
                   删除
@@ -44,7 +44,7 @@
     @close="$emit('update:relationsVisible', false)"
   >
     <div v-if="relationsPreview">
-      <div style="margin-top: 16px" v-if="relationsPreview.relations?.length">
+      <div v-if="relationsPreview.relations?.length" style="margin-top: 16px">
         <h4>关系项</h4>
         <el-table :data="relationsPreview.relations" size="small" border>
           <el-table-column prop="a" label="A" width="160" />
@@ -58,17 +58,33 @@
               </div>
               <div v-if="row.recent_dialogues?.length">
                 <div>对话样例：</div>
-                <ul style="margin: 4px 0 0 16px; padding: 0;">
-                  <li v-for="(d, i) in row.recent_dialogues" :key="i" style="list-style: disc;">
+                <ul style="margin: 4px 0 0 16px; padding: 0">
+                  <li v-for="(d, i) in row.recent_dialogues" :key="i" style="list-style: disc">
                     {{ d }}
                   </li>
                 </ul>
               </div>
               <div v-if="row.recent_event_summaries?.length">
                 <div>
-                  近期事件：{{ row.recent_event_summaries[row.recent_event_summaries.length - 1].summary }}
-                  <span v-if="row.recent_event_summaries[row.recent_event_summaries.length-1].volume_number != null || row.recent_event_summaries[row.recent_event_summaries.length-1].chapter_number != null" class="event-meta">
-                    （卷{{ row.recent_event_summaries[row.recent_event_summaries.length-1].volume_number ?? '-' }}·章{{ row.recent_event_summaries[row.recent_event_summaries.length-1].chapter_number ?? '-' }}）
+                  近期事件：{{
+                    row.recent_event_summaries[row.recent_event_summaries.length - 1].summary
+                  }}
+                  <span
+                    v-if="
+                      row.recent_event_summaries[row.recent_event_summaries.length - 1]
+                        .volume_number != null ||
+                      row.recent_event_summaries[row.recent_event_summaries.length - 1]
+                        .chapter_number != null
+                    "
+                    class="event-meta"
+                  >
+                    （卷{{
+                      row.recent_event_summaries[row.recent_event_summaries.length - 1]
+                        .volume_number ?? '-'
+                    }}·章{{
+                      row.recent_event_summaries[row.recent_event_summaries.length - 1]
+                        .chapter_number ?? '-'
+                    }}）
                   </span>
                 </div>
               </div>
@@ -105,21 +121,33 @@ const emit = defineEmits<{
 const internalPreviewVisible = ref(props.previewVisible)
 const internalRelationsVisible = ref(props.relationsVisible)
 
-watch(() => props.previewVisible, (val) => {
-  internalPreviewVisible.value = val
-})
+watch(
+  () => props.previewVisible,
+  (val) => {
+    internalPreviewVisible.value = val
+  }
+)
 
-watch(() => internalPreviewVisible.value, (val) => {
-  emit('update:previewVisible', val)
-})
+watch(
+  () => internalPreviewVisible.value,
+  (val) => {
+    emit('update:previewVisible', val)
+  }
+)
 
-watch(() => props.relationsVisible, (val) => {
-  internalRelationsVisible.value = val
-})
+watch(
+  () => props.relationsVisible,
+  (val) => {
+    internalRelationsVisible.value = val
+  }
+)
 
-watch(() => internalRelationsVisible.value, (val) => {
-  emit('update:relationsVisible', val)
-})
+watch(
+  () => internalRelationsVisible.value,
+  (val) => {
+    emit('update:relationsVisible', val)
+  }
+)
 
 function formatCategory(catKey: any) {
   return String(catKey)

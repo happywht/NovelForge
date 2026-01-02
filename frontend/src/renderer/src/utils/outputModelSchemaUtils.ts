@@ -16,13 +16,21 @@ export interface BuilderField {
 function toStringExample(val: any): string {
   if (val === undefined || val === null) return ''
   if (typeof val === 'string') return val
-  try { return JSON.stringify(val) } catch { return String(val) }
+  try {
+    return JSON.stringify(val)
+  } catch {
+    return String(val)
+  }
 }
 
 function parseMaybeJSON(s: string): any {
   if (!s) return undefined
   const t = s.trim()
-  try { return JSON.parse(t) } catch { return t }
+  try {
+    return JSON.parse(t)
+  } catch {
+    return t
+  }
 }
 
 export function schemaToBuilder(schema: any): BuilderField[] {
@@ -44,8 +52,10 @@ export function schemaToBuilder(schema: any): BuilderField[] {
     } else if (core && (Array.isArray(core.prefixItems) || Array.isArray(core.anyOf))) {
       kind = 'tuple'
       const arr = (core.prefixItems || core.anyOf || []) as any[]
-      tupleItems = arr.map((s: any) => (['string','number','integer','boolean'].includes(s?.type) ? s.type : 'string'))
-    } else if (core?.type && ['string','number','integer','boolean'].includes(core.type)) {
+      tupleItems = arr.map((s: any) =>
+        ['string', 'number', 'integer', 'boolean'].includes(s?.type) ? s.type : 'string'
+      )
+    } else if (core?.type && ['string', 'number', 'integer', 'boolean'].includes(core.type)) {
       kind = core.type
     }
 
@@ -68,7 +78,7 @@ export function schemaToBuilder(schema: any): BuilderField[] {
       description: core?.description || p?.description || '',
       example: toStringExample(exRaw),
       tupleItems,
-      aiExclude,
+      aiExclude
     })
   }
   return fields
@@ -82,13 +92,20 @@ export function builderToSchema(fields: BuilderField[]): any {
     if (!f.name) continue
     let node: any = {}
     if (f.kind === 'relation') {
-      if (f.isArray) node = { type: 'array', items: { $ref: `#/$defs/${f.relation.targetModelName ?? ''}` } }
+      if (f.isArray)
+        node = { type: 'array', items: { $ref: `#/$defs/${f.relation.targetModelName ?? ''}` } }
       else node = { $ref: `#/$defs/${f.relation.targetModelName ?? ''}` }
     } else if (f.kind === 'tuple') {
-      const items = (f.tupleItems && f.tupleItems.length)
-        ? f.tupleItems.map(t => ({ type: t }))
-        : [{ type: 'string' }, { type: 'string' }]
-      const core = { type: 'array', prefixItems: items, minItems: items.length, maxItems: items.length }
+      const items =
+        f.tupleItems && f.tupleItems.length
+          ? f.tupleItems.map((t) => ({ type: t }))
+          : [{ type: 'string' }, { type: 'string' }]
+      const core = {
+        type: 'array',
+        prefixItems: items,
+        minItems: items.length,
+        maxItems: items.length
+      }
       node = f.isArray ? { type: 'array', items: core } : core
     } else {
       node = { type: f.kind }
@@ -108,4 +125,4 @@ export function builderToSchema(fields: BuilderField[]): any {
   if (required.length) schema.required = required
   // defs 由调用方（SchemaStudio）收集/注入，以便跨模型复用
   return schema
-} 
+}

@@ -2,7 +2,12 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { components } from '@renderer/types/generated'
-import { getProjects, createProject as apiCreateProject, updateProject as apiUpdateProject, deleteProject as apiDeleteProject } from '@renderer/api/projects'
+import {
+  getProjects,
+  createProject as apiCreateProject,
+  updateProject as apiUpdateProject,
+  deleteProject as apiDeleteProject
+} from '@renderer/api/projects'
 
 type Project = components['schemas']['ProjectRead']
 type ProjectCreate = components['schemas']['ProjectCreate']
@@ -18,7 +23,7 @@ export const useProjectListStore = defineStore('projectList', () => {
     isLoading.value = true
     try {
       const list = await getProjects()
-      projects.value = (list || []).filter(p => (p.name || '') !== '__free__')
+      projects.value = (list || []).filter((p) => (p.name || '') !== '__free__')
     } catch (error) {
       console.error('获取项目列表失败:', error)
       ElMessage.error('获取项目列表失败')
@@ -54,7 +59,7 @@ export const useProjectListStore = defineStore('projectList', () => {
   async function deleteProject(projectId: number) {
     try {
       // 额外前端保护：阻止删除保留项目
-      const proj = projects.value.find(p => p.id === projectId)
+      const proj = projects.value.find((p) => p.id === projectId)
       if (proj && (proj.name || '') === '__free__') {
         ElMessage.warning('系统保留项目不可删除')
         return
@@ -77,7 +82,7 @@ export const useProjectListStore = defineStore('projectList', () => {
     // State
     projects,
     isLoading,
-    
+
     // Actions
     fetchProjects,
     createProject,
@@ -85,4 +90,4 @@ export const useProjectListStore = defineStore('projectList', () => {
     deleteProject,
     reset
   }
-}) 
+})

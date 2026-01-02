@@ -1,12 +1,12 @@
 <template>
   <el-form-item :label="label" :prop="prop">
-    <template #label v-if="$slots.label">
+    <template v-if="$slots.label" #label>
       <slot name="label"></slot>
     </template>
     <el-switch
       :model-value="modelValue"
       :disabled="readonly"
-      @update:modelValue="$emit('update:modelValue', $event)"
+      @update:model-value="$emit('update:modelValue', $event)"
     />
     <div v-if="schema.description" class="field-desc">{{ schema.description }}</div>
   </el-form-item>

@@ -21,8 +21,12 @@
             {{ item.content.substring(0, 150) }}{{ item.content.length > 150 ? '...' : '' }}
           </div>
           <div class="item-actions">
-            <el-button size="small" link type="primary" @click="viewDetail(item)">查看详情</el-button>
-            <el-button size="small" link type="warning" @click="confirmRestore(item)">恢复此版本</el-button>
+            <el-button size="small" link type="primary" @click="viewDetail(item)"
+              >查看详情</el-button
+            >
+            <el-button size="small" link type="warning" @click="confirmRestore(item)"
+              >恢复此版本</el-button
+            >
           </div>
         </div>
       </div>
@@ -30,13 +34,27 @@
     </div>
 
     <!-- 详情对话框 -->
-    <el-dialog v-model="detailVisible" title="历史版本详情" width="700px" append-to-body destroy-on-close>
+    <el-dialog
+      v-model="detailVisible"
+      title="历史版本详情"
+      width="700px"
+      append-to-body
+      destroy-on-close
+    >
       <div class="detail-info">
         <el-descriptions :column="2" border size="small">
-          <el-descriptions-item label="生成时间">{{ formatTime(selectedItem?.created_at || '') }}</el-descriptions-item>
-          <el-descriptions-item label="提示词">{{ selectedItem?.prompt_name }}</el-descriptions-item>
-          <el-descriptions-item label="LLM ID">{{ selectedItem?.llm_config_id }}</el-descriptions-item>
-          <el-descriptions-item label="模式">{{ selectedItem?.meta_data?.stream ? '流式' : '非流式' }}</el-descriptions-item>
+          <el-descriptions-item label="生成时间">{{
+            formatTime(selectedItem?.created_at || '')
+          }}</el-descriptions-item>
+          <el-descriptions-item label="提示词">{{
+            selectedItem?.prompt_name
+          }}</el-descriptions-item>
+          <el-descriptions-item label="LLM ID">{{
+            selectedItem?.llm_config_id
+          }}</el-descriptions-item>
+          <el-descriptions-item label="模式">{{
+            selectedItem?.meta_data?.stream ? '流式' : '非流式'
+          }}</el-descriptions-item>
         </el-descriptions>
       </div>
       <div class="detail-content">
@@ -55,7 +73,11 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { getCardGenerationHistory, restoreCardGeneration, type GenerationHistory } from '@renderer/api/cards'
+import {
+  getCardGenerationHistory,
+  restoreCardGeneration,
+  type GenerationHistory
+} from '@renderer/api/cards'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Clock, Refresh } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
@@ -77,8 +99,8 @@ async function fetchHistory() {
     loading.value = true
     const list = await getCardGenerationHistory(props.cardId)
     // 按时间倒序排列
-    historyList.value = (list || []).sort((a, b) => 
-      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    historyList.value = (list || []).sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     )
   } catch (e) {
     console.error('Fetch history error:', e)
@@ -120,9 +142,13 @@ async function confirmRestore(item: GenerationHistory | null) {
   }
 }
 
-watch(() => props.cardId, () => {
-  fetchHistory()
-}, { immediate: true })
+watch(
+  () => props.cardId,
+  () => {
+    fetchHistory()
+  },
+  { immediate: true }
+)
 
 onMounted(() => {
   fetchHistory()

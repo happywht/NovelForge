@@ -1,23 +1,31 @@
 <template>
-  <div v-if="schema && modelValue !== undefined && typeof modelValue === 'object'" class="model-driven-form">
+  <div
+    v-if="schema && modelValue !== undefined && typeof modelValue === 'object'"
+    class="model-driven-form"
+  >
     <el-card shadow="never" class="form-card">
       <el-form :model="modelValue" label-position="top">
         <template v-for="(propSchema, propName) in visibleProperties" :key="propName">
           <component
             :is="getFieldComponent(propSchema)"
-            :label="(displayNameMap && displayNameMap[propName]) || propSchema.title || String(propName)"
+            :label="
+              (displayNameMap && displayNameMap[propName]) || propSchema.title || String(propName)
+            "
             :prop="String(propName)"
             :schema="resolveActualSchema(propSchema)"
             :display-name-map="displayNameMap"
             :model-value="modelValue[propName]"
             :readonly="readonlyFields.includes(String(propName)) || !!propSchema.readOnly"
-            :contextData="modelValue"
+            :context-data="modelValue"
             :owner-id="ownerId"
             :root-schema="rootSchema || schema"
-            @update:modelValue="updateModel(String(propName), $event)"
+            @update:model-value="updateModel(String(propName), $event)"
           >
-            <template #label v-if="$slots[`label-${propName}`]">
-              <slot :name="`label-${propName}`" :label="propSchema.title || String(propName)"></slot>
+            <template v-if="$slots[`label-${propName}`]" #label>
+              <slot
+                :name="`label-${propName}`"
+                :label="propSchema.title || String(propName)"
+              ></slot>
             </template>
           </component>
         </template>
@@ -63,12 +71,14 @@ const readonlyFields = props.readonlyFields || []
 const visibleProperties = computed(() => {
   const all = (props.schema?.properties || {}) as Record<string, JSONSchema>
   const entries = Object.entries(all)
-  const included = props.includeFields && props.includeFields.length > 0
-    ? entries.filter(([k]) => props.includeFields!.includes(k))
-    : entries
-  const excluded = props.excludeFields && props.excludeFields.length > 0
-    ? included.filter(([k]) => !props.excludeFields!.includes(k))
-    : included
+  const included =
+    props.includeFields && props.includeFields.length > 0
+      ? entries.filter(([k]) => props.includeFields!.includes(k))
+      : entries
+  const excluded =
+    props.excludeFields && props.excludeFields.length > 0
+      ? included.filter(([k]) => !props.excludeFields!.includes(k))
+      : included
   return Object.fromEntries(excluded)
 })
 
@@ -79,15 +89,18 @@ function resolveActualSchema(schema: JSONSchema): JSONSchema {
 }
 
 function getFieldComponent(propSchema: JSONSchema) {
-  const actualSchema = resolveActualSchema(propSchema);
-  
+  const actualSchema = resolveActualSchema(propSchema)
+
   // 优先处理枚举
   if (actualSchema.enum && actualSchema.enum.length > 0) {
     return EnumField
   }
-  
+
   // 处理元组/固定长度数组
-  if (actualSchema.type === 'array' && (actualSchema.prefixItems || (actualSchema.items && Array.isArray(actualSchema.items)))) {
+  if (
+    actualSchema.type === 'array' &&
+    (actualSchema.prefixItems || (actualSchema.items && Array.isArray(actualSchema.items)))
+  ) {
     return TupleField
   }
 
@@ -110,7 +123,9 @@ function getFieldComponent(propSchema: JSONSchema) {
     case 'boolean':
       return BooleanField
     default:
-      console.warn(`不支持的字段类型: ${actualSchema.type} (属性: ${actualSchema.title}). 已使用回退组件。`)
+      console.warn(
+        `不支持的字段类型: ${actualSchema.type} (属性: ${actualSchema.title}). 已使用回退组件。`
+      )
       return FallbackField
   }
 }
@@ -122,7 +137,13 @@ function updateModel(propName: string, value: any) {
 </script>
 
 <style scoped>
-.model-driven-form { padding: 0; }
-.form-card { border: none; }
-:deep(.el-card__body) { padding: 20px; }
+.model-driven-form {
+  padding: 0;
+}
+.form-card {
+  border: none;
+}
+:deep(.el-card__body) {
+  padding: 20px;
+}
 </style>

@@ -7,7 +7,7 @@ export function useSidebarResizer() {
   const maxRightWidth = 500
   const leftSidebarWidth = ref(240)
   const rightSidebarWidth = ref(340)
-  let resizing = ref<'left' | 'right' | null>(null)
+  const resizing = ref<'left' | 'right' | null>(null)
   let startX = 0
   let startWidth = 0
 
@@ -45,4 +45,4 @@ export function useSidebarResizer() {
     rightSidebarWidth,
     startResizing
   }
-} 
+}

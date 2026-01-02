@@ -1,12 +1,20 @@
 <template>
   <div class="kg-wrapper">
-    <div class="kg-container" ref="containerRef"></div>
+    <div ref="containerRef" class="kg-container"></div>
     <div class="kg-toolbar">
       <el-button-group>
-        <el-button size="small" @click="handleZoomIn"><el-icon><ZoomIn /></el-icon></el-button>
-        <el-button size="small" @click="handleZoomOut"><el-icon><ZoomOut /></el-icon></el-button>
-        <el-button size="small" @click="handleAutoFit"><el-icon><FullScreen /></el-icon></el-button>
-        <el-button size="small" @click="fetchData"><el-icon><Refresh /></el-icon></el-button>
+        <el-button size="small" @click="handleZoomIn"
+          ><el-icon><ZoomIn /></el-icon
+        ></el-button>
+        <el-button size="small" @click="handleZoomOut"
+          ><el-icon><ZoomOut /></el-icon
+        ></el-button>
+        <el-button size="small" @click="handleAutoFit"
+          ><el-icon><FullScreen /></el-icon
+        ></el-button>
+        <el-button size="small" @click="fetchData"
+          ><el-icon><Refresh /></el-icon
+        ></el-button>
       </el-button-group>
     </div>
   </div>
@@ -40,7 +48,7 @@ const initGraph = () => {
       preventOverlap: true,
       linkDistance: 150,
       nodeStrength: -50,
-      edgeStrength: 0.1,
+      edgeStrength: 0.1
     },
     node: {
       style: {
@@ -51,8 +59,8 @@ const initGraph = () => {
         label: true,
         labelText: (d: any) => d.label || d.id,
         labelPlacement: 'bottom',
-        labelFontSize: 12,
-      },
+        labelFontSize: 12
+      }
     },
     edge: {
       style: {
@@ -61,13 +69,13 @@ const initGraph = () => {
         endArrow: true,
         label: true,
         labelText: (d: any) => d.label || '',
-        labelFontSize: 10,
-      },
-    },
+        labelFontSize: 10
+      }
+    }
   })
 
   graph.on('node:dblclick', (evt: any) => {
-    const { target } = evt;
+    const { target } = evt
     console.log('Double clicked node:', target.id)
     // TODO: Emit event to jump to card if name matches
   })
@@ -100,7 +108,7 @@ onMounted(() => {
     initGraph()
     fetchData()
   }, 100)
-  
+
   window.addEventListener('resize', handleResize)
 })
 
@@ -117,9 +125,12 @@ const handleResize = () => {
   }
 }
 
-watch(() => props.projectId, () => {
-  fetchData()
-})
+watch(
+  () => props.projectId,
+  () => {
+    fetchData()
+  }
+)
 </script>
 
 <style scoped>

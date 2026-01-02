@@ -7,19 +7,32 @@
       </div>
       <div class="header-right">
         <el-radio-group v-model="viewMode" size="small" class="view-toggle">
-          <el-radio-button value="list"><el-icon><Memo /></el-icon></el-radio-button>
-          <el-radio-button value="graph"><el-icon><Share /></el-icon></el-radio-button>
+          <el-radio-button value="list"
+            ><el-icon><Memo /></el-icon
+          ></el-radio-button>
+          <el-radio-button value="graph"
+            ><el-icon><Share /></el-icon
+          ></el-radio-button>
         </el-radio-group>
         <el-button size="small" type="primary" :loading="assembling" @click="assemble">
           <el-icon><Refresh /></el-icon> 刷新装配
         </el-button>
       </div>
     </div>
-    
+
     <div v-if="viewMode === 'list'" class="controls">
       <el-form label-position="top" size="small">
         <el-form-item label="当前参与实体">
-          <el-select v-model="localParticipants" multiple filterable allow-create default-first-option placeholder="输入或选择参与者" @change="onParticipantsChange" class="participant-select">
+          <el-select
+            v-model="localParticipants"
+            multiple
+            filterable
+            allow-create
+            default-first-option
+            placeholder="输入或选择参与者"
+            class="participant-select"
+            @change="onParticipantsChange"
+          >
             <el-option-group v-for="g in participantGroups" :key="g.label" :label="g.label">
               <el-option v-for="p in g.values" :key="p" :label="p" :value="p" />
             </el-option-group>
@@ -49,28 +62,54 @@
             <el-icon><Memo /></el-icon>
             <span class="section-title">关键事实</span>
           </div>
-          
-          <div v-if="Array.isArray(assembled.facts_structured.fact_summaries) && assembled.facts_structured.fact_summaries.length > 0" class="sub-section">
+
+          <div
+            v-if="
+              Array.isArray(assembled.facts_structured.fact_summaries) &&
+              assembled.facts_structured.fact_summaries.length > 0
+            "
+            class="sub-section"
+          >
             <ul class="fact-list">
-              <li v-for="(f, i) in assembled.facts_structured.fact_summaries" :key="i" class="fact-item">
+              <li
+                v-for="(f, i) in assembled.facts_structured.fact_summaries"
+                :key="i"
+                class="fact-item"
+              >
                 <el-icon class="bullet"><CircleCheck /></el-icon>
                 <span>{{ f }}</span>
               </li>
             </ul>
           </div>
 
-          <div v-if="Array.isArray(assembled.facts_structured.relation_summaries) && assembled.facts_structured.relation_summaries.length > 0" class="sub-section">
+          <div
+            v-if="
+              Array.isArray(assembled.facts_structured.relation_summaries) &&
+              assembled.facts_structured.relation_summaries.length > 0
+            "
+            class="sub-section"
+          >
             <div class="sub-title">实体关系</div>
-            <div v-for="(r, idx) in assembled.facts_structured.relation_summaries" :key="idx" class="relation-card">
+            <div
+              v-for="(r, idx) in assembled.facts_structured.relation_summaries"
+              :key="idx"
+              class="relation-card"
+            >
               <div class="relation-main">
                 <span class="entity-name">{{ r.a }}</span>
                 <el-tag size="small" effect="plain" class="relation-kind">{{ r.kind }}</el-tag>
                 <span class="entity-name">{{ r.b }}</span>
-                <el-tag v-if="r.stance" size="small" :type="getStanceType(r.stance)" class="stance-tag">{{ r.stance }}</el-tag>
+                <el-tag
+                  v-if="r.stance"
+                  size="small"
+                  :type="getStanceType(r.stance)"
+                  class="stance-tag"
+                  >{{ r.stance }}</el-tag
+                >
               </div>
-              
+
               <div v-if="r.description" class="relation-desc">{{ r.description }}</div>
-              
+
               <div v-if="r.a_to_b_addressing || r.b_to_a_addressing" class="addressing-box">
                 <div v-if="r.a_to_b_addressing" class="addr-item">
                   <span class="addr-label">{{ r.a }} 称呼 {{ r.b }}：</span>
@@ -84,7 +123,11 @@
 
               <div v-if="r.recent_dialogues?.length" class="dialogue-section">
                 <div class="mini-label">对话样例</div>
-                <div v-for="(d, i) in r.recent_dialogues.slice(0, 2)" :key="i" class="dialogue-item">
+                <div
+                  v-for="(d, i) in r.recent_dialogues.slice(0, 2)"
+                  :key="i"
+                  class="dialogue-item"
+                >
                   "{{ d }}"
                 </div>
               </div>
@@ -106,7 +149,7 @@
           </el-collapse-transition>
         </div>
       </div>
-      
+
       <div v-else-if="!assembling" class="empty-state">
         <el-empty description="尚未装配上下文" :image-size="100">
           <el-button type="primary" @click="assemble">立即装配</el-button>
@@ -121,11 +164,33 @@ import { ref, onMounted, watch } from 'vue'
 import { assembleContext, type AssembleContextResponse } from '@renderer/api/ai'
 import { ElMessage } from 'element-plus'
 import { getCardsForProject, type CardRead } from '@renderer/api/cards'
-import { Connection, Refresh, EditPen, Memo, CircleCheck, Cpu, ArrowRight, Share } from '@element-plus/icons-vue'
+import {
+  Connection,
+  Refresh,
+  EditPen,
+  Memo,
+  CircleCheck,
+  Cpu,
+  ArrowRight,
+  Share
+} from '@element-plus/icons-vue'
 import KGVisualization from '../kg/KGVisualization.vue'
 
-const props = defineProps<{ projectId?: number; participants?: string[]; volumeNumber?: number | null; stageNumber?: number | null; chapterNumber?: number | null; draftTail?: string; prefetched?: AssembleContextResponse | null }>()
-const emit = defineEmits<{ (e:'update:participants', v: string[]): void; (e:'update:volumeNumber', v: number | null): void; (e:'update:stageNumber', v: number | null): void; (e:'update:chapterNumber', v: number | null): void }>()
+const props = defineProps<{
+  projectId?: number
+  participants?: string[]
+  volumeNumber?: number | null
+  stageNumber?: number | null
+  chapterNumber?: number | null
+  draftTail?: string
+  prefetched?: AssembleContextResponse | null
+}>()
+const emit = defineEmits<{
+  (e: 'update:participants', v: string[]): void
+  (e: 'update:volumeNumber', v: number | null): void
+  (e: 'update:stageNumber', v: number | null): void
+  (e: 'update:chapterNumber', v: number | null): void
+}>()
 
 const assembling = ref(false)
 const assembled = ref<AssembleContextResponse | null>(null)
@@ -138,11 +203,36 @@ const localParticipants = ref<string[]>(props.participants || [])
 const localVolumeNumber = ref<number | null>(props.volumeNumber ?? null)
 const localChapterNumber = ref<number | null>(props.chapterNumber ?? null)
 
-watch(() => props.participants, (v) => { localParticipants.value = [...(v || [])] })
-watch(() => props.volumeNumber, (v) => { localVolumeNumber.value = v ?? null })
-watch(() => props.chapterNumber, (v) => { localChapterNumber.value = v ?? null })
-watch(() => props.prefetched, (v) => { if (v) assembled.value = v })
-watch(() => props.projectId, async () => { await buildAllGroups() })
+watch(
+  () => props.participants,
+  (v) => {
+    localParticipants.value = [...(v || [])]
+  }
+)
+watch(
+  () => props.volumeNumber,
+  (v) => {
+    localVolumeNumber.value = v ?? null
+  }
+)
+watch(
+  () => props.chapterNumber,
+  (v) => {
+    localChapterNumber.value = v ?? null
+  }
+)
+watch(
+  () => props.prefetched,
+  (v) => {
+    if (v) assembled.value = v
+  }
+)
+watch(
+  () => props.projectId,
+  async () => {
+    await buildAllGroups()
+  }
+)
 
 function getStanceType(stance: string) {
   if (stance.includes('友') || stance.includes('爱')) return 'success'
@@ -171,12 +261,15 @@ function detectTypeGroupByCard(c: CardRead): string {
 }
 
 async function buildAllGroups() {
-  if (!props.projectId) { participantGroups.value = []; return }
+  if (!props.projectId) {
+    participantGroups.value = []
+    return
+  }
   try {
     const cards: CardRead[] = await getCardsForProject(props.projectId)
-    const order = ['角色','场景','组织','物品','概念','其他']
+    const order = ['角色', '场景', '组织', '物品', '概念', '其他']
     const buckets = new Map<string, Set<string>>()
-    order.forEach(t => buckets.set(t, new Set<string>()))
+    order.forEach((t) => buckets.set(t, new Set<string>()))
     for (const c of cards) {
       const t = detectTypeGroupByCard(c)
       const title = (c.title || '').trim()
@@ -184,8 +277,11 @@ async function buildAllGroups() {
       buckets.get(t)!.add(title)
     }
     participantGroups.value = order
-      .map(label => ({ label, values: Array.from(buckets.get(label) || []).sort((a,b)=>a.localeCompare(b)) }))
-      .filter(g => g.values.length > 0)
+      .map((label) => ({
+        label,
+        values: Array.from(buckets.get(label) || []).sort((a, b) => a.localeCompare(b))
+      }))
+      .filter((g) => g.values.length > 0)
   } catch {
     participantGroups.value = []
   }
@@ -195,9 +291,9 @@ function onParticipantsChange() {
   emit('update:participants', [...localParticipants.value])
 }
 
-onMounted(async () => { 
+onMounted(async () => {
   await buildAllGroups()
-  if (props.prefetched) assembled.value = props.prefetched 
+  if (props.prefetched) assembled.value = props.prefetched
 })
 
 async function assemble() {
@@ -212,7 +308,7 @@ async function assemble() {
     })
     assembled.value = res
     ElMessage.success('上下文装配完成')
-  } catch (e:any) {
+  } catch (e: any) {
     ElMessage.error('装配失败')
   } finally {
     assembling.value = false

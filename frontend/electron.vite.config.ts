@@ -22,9 +22,12 @@ export default defineConfig({
         name: 'configure-response-headers',
         configureServer: (server) => {
           server.middlewares.use((_req, res, next) => {
-            res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:8000 ws://localhost:5173 http://localhost:5173; img-src 'self' data: blob:; font-src 'self' data:;");
-            next();
-          });
+            res.setHeader(
+              'Content-Security-Policy',
+              "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self' http://127.0.0.1:8000 ws://localhost:5173 http://localhost:5173; img-src 'self' data: blob:; font-src 'self' data:;"
+            )
+            next()
+          })
         }
       }
     ]

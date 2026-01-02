@@ -1,6 +1,5 @@
-
 <template>
-  <el-form :model="form" ref="formRef" :rules="rules" label-width="100px">
+  <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
     <el-form-item label="提供商" prop="provider">
       <el-select v-model="form.provider" placeholder="请选择提供商">
         <el-option label="OpenAI兼容" value="openai_compatible" />
@@ -24,15 +23,20 @@
       />
     </el-form-item>
     <el-form-item label="API Key" prop="api_key">
-      <el-input type="password" v-model="form.api_key" placeholder="API密钥将直接保存在后端" show-password />
+      <el-input
+        v-model="form.api_key"
+        type="password"
+        placeholder="API密钥将直接保存在后端"
+        show-password
+      />
     </el-form-item>
     <el-form-item label="Token上限" prop="token_limit">
       <el-input-number v-model="form.token_limit" :min="-1" :step="1000" />
-      <span style="margin-left:8px;color:#888">-1 表示不限</span>
+      <span style="margin-left: 8px; color: #888">-1 表示不限</span>
     </el-form-item>
     <el-form-item label="调用次数上限" prop="call_limit">
       <el-input-number v-model="form.call_limit" :min="-1" />
-      <span style="margin-left:8px;color:#888">-1 表示不限</span>
+      <span style="margin-left: 8px; color: #888">-1 表示不限</span>
     </el-form-item>
     <el-form-item>
       <el-button @click="handleCancel">取消</el-button>
@@ -66,7 +70,7 @@ const form = reactive({
   api_base: '',
   api_key: '',
   token_limit: -1 as number,
-  call_limit: -1 as number,
+  call_limit: -1 as number
 })
 
 const rules = reactive<FormRules>({
@@ -75,31 +79,33 @@ const rules = reactive<FormRules>({
   api_key: [{ required: true, message: '请输入API Key', trigger: 'blur' }]
 })
 
-watch(() => props.initialData, (newData) => {
-  if (newData) {
-    // 编辑现有配置
-    form.id = newData.id;
-    form.provider = newData.provider;
-    form.display_name = newData.display_name || '';
-    form.model_name = newData.model_name;
-    form.api_base = newData.api_base || '';
-    form.api_key = newData.api_key || '';
-    form.token_limit = (newData as any).token_limit ?? -1;
-    form.call_limit = (newData as any).call_limit ?? -1;
-  } else {
-    // 新增配置，重置表单
-    form.id = null;
-    form.provider = 'openai_compatible';
-    form.display_name = '';
-    form.model_name = '';
-    form.api_base = '';
-    form.api_key = '';
-    form.token_limit = -1;
-    form.call_limit = -1;
-  }
-}, { immediate: true })
-
-
+watch(
+  () => props.initialData,
+  (newData) => {
+    if (newData) {
+      // 编辑现有配置
+      form.id = newData.id
+      form.provider = newData.provider
+      form.display_name = newData.display_name || ''
+      form.model_name = newData.model_name
+      form.api_base = newData.api_base || ''
+      form.api_key = newData.api_key || ''
+      form.token_limit = (newData as any).token_limit ?? -1
+      form.call_limit = (newData as any).call_limit ?? -1
+    } else {
+      // 新增配置，重置表单
+      form.id = null
+      form.provider = 'openai_compatible'
+      form.display_name = ''
+      form.model_name = ''
+      form.api_base = ''
+      form.api_key = ''
+      form.token_limit = -1
+      form.call_limit = -1
+    }
+  },
+  { immediate: true }
+)
 
 async function handleSubmit() {
   const valid = await formRef.value?.validate()
@@ -121,9 +127,8 @@ async function handleTest() {
       api_key: form.api_key
     } as any)
     ElMessage.success('连接成功')
-  } catch (e:any) {
+  } catch (e: any) {
     ElMessage.error(`连接失败：${e?.message || e}`)
   }
 }
-
-</script> 
+</script>

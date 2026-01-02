@@ -54,7 +54,7 @@ const assistantTimeout = computed({
             采样温度 (temperature)
             <el-tooltip placement="top" effect="dark">
               <template #content>
-                控制输出的随机性，数值越大越有创意、越发散，越小越保守、越稳定。<br/>
+                控制输出的随机性，数值越大越有创意、越发散，越小越保守、越稳定。<br />
                 建议范围 0.4 ~ 0.9。默认值为 0.6。
               </template>
               <el-icon class="field-help-icon"><QuestionFilled /></el-icon>
@@ -78,7 +78,7 @@ const assistantTimeout = computed({
             最大输出 Token 数
             <el-tooltip placement="top" effect="dark">
               <template #content>
-                控制单次回复的最大长度。值越大，回复可以越长，但也会增加响应时间和费用。<br/>
+                控制单次回复的最大长度。值越大，回复可以越长，但也会增加响应时间和费用。<br />
                 默认值为 8192。
               </template>
               <el-icon class="field-help-icon"><QuestionFilled /></el-icon>
@@ -101,7 +101,7 @@ const assistantTimeout = computed({
             超时 (秒)
             <el-tooltip placement="top" effect="dark">
               <template #content>
-                限制单次调用的最长等待时间，避免请求长时间挂起。<br/>
+                限制单次调用的最长等待时间，避免请求长时间挂起。<br />
                 默认值为 90 秒。
               </template>
               <el-icon class="field-help-icon"><QuestionFilled /></el-icon>

@@ -4,7 +4,7 @@
       <h4>LLM配置管理</h4>
       <el-button type="primary" size="small" @click="openEditDialog()">新增配置</el-button>
     </div>
-    
+
     <el-table :data="llmConfigs" style="width: 100%" size="small">
       <el-table-column prop="display_name" label="显示名称" width="150" />
       <el-table-column prop="provider" label="提供商" width="120" />
@@ -18,39 +18,41 @@
             已用（输入/输出/调用）
             <el-tooltip placement="top" effect="dark">
               <template #content>
-                token 估算规则：<br/>
-                - 中文每个汉字计 1<br/>
-                - 英文单词计 1<br/>
-                - 每个数字计 1<br/>
-                - 非空白符号各计 1<br/>
-                注意：不同模型 token 计算不同，此为粗略估算，仅供参考。<br/>
-                <br/>
-                显示格式：<br/>
-                - ≥1万：显示为 X.XXX 万<br/>
-                - ≥1百万：显示为 X.XXX 百万<br/>
+                token 估算规则：<br />
+                - 中文每个汉字计 1<br />
+                - 英文单词计 1<br />
+                - 每个数字计 1<br />
+                - 非空白符号各计 1<br />
+                注意：不同模型 token 计算不同，此为粗略估算，仅供参考。<br />
+                <br />
+                显示格式：<br />
+                - ≥1万：显示为 X.XXX 万<br />
+                - ≥1百万：显示为 X.XXX 百万<br />
                 - 最多保留3位小数，自动去除末尾0
               </template>
-              <el-icon style="margin-left:4px; cursor: help;"><QuestionFilled /></el-icon>
+              <el-icon style="margin-left: 4px; cursor: help"><QuestionFilled /></el-icon>
             </el-tooltip>
           </span>
         </template>
         <template #default="{ row }">
-          {{ formatNumber((row as any).used_tokens_input || 0) }} / {{ formatNumber((row as any).used_tokens_output || 0) }} / {{ formatNumber((row as any).used_calls || 0) }}
+          {{ formatNumber((row as any).used_tokens_input || 0) }} /
+          {{ formatNumber((row as any).used_tokens_output || 0) }} /
+          {{ formatNumber((row as any).used_calls || 0) }}
         </template>
       </el-table-column>
       <el-table-column label="操作" width="200">
         <template #default="{ row }">
           <el-button size="small" @click="openEditDialog(row)">编辑</el-button>
           <el-button size="small" type="danger" @click="deleteConfig(row.id)">删除</el-button>
-          <el-button size="small" type="warning" @click="handleReset(row)" plain>重置</el-button>
+          <el-button size="small" type="warning" plain @click="handleReset(row)">重置</el-button>
         </template>
       </el-table-column>
     </el-table>
 
     <!-- 编辑对话框 -->
     <el-dialog v-model="editDialogVisible" title="编辑LLM配置" width="500px">
-      <LLMConfigForm 
-        :initial-data="editConfig" 
+      <LLMConfigForm
+        :initial-data="editConfig"
         @save="handleSave"
         @cancel="editDialogVisible = false"
       />
@@ -64,7 +66,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import LLMConfigForm from './LLMConfigForm.vue'
 import type { components } from '@renderer/types/generated'
-import { listLLMConfigs, createLLMConfig, updateLLMConfig, deleteLLMConfig, resetLLMUsage } from '@renderer/api/setting'
+import {
+  listLLMConfigs,
+  createLLMConfig,
+  updateLLMConfig,
+  deleteLLMConfig,
+  resetLLMUsage
+} from '@renderer/api/setting'
 
 type LLMConfig = components['schemas']['LLMConfigRead']
 
@@ -154,7 +162,9 @@ async function deleteConfig(id: number) {
 async function handleReset(row: LLMConfig) {
   try {
     await ElMessageBox.confirm('确认将该配置的统计（输入/输出token、调用次数）清零？', '重置统计', {
-      type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消'
+      type: 'warning',
+      confirmButtonText: '确定',
+      cancelButtonText: '取消'
     })
   } catch (e) {
     return
@@ -180,4 +190,4 @@ onMounted(loadLLMConfigs)
   align-items: center;
   margin-bottom: 12px;
 }
-</style> 
+</style>

@@ -21,17 +21,29 @@ export const useAIStore = defineStore('ai', () => {
     try {
       currentAbort?.abort()
       currentAbort = new AbortController()
-      showInterruptOverlay('AI生成中…', () => { try { currentAbort?.abort() } catch {} })
+      showInterruptOverlay('AI生成中…', () => {
+        try {
+          currentAbort?.abort()
+        } catch {}
+      })
       const cardStore = useCardStore()
-      const allowed = new Set(['角色卡','场景卡','组织卡','物品卡','概念卡'])
+      const allowed = new Set(['角色卡', '场景卡', '组织卡', '物品卡', '概念卡'])
       const typeIdToName = new Map<number, string>()
-      ;(cardStore.cardTypes || []).forEach((t:any) => { if (t?.id) typeIdToName.set(t.id, (t as any).name || '') })
-      const names = Array.from(new Set((cardStore.cards || []).map((c:any) => {
-        const tname = typeIdToName.get(c.card_type_id) || ''
-        if (!allowed.has(tname)) return null
-        const nm = (c?.content?.name || '').trim()
-        return nm || null
-      }).filter(Boolean))) as string[]
+      ;(cardStore.cardTypes || []).forEach((t: any) => {
+        if (t?.id) typeIdToName.set(t.id, (t as any).name || '')
+      })
+      const names = Array.from(
+        new Set(
+          (cardStore.cards || [])
+            .map((c: any) => {
+              const tname = typeIdToName.get(c.card_type_id) || ''
+              if (!allowed.has(tname)) return null
+              const nm = (c?.content?.name || '').trim()
+              return nm || null
+            })
+            .filter(Boolean)
+        )
+      ) as string[]
       const deps = JSON.stringify({ all_entity_names: names })
 
       const payload: any = {
@@ -39,7 +51,7 @@ export const useAIStore = defineStore('ai', () => {
         llm_config_id: llmConfigId,
         prompt_name: promptName,
         response_model_name: responseModelName,
-        deps,
+        deps
       }
       if (sampling) {
         if (typeof sampling.temperature === 'number') payload.temperature = sampling.temperature
@@ -68,17 +80,29 @@ export const useAIStore = defineStore('ai', () => {
     try {
       currentAbort?.abort()
       currentAbort = new AbortController()
-      showInterruptOverlay('AI生成中…', () => { try { currentAbort?.abort() } catch {} })
+      showInterruptOverlay('AI生成中…', () => {
+        try {
+          currentAbort?.abort()
+        } catch {}
+      })
       const cardStore = useCardStore()
-      const allowed = new Set(['角色卡','场景卡','组织卡','物品卡','概念卡'])
+      const allowed = new Set(['角色卡', '场景卡', '组织卡', '物品卡', '概念卡'])
       const typeIdToName = new Map<number, string>()
-      ;(cardStore.cardTypes || []).forEach((t:any) => { if (t?.id) typeIdToName.set(t.id, (t as any).name || '') })
-      const names = Array.from(new Set((cardStore.cards || []).map((c:any) => {
-        const tname = typeIdToName.get(c.card_type_id) || ''
-        if (!allowed.has(tname)) return null
-        const nm = (c?.content?.name || '').trim()
-        return nm || null
-      }).filter(Boolean))) as string[]
+      ;(cardStore.cardTypes || []).forEach((t: any) => {
+        if (t?.id) typeIdToName.set(t.id, (t as any).name || '')
+      })
+      const names = Array.from(
+        new Set(
+          (cardStore.cards || [])
+            .map((c: any) => {
+              const tname = typeIdToName.get(c.card_type_id) || ''
+              if (!allowed.has(tname)) return null
+              const nm = (c?.content?.name || '').trim()
+              return nm || null
+            })
+            .filter(Boolean)
+        )
+      ) as string[]
       const deps = JSON.stringify({ all_entity_names: names })
 
       const payload: any = {
@@ -86,7 +110,7 @@ export const useAIStore = defineStore('ai', () => {
         llm_config_id: llmConfigId,
         prompt_name: promptName,
         response_model_schema: responseModelSchema,
-        deps,
+        deps
       }
       if (sampling) {
         if (typeof sampling.temperature === 'number') payload.temperature = sampling.temperature
@@ -104,9 +128,11 @@ export const useAIStore = defineStore('ai', () => {
   }
 
   function cancelGeneration() {
-    try { currentAbort?.abort() } catch {}
+    try {
+      currentAbort?.abort()
+    } catch {}
     hideInterruptOverlay()
   }
 
   return { isGenerating, lastResult, generateContent, generateContentWithSchema, cancelGeneration }
-}) 
+})

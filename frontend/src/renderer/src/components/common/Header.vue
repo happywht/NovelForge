@@ -43,17 +43,17 @@ function openIdeasWorkbench() {
 
 <template>
   <header class="app-header">
-    <div class="logo-container" @click="handleLogoClick" :class="{ clickable: isLogoClickable }">
+    <div class="logo-container" :class="{ clickable: isLogoClickable }" @click="handleLogoClick">
       <span class="logo-text">Novel Forge</span>
     </div>
     <div class="actions-container">
       <el-button type="primary" title="灵感工作台" @click="openIdeasWorkbench">
         <el-icon><Document /></el-icon>
-        <span style="margin-left:6px;">灵感</span>
+        <span style="margin-left: 6px">灵感</span>
       </el-button>
       <el-button type="primary" plain title="工作流" @click="openWorkflowManager">工作流</el-button>
-      <el-button :icon="isDarkMode ? Moon : Sunny" @click="toggleTheme" circle title="切换主题" />
-      <el-button :icon="Setting" @click="openSettingsDialog" circle title="设置" />
+      <el-button :icon="isDarkMode ? Moon : Sunny" circle title="切换主题" @click="toggleTheme" />
+      <el-button :icon="Setting" circle title="设置" @click="openSettingsDialog" />
     </div>
   </header>
 </template>
@@ -89,4 +89,4 @@ function openIdeasWorkbench() {
   display: flex;
   gap: 15px;
 }
-</style> 
+</style>

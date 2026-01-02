@@ -1,9 +1,9 @@
 <template>
   <div class="generic-card-editor">
     <EditorHeader
+      v-model:title="titleProxy"
       :project-name="projectName"
       :card-type="props.card.card_type.name"
-      v-model:title="titleProxy"
       :dirty="isDirty"
       :saving="isSaving"
       :can-save="isDirty && !isSaving"
@@ -16,10 +16,10 @@
       @open-versions="showVersions = true"
       @workflow-command="handleWorkflowCommand"
     />
-    
+
     <!-- 自定义内容编辑器（如 CodeMirrorEditor）-->
     <template v-if="activeContentEditor">
-      <component 
+      <component
         :is="activeContentEditor"
         ref="contentEditorRef"
         :card="props.card"
@@ -28,14 +28,16 @@
         @update:dirty="handleContentEditorDirtyChange"
       />
     </template>
-    
+
     <!-- 默认表单编辑器 -->
     <template v-else>
       <!-- 参数配置：显示当前模型ID，点击弹出就地配置面板 -->
       <div class="toolbar-row param-toolbar">
         <div class="param-inline">
           <AIPerCardParams :card-id="props.card.id" :card-type-name="props.card.card_type?.name" />
-          <el-button size="small" type="primary" plain @click="schemaStudioVisible = true">结构</el-button>
+          <el-button size="small" type="primary" plain @click="schemaStudioVisible = true"
+            >结构</el-button
+          >
         </div>
       </div>
 
@@ -43,12 +45,29 @@
         <div class="main-pane">
           <div v-if="schema" class="form-container">
             <template v-if="sections && sections.length">
-              <SectionedForm v-if="wrapperName" :schema="innerSchema" v-model="innerData" :sections="sections" :root-schema="schema" />
-              <SectionedForm v-else :schema="schema" v-model="localData" :sections="sections" :root-schema="schema" />
+              <SectionedForm
+                v-if="wrapperName"
+                v-model="innerData"
+                :schema="innerSchema"
+                :sections="sections"
+                :root-schema="schema"
+              />
+              <SectionedForm
+                v-else
+                v-model="localData"
+                :schema="schema"
+                :sections="sections"
+                :root-schema="schema"
+              />
             </template>
             <template v-else>
-              <ModelDrivenForm v-if="wrapperName" :schema="innerSchema" v-model="innerData" :root-schema="schema" />
-              <ModelDrivenForm v-else :schema="schema" v-model="localData" :root-schema="schema" />
+              <ModelDrivenForm
+                v-if="wrapperName"
+                v-model="innerData"
+                :schema="innerSchema"
+                :root-schema="schema"
+              />
+              <ModelDrivenForm v-else v-model="localData" :schema="schema" :root-schema="schema" />
             </template>
           </div>
           <div v-else class="loading-or-error-container">
@@ -71,7 +90,12 @@
       </template>
     </ContextDrawer>
 
-    <CardReferenceSelectorDialog v-model="isSelectorVisible" :cards="cards" :currentCardId="props.card.id" @confirm="handleReferenceConfirm" />
+    <CardReferenceSelectorDialog
+      v-model="isSelectorVisible"
+      :cards="cards"
+      :current-card-id="props.card.id"
+      @confirm="handleReferenceConfirm"
+    />
     <CardVersionsDialog
       v-if="projectStore.currentProject?.id"
       v-model="showVersions"
@@ -82,16 +106,33 @@
       @restore="handleRestoreVersion"
     />
 
-    <SchemaStudio v-model:visible="schemaStudioVisible" :mode="'card'" :target-id="props.card.id" :context-title="props.card.title" @saved="onSchemaSaved" />
+    <SchemaStudio
+      v-model:visible="schemaStudioVisible"
+      :mode="'card'"
+      :target-id="props.card.id"
+      :context-title="props.card.title"
+      @saved="onSchemaSaved"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed, nextTick, onMounted, onBeforeUnmount, defineAsyncComponent } from 'vue'
+import {
+  ref,
+  watch,
+  computed,
+  nextTick,
+  onMounted,
+  onBeforeUnmount,
+  defineAsyncComponent
+} from 'vue'
 import { storeToRefs } from 'pinia'
 import { useCardStore } from '@renderer/stores/useCardStore'
 import { useAIStore } from '@renderer/stores/useAIStore'
-import { usePerCardAISettingsStore, type PerCardAIParams } from '@renderer/stores/usePerCardAISettingsStore'
+import {
+  usePerCardAISettingsStore,
+  type PerCardAIParams
+} from '@renderer/stores/usePerCardAISettingsStore'
 import { getCardAIParams, updateCardAIParams, applyCardAIParamsToType } from '@renderer/api/setting'
 import { useProjectStore } from '@renderer/stores/useProjectStore'
 import { schemaService } from '@renderer/api/schema'
@@ -115,7 +156,7 @@ import AIPerCardParams from '../common/AIPerCardParams.vue'
 // 移除 AssistantSidebar 相关导入与逻辑
 import { resolveTemplate } from '@renderer/services/contextResolver'
 
-const props = defineProps<{ 
+const props = defineProps<{
   card: CardRead
   prefetched?: any
 }>()
@@ -140,7 +181,7 @@ const prefetchedContext = ref<any>(null)
 // --- 内容编辑器动态映射 ---
 // 类似 CardEditorHost 的 editorMap，但这里是内容编辑器（共享外壳）
 const contentEditorMap: Record<string, any> = {
-  CodeMirrorEditor: defineAsyncComponent(() => import('../editors/CodeMirrorEditor.vue')),
+  CodeMirrorEditor: defineAsyncComponent(() => import('../editors/CodeMirrorEditor.vue'))
   // 未来可以添加更多内容编辑器，例如：
   // RichTextEditor: defineAsyncComponent(() => import('../editors/RichTextEditor.vue')),
   // MarkdownEditor: defineAsyncComponent(() => import('../editors/MarkdownEditor.vue')),
@@ -182,14 +223,20 @@ function handleWorkflowCommand(command: string) {
 function openAssistant() {
   const editingContent = wrapperName.value ? innerData.value : localData.value
   const currentCardForResolve = { ...props.card, content: editingContent }
-  const resolved = resolveTemplate({ template: localAiContextTemplate.value, cards: cards.value, currentCard: currentCardForResolve as any })
+  const resolved = resolveTemplate({
+    template: localAiContextTemplate.value,
+    cards: cards.value,
+    currentCard: currentCardForResolve as any
+  })
   assistantResolvedContext.value = resolved
   // 读取有效 Schema 作为对话指导
   import('@renderer/api/setting').then(async ({ getCardSchema }) => {
     try {
       const resp = await getCardSchema(props.card.id)
       assistantEffectiveSchema.value = resp?.effective_schema || resp?.json_schema || null
-    } catch { assistantEffectiveSchema.value = null }
+    } catch {
+      assistantEffectiveSchema.value = null
+    }
   })
   assistantVisible.value = true
 }
@@ -211,14 +258,21 @@ const innerData = computed({
     return (localData.value && localData.value[wrapperName.value]) || {}
   },
   set: (v: any) => {
-    if (!wrapperName.value) { localData.value = v; return }
+    if (!wrapperName.value) {
+      localData.value = v
+      return
+    }
     localData.value = { ...(localData.value || {}), [wrapperName.value]: v }
   }
 })
 
 // AI 可选项（模型/提示词/输出模型）
 const aiOptions = ref<AIConfigOptions | null>(null)
-async function loadAIOptions() { try { aiOptions.value = await getAIConfigOptions() } catch {} }
+async function loadAIOptions() {
+  try {
+    aiOptions.value = await getAIConfigOptions()
+  } catch {}
+}
 
 const projectName = '当前项目'
 const lastSavedAt = ref<string | undefined>(undefined)
@@ -238,23 +292,20 @@ watch(
 /**
  * // 2) 顶部标题变更 -> 写回表单数据中的 title (若存在)
  */
-watch(
-  titleProxy,
-  (v) => {
-    if (!localData.value) {
-      localData.value = { title: v }
-      return
-    }
-    if ((localData.value as any).title === v) return
-    localData.value = { ...(localData.value || {}), title: v }
+watch(titleProxy, (v) => {
+  if (!localData.value) {
+    localData.value = { title: v }
+    return
   }
-)
+  if ((localData.value as any).title === v) return
+  localData.value = { ...(localData.value || {}), title: v }
+})
 
 /**
  * // 3) 表单中的 title 字段变更 -> 回写到标题栏
  */
 watch(
-  () => (localData.value && (localData.value as any).title),
+  () => localData.value && (localData.value as any).title,
   (v) => {
     if (typeof v === 'string' && v !== titleProxy.value) {
       titleProxy.value = v
@@ -268,7 +319,10 @@ const isDirty = computed(() => {
     return contentEditorDirty.value
   }
   // 默认表单编辑器使用数据比较
-  return !isEqual(localData.value, originalData.value) || localAiContextTemplate.value !== originalAiContextTemplate.value
+  return (
+    !isEqual(localData.value, originalData.value) ||
+    localAiContextTemplate.value !== originalAiContextTemplate.value
+  )
 })
 
 watch(
@@ -311,9 +365,11 @@ const selectedModelName = computed(() => {
   try {
     const id = (perCardParams.value || editingParams.value)?.llm_config_id
     const list = aiOptions.value?.llm_configs || []
-    const found = list.find(m => m.id === id)
+    const found = list.find((m) => m.id === id)
     return found?.display_name || (id != null ? String(id) : '')
-  } catch { return '' }
+  } catch {
+    return ''
+  }
 })
 
 const paramSummary = computed(() => {
@@ -330,7 +386,9 @@ async function applyAndSavePerCardParams() {
     await updateCardAIParams(props.card.id, { ...editingParams.value })
     perCardStore.setForCard(props.card.id, { ...editingParams.value })
     ElMessage.success('已保存')
-  } catch { ElMessage.error('保存失败') }
+  } catch {
+    ElMessage.error('保存失败')
+  }
 }
 
 async function restoreParamsFollowType() {
@@ -340,7 +398,9 @@ async function restoreParamsFollowType() {
     const resp = await getCardAIParams(props.card.id)
     const eff = resp?.effective_params
     if (eff) editingParams.value = { ...eff }
-  } catch { ElMessage.error('操作失败') }
+  } catch {
+    ElMessage.error('操作失败')
+  }
 }
 
 async function applyParamsToType() {
@@ -360,7 +420,9 @@ async function applyParamsToType() {
       perCardStore.setForCard(props.card.id, { ...eff })
     }
     ElMessage.success('已应用到类型，并恢复本卡片跟随类型')
-  } catch { ElMessage.error('应用失败') }
+  } catch {
+    ElMessage.error('应用失败')
+  }
 }
 
 function resetToPreset() {
@@ -373,19 +435,73 @@ function resetToPreset() {
   perCardStore.setForCard(props.card.id, editingParams.value)
 }
 
-function getPresetForType(typeName?: string) : PerCardAIParams | undefined {
+function getPresetForType(typeName?: string): PerCardAIParams | undefined {
   // 兼容旧预设：按照类型名提供简易默认值
   const map: Record<string, PerCardAIParams> = {
-    '金手指': { prompt_name: '金手指生成', response_model_name: 'SpecialAbilityResponse', temperature: 0.6, max_tokens: 1024, timeout: 60 },
-    '一句话梗概': { prompt_name: '一句话梗概', response_model_name: 'OneSentence', temperature: 0.6, max_tokens: 1024, timeout: 60 },
-    '故事大纲': { prompt_name: '一段话大纲', response_model_name: 'ParagraphOverview', temperature: 0.6, max_tokens: 2048, timeout: 60 },
-    '世界观设定': { prompt_name: '世界观设定', response_model_name: 'WorldBuilding', temperature: 0.6, max_tokens: 8192, timeout: 120 },
-    '核心蓝图': { prompt_name: '核心蓝图', response_model_name: 'Blueprint', temperature: 0.6, max_tokens: 8192, timeout: 120 },
-    '分卷大纲': { prompt_name: '分卷大纲', response_model_name: 'VolumeOutline', temperature: 0.6, max_tokens: 8192, timeout: 120 },
-    '阶段大纲': { prompt_name: '阶段大纲', response_model_name: 'StageLine', temperature: 0.6, max_tokens: 8192, timeout: 120 },
-    '章节大纲': { prompt_name: '章节大纲', response_model_name: 'ChapterOutline', temperature: 0.6, max_tokens: 4096, timeout: 60 },
-    '写作指南': { prompt_name: '写作指南', response_model_name: 'WritingGuide', temperature: 0.7, max_tokens: 8192, timeout: 60 },
-    '章节正文': { prompt_name: '内容生成', temperature: 0.7, max_tokens: 8192, timeout: 60 },
+    金手指: {
+      prompt_name: '金手指生成',
+      response_model_name: 'SpecialAbilityResponse',
+      temperature: 0.6,
+      max_tokens: 1024,
+      timeout: 60
+    },
+    一句话梗概: {
+      prompt_name: '一句话梗概',
+      response_model_name: 'OneSentence',
+      temperature: 0.6,
+      max_tokens: 1024,
+      timeout: 60
+    },
+    故事大纲: {
+      prompt_name: '一段话大纲',
+      response_model_name: 'ParagraphOverview',
+      temperature: 0.6,
+      max_tokens: 2048,
+      timeout: 60
+    },
+    世界观设定: {
+      prompt_name: '世界观设定',
+      response_model_name: 'WorldBuilding',
+      temperature: 0.6,
+      max_tokens: 8192,
+      timeout: 120
+    },
+    核心蓝图: {
+      prompt_name: '核心蓝图',
+      response_model_name: 'Blueprint',
+      temperature: 0.6,
+      max_tokens: 8192,
+      timeout: 120
+    },
+    分卷大纲: {
+      prompt_name: '分卷大纲',
+      response_model_name: 'VolumeOutline',
+      temperature: 0.6,
+      max_tokens: 8192,
+      timeout: 120
+    },
+    阶段大纲: {
+      prompt_name: '阶段大纲',
+      response_model_name: 'StageLine',
+      temperature: 0.6,
+      max_tokens: 8192,
+      timeout: 120
+    },
+    章节大纲: {
+      prompt_name: '章节大纲',
+      response_model_name: 'ChapterOutline',
+      temperature: 0.6,
+      max_tokens: 4096,
+      timeout: 60
+    },
+    写作指南: {
+      prompt_name: '写作指南',
+      response_model_name: 'WritingGuide',
+      temperature: 0.7,
+      max_tokens: 8192,
+      timeout: 60
+    },
+    章节正文: { prompt_name: '内容生成', temperature: 0.7, max_tokens: 8192, timeout: 60 }
   }
   return map[typeName || '']
 }
@@ -397,7 +513,7 @@ async function loadSchemaForCard(card: CardRead) {
     try {
       const { getCardSchema } = await import('@renderer/api/setting')
       const resp = await getCardSchema(card.id)
-      const effective = (resp?.effective_schema || resp?.json_schema)
+      const effective = resp?.effective_schema || resp?.json_schema
       if (effective) {
         schema.value = effective
       }
@@ -422,11 +538,18 @@ async function loadSchemaForCard(card: CardRead) {
     const props: any = (schema.value as any)?.properties || {}
     const keys = Object.keys(props)
     const onlyKey = keys.length === 1 ? keys[0] : undefined
-    const isObject = onlyKey && (props[onlyKey]?.type === 'object' || props[onlyKey]?.$ref || props[onlyKey]?.anyOf)
+    const isObject =
+      onlyKey &&
+      (props[onlyKey]?.type === 'object' || props[onlyKey]?.$ref || props[onlyKey]?.anyOf)
     if (onlyKey && isObject) {
       wrapperName.value = onlyKey
       const maybeRef = props[onlyKey]
-      if (maybeRef && typeof maybeRef === 'object' && '$ref' in maybeRef && typeof maybeRef.$ref === 'string') {
+      if (
+        maybeRef &&
+        typeof maybeRef === 'object' &&
+        '$ref' in maybeRef &&
+        typeof maybeRef.$ref === 'string'
+      ) {
         const refName = maybeRef.$ref.split('/').pop() || ''
         const localDefs = (schema.value as any)?.$defs || {}
         innerSchema.value = localDefs[refName] || schemaService.getSchema(refName) || maybeRef
@@ -439,9 +562,15 @@ async function loadSchemaForCard(card: CardRead) {
     }
     const schemaForLayout = (wrapperName.value ? innerSchema.value : schema.value) as any
     const schemaMeta = schemaForLayout?.['x-ui'] || undefined
-    const backendLayout = (schemaForLayout?.['ui_layout'] || undefined)
-    sections.value = mergeSections({ schemaMeta, backendLayout, frontendDefault: autoGroup(schemaForLayout) })
-  } finally { schemaIsLoading.value = false }
+    const backendLayout = schemaForLayout?.['ui_layout'] || undefined
+    sections.value = mergeSections({
+      schemaMeta,
+      backendLayout,
+      frontendDefault: autoGroup(schemaForLayout)
+    })
+  } finally {
+    schemaIsLoading.value = false
+  }
 }
 
 function handleReferenceConfirm(reference: string) {
@@ -483,23 +612,32 @@ function keyHandler(e: KeyboardEvent) {
   }
 }
 
-onMounted(() => { window.addEventListener('keydown', keyHandler) })
-onBeforeUnmount(() => { window.removeEventListener('keydown', keyHandler) })
+onMounted(() => {
+  window.addEventListener('keydown', keyHandler)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', keyHandler)
+})
 
 // 在抽屉中输入 @ 时弹出选择器
 let drawerTextarea: HTMLTextAreaElement | null = null
-watch(() => openDrawer.value, (v) => {
-  if (v) {
-    nextTick(() => {
-      drawerTextarea = document.querySelector('.context-area textarea') as HTMLTextAreaElement | null
-      drawerTextarea?.addEventListener('input', handleDrawerInput)
-    })
-  } else {
-    drawerTextarea?.removeEventListener('input', handleDrawerInput)
-    drawerTextarea = null
-    atIndexForInsertion = -1
+watch(
+  () => openDrawer.value,
+  (v) => {
+    if (v) {
+      nextTick(() => {
+        drawerTextarea = document.querySelector(
+          '.context-area textarea'
+        ) as HTMLTextAreaElement | null
+        drawerTextarea?.addEventListener('input', handleDrawerInput)
+      })
+    } else {
+      drawerTextarea?.removeEventListener('input', handleDrawerInput)
+      drawerTextarea = null
+      atIndexForInsertion = -1
+    }
   }
-})
+)
 
 function handleDrawerInput(ev: Event) {
   const textarea = ev.target as HTMLTextAreaElement
@@ -531,14 +669,14 @@ async function handleSave() {
     try {
       isSaving.value = true
       const savedContent = await contentEditorRef.value.handleSave()
-      
+
       // 保存上下文模板（如果有修改）
       if (localAiContextTemplate.value !== props.card.ai_context_template) {
         await cardStore.modifyCard(props.card.id, {
           ai_context_template: localAiContextTemplate.value
         })
       }
-      
+
       // 保存历史版本
       try {
         if (projectStore.currentProject?.id && savedContent) {
@@ -547,13 +685,13 @@ async function handleSave() {
             projectId: projectStore.currentProject.id,
             title: titleProxy.value,
             content: savedContent,
-            ai_context_template: localAiContextTemplate.value,
+            ai_context_template: localAiContextTemplate.value
           })
         }
       } catch (e) {
         console.error('Failed to add version:', e)
       }
-      
+
       contentEditorDirty.value = false
       originalAiContextTemplate.value = localAiContextTemplate.value
       lastSavedAt.value = new Date().toLocaleTimeString()
@@ -565,18 +703,18 @@ async function handleSave() {
     }
     return
   }
-  
+
   // 默认表单编辑器的保存逻辑
   try {
     isSaving.value = true
     const trimmedTitle = titleProxy.value.trim()
     if (localData.value) {
-      (localData.value as any).title = trimmedTitle
+      ;(localData.value as any).title = trimmedTitle
     }
     const updatePayload: CardUpdate = {
       title: trimmedTitle,
       content: cloneDeep(localData.value),
-      ai_context_template: localAiContextTemplate.value,
+      ai_context_template: localAiContextTemplate.value
     }
     await cardStore.modifyCard(props.card.id, updatePayload)
     try {
@@ -585,41 +723,60 @@ async function handleSave() {
         projectId: projectStore.currentProject!.id!,
         title: titleProxy.value,
         content: updatePayload.content as any,
-        ai_context_template: localAiContextTemplate.value,
+        ai_context_template: localAiContextTemplate.value
       })
     } catch {}
     originalData.value = cloneDeep(localData.value)
     originalAiContextTemplate.value = localAiContextTemplate.value
     lastSavedAt.value = new Date().toLocaleTimeString()
     ElMessage.success('保存成功！')
-  } finally { isSaving.value = false }
+  } finally {
+    isSaving.value = false
+  }
 }
 
 async function handleDelete() {
   try {
-    await ElMessageBox.confirm(`确认删除卡片「${props.card.title}」？此操作不可恢复`, '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm(`确认删除卡片「${props.card.title}」？此操作不可恢复`, '删除确认', {
+      type: 'warning'
+    })
     await cardStore.removeCard(props.card.id)
     ElMessage.success('卡片已删除')
     const evt = new CustomEvent('nf:navigate', { detail: { to: 'market' } })
     window.dispatchEvent(evt)
-  } catch (e) {
-  }
+  } catch (e) {}
 }
 
 async function handleGenerate() {
   const p = perCardStore.getByCardId(props.card.id) || editingParams.value
-  if (!p?.llm_config_id) { ElMessage.error('请先设置有效的模型ID'); return }
+  if (!p?.llm_config_id) {
+    ElMessage.error('请先设置有效的模型ID')
+    return
+  }
   const editingContent = wrapperName.value ? innerData.value : localData.value
   const currentCardForResolve = { ...props.card, content: editingContent }
-  const resolvedContext = resolveTemplate({ template: localAiContextTemplate.value, cards: cards.value, currentCard: currentCardForResolve as any })
+  const resolvedContext = resolveTemplate({
+    template: localAiContextTemplate.value,
+    cards: cards.value,
+    currentCard: currentCardForResolve as any
+  })
   try {
     // 直接读取有效 Schema 并作为 response_model_schema 发送
     const { getCardSchema } = await import('@renderer/api/setting')
     const resp = await getCardSchema(props.card.id)
     const effective = resp?.effective_schema || resp?.json_schema
-    if (!effective) { ElMessage.error('未找到此卡片的结构（Schema）。'); return }
+    if (!effective) {
+      ElMessage.error('未找到此卡片的结构（Schema）。')
+      return
+    }
     const sampling = { temperature: p.temperature, max_tokens: p.max_tokens, timeout: p.timeout }
-    const result = await aiStore.generateContentWithSchema(effective as any, resolvedContext, p.llm_config_id!, p.prompt_name ?? undefined, sampling)
+    const result = await aiStore.generateContentWithSchema(
+      effective as any,
+      resolvedContext,
+      p.llm_config_id!,
+      p.prompt_name ?? undefined,
+      sampling
+    )
     if (result) {
       const { mergeWith, isArray } = await import('lodash-es')
       const arrayOverwrite = (objValue: any, srcValue: any) => {
@@ -637,31 +794,33 @@ async function handleGenerate() {
       }
       ElMessage.success('内容生成成功！')
     }
-  } catch (e) { console.error('AI generation failed:', e) }
+  } catch (e) {
+    console.error('AI generation failed:', e)
+  }
 }
 
 async function handleRestoreVersion(v: any) {
   showVersions.value = false
-  
+
   // 自定义内容编辑器的恢复逻辑（如 CodeMirrorEditor）
   if (activeContentEditor.value && contentEditorRef.value) {
     try {
       ElMessage.success('已恢复版本，自动保存中...')
-      
+
       // 通知内容编辑器恢复内容（需要编辑器实现 restoreContent 方法）
       if (typeof contentEditorRef.value.restoreContent === 'function') {
         await contentEditorRef.value.restoreContent(v.content)
       }
-      
+
       // 恢复上下文模板
       localAiContextTemplate.value = v.ai_context_template || localAiContextTemplate.value
-      
+
       // 保存恢复的内容
       await handleSave()
-      
+
       // 刷新卡片数据
       await cardStore.fetchCards(projectStore.currentProject!.id!)
-      
+
       ElMessage.success('版本已恢复并保存')
     } catch (e) {
       console.error('Failed to restore content editor version:', e)
@@ -669,7 +828,7 @@ async function handleRestoreVersion(v: any) {
     }
     return
   }
-  
+
   // 默认表单编辑器的恢复逻辑
   if (wrapperName.value) innerData.value = v.content
   else localData.value = v.content
@@ -686,19 +845,35 @@ async function onSchemaSaved() {
 async function handleAssistantFinalize(summary: string) {
   try {
     const p = perCardStore.getByCardId(props.card.id) || editingParams.value
-    if (!p?.llm_config_id) { ElMessage.error('请先设置有效的模型ID'); return }
+    if (!p?.llm_config_id) {
+      ElMessage.error('请先设置有效的模型ID')
+      return
+    }
     // 将对话要点与上下文合并，作为输入文本（不再附加卡片提示词模板）
     const editingContent = wrapperName.value ? innerData.value : localData.value
     const currentCardForResolve = { ...props.card, content: editingContent }
-    const resolvedContextText = resolveTemplate({ template: localAiContextTemplate.value, cards: cards.value, currentCard: currentCardForResolve as any })
+    const resolvedContextText = resolveTemplate({
+      template: localAiContextTemplate.value,
+      cards: cards.value,
+      currentCard: currentCardForResolve as any
+    })
     const inputText = `${resolvedContextText}\n\n[对话要点]\n${summary}`
     // 读取有效 Schema
     const { getCardSchema } = await import('@renderer/api/setting')
     const resp = await getCardSchema(props.card.id)
     const effective = resp?.effective_schema || resp?.json_schema
-    if (!effective) { ElMessage.error('未找到此卡片的结构（Schema）。'); return }
+    if (!effective) {
+      ElMessage.error('未找到此卡片的结构（Schema）。')
+      return
+    }
     const sampling = { temperature: p.temperature, max_tokens: p.max_tokens, timeout: p.timeout }
-    const result = await aiStore.generateContentWithSchema(effective as any, inputText, p.llm_config_id!, p.prompt_name ?? undefined, sampling)
+    const result = await aiStore.generateContentWithSchema(
+      effective as any,
+      inputText,
+      p.llm_config_id!,
+      p.prompt_name ?? undefined,
+      sampling
+    )
     if (result) {
       const { mergeWith, isArray } = await import('lodash-es')
       const arrayOverwrite = (objValue: any, srcValue: any) => {
@@ -717,38 +892,105 @@ async function handleAssistantFinalize(summary: string) {
       assistantVisible.value = false
       ElMessage.success('定稿生成完成！')
     }
-  } catch (e) { console.error('Finalize generate failed:', e) }
+  } catch (e) {
+    console.error('Finalize generate failed:', e)
+  }
 }
 </script>
 
 <style scoped>
-.generic-card-editor { 
-  display: flex; 
-  flex-direction: column; 
-  height: 100%; 
+.generic-card-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
   overflow: hidden; /* 防止整体滚动 */
 }
 
 /* 确保自定义内容编辑器（如 CodeMirrorEditor）占据剩余空间 */
 .generic-card-editor > :deep(.chapter-studio),
-.generic-card-editor > :deep([class*="-editor"]) {
+.generic-card-editor > :deep([class*='-editor']) {
   flex: 1;
   min-height: 0;
 }
 
-.editor-body { display: grid; grid-template-columns: 1fr; gap: 0; flex: 1; overflow: hidden; }
-.main-pane { overflow: auto; padding: 12px; }
-.form-container { display: flex; flex-direction: column; gap: 12px; }
-.loading-or-error-container { text-align: center; padding: 2rem; color: var(--el-text-color-secondary); }
-.toolbar-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--el-border-color-light); }
-.param-toolbar { padding: 6px 12px; border-bottom: 1px solid var(--el-border-color-light); justify-content: flex-end; }
-.param-inline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.ai-config-form { padding: 4px 2px; }
+.editor-body {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  flex: 1;
+  overflow: hidden;
+}
+.main-pane {
+  overflow: auto;
+  padding: 12px;
+}
+.form-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.loading-or-error-container {
+  text-align: center;
+  padding: 2rem;
+  color: var(--el-text-color-secondary);
+}
+.toolbar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
+}
+.param-toolbar {
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--el-border-color-light);
+  justify-content: flex-end;
+}
+.param-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ai-config-form {
+  padding: 4px 2px;
+}
 /* 固定按钮宽度并对模型名称省略显示 */
-:deep(.model-trigger) { width: 230px; min-width: 220px; max-width: 260px; box-sizing: border-box; }
-:deep(.model-trigger .el-button__content) { width: 100%; display: inline-flex; align-items: center; gap: 4px; overflow: hidden; }
-.model-label { flex: 0 0 auto; }
-.model-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ai-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; flex-wrap: wrap; }
-.ai-actions .left, .ai-actions .right { display: flex; gap: 6px; align-items: center; }
+:deep(.model-trigger) {
+  width: 230px;
+  min-width: 220px;
+  max-width: 260px;
+  box-sizing: border-box;
+}
+:deep(.model-trigger .el-button__content) {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  overflow: hidden;
+}
+.model-label {
+  flex: 0 0 auto;
+}
+.model-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ai-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+.ai-actions .left,
+.ai-actions .right {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
 </style>

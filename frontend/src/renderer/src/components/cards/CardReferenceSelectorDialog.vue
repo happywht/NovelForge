@@ -3,7 +3,7 @@
     :model-value="modelValue"
     title="引用卡片/上下文"
     width="84%"
-    @update:modelValue="$emit('update:modelValue', $event)"
+    @update:model-value="$emit('update:modelValue', $event)"
     @close="reset"
   >
     <div class="selector-container">
@@ -36,7 +36,12 @@
         <!-- 按类型模式：类型选择 + 过滤方式（previous/sibling/first/last/index） + index 表达式 -->
         <template v-else-if="mode === 'type'">
           <div class="mt8">
-            <el-select v-model="selectedTypeName" placeholder="选择卡片类型" style="width: 100%" @change="handleTypeChange">
+            <el-select
+              v-model="selectedTypeName"
+              placeholder="选择卡片类型"
+              style="width: 100%"
+              @change="handleTypeChange"
+            >
               <el-option v-for="t in cardTypeNames" :key="t" :label="t" :value="t" />
             </el-select>
           </div>
@@ -44,30 +49,49 @@
             <el-radio-group v-model="typeFilterMode" size="small">
               <el-radio-button label="first" :title="filterTips.first">first</el-radio-button>
               <el-radio-button label="last" :title="filterTips.last">last</el-radio-button>
-              <el-radio-button label="previous" :title="filterTips.previous">previous</el-radio-button>
-              <el-radio-button label="sibling" :title="filterTips.sibling" :disabled="!hasParent">sibling</el-radio-button>
+              <el-radio-button label="previous" :title="filterTips.previous"
+                >previous</el-radio-button
+              >
+              <el-radio-button label="sibling" :title="filterTips.sibling" :disabled="!hasParent"
+                >sibling</el-radio-button
+              >
               <el-radio-button label="index" :title="filterTips.index">index</el-radio-button>
             </el-radio-group>
           </div>
-          <div class="mt8" v-if="typeFilterMode === 'previous'">
+          <div v-if="typeFilterMode === 'previous'" class="mt8">
             <el-radio-group v-model="previousMode" size="small">
-              <el-radio-button label="global" :title="previousModeTips.global">全局</el-radio-button>
-              <el-radio-button label="local" :title="previousModeTips.local" :disabled="!hasParent">局部</el-radio-button>
+              <el-radio-button label="global" :title="previousModeTips.global"
+                >全局</el-radio-button
+              >
+              <el-radio-button label="local" :title="previousModeTips.local" :disabled="!hasParent"
+                >局部</el-radio-button
+              >
             </el-radio-group>
           </div>
-          <div class="mt8" v-if="typeFilterMode === 'previous' && previousMode === 'global'">
-            <el-input v-model="previousCount" placeholder="可选：输入数字限制返回最近 n 个，留空=全部" />
+          <div v-if="typeFilterMode === 'previous' && previousMode === 'global'" class="mt8">
+            <el-input
+              v-model="previousCount"
+              placeholder="可选：输入数字限制返回最近 n 个，留空=全部"
+            />
           </div>
-          <div class="mt8" v-if="typeFilterMode === 'index'">
-            <el-input v-model="indexExpr" placeholder="index= 的表达式，例如 1 / last / $current.volumeNumber-1 / $self.content.volume_number-1 / filter:content.name in $self.content.entity_list" />
+          <div v-if="typeFilterMode === 'index'" class="mt8">
+            <el-input
+              v-model="indexExpr"
+              placeholder="index= 的表达式，例如 1 / last / $current.volumeNumber-1 / $self.content.volume_number-1 / filter:content.name in $self.content.entity_list"
+            />
             <div class="mt8">
               <el-checkbox v-model="advMode">高级模式</el-checkbox>
             </div>
-            <div class="mt8 adv-grid" v-if="advMode">
+            <div v-if="advMode" class="mt8 adv-grid">
               <div class="cond-list">
-                <div class="cond-item" v-for="(c, idx) in advConds" :key="idx">
+                <div v-for="(c, idx) in advConds" :key="idx" class="cond-item">
                   <el-select v-model="c.field" placeholder="选择字段" style="width: 45%">
-                    <el-option v-for="fp in flatFieldList" :key="fp.path" :label="fp.label + ' ('+fp.path+')'" :value="fp.path" />
+                    <el-option
+                      v-for="fp in flatFieldList"
+                      :key="fp.path"
+                      :label="fp.label + ' (' + fp.path + ')'"
+                      :value="fp.path"
+                    />
                   </el-select>
                   <el-select v-model="c.op" placeholder="操作符" style="width: 12%">
                     <el-option label="=" value="=" />
@@ -75,7 +99,11 @@
                     <el-option label="<" value="<" />
                     <el-option label=">" value=">" />
                   </el-select>
-                  <el-input v-model="c.rhs" placeholder='右值：$self./$parent./$current. 或 JSON/字面量' style="width: 40%" />
+                  <el-input
+                    v-model="c.rhs"
+                    placeholder="右值：$self./$parent./$current. 或 JSON/字面量"
+                    style="width: 40%"
+                  />
                   <el-button text type="danger" @click="removeCond(idx)">删除</el-button>
                 </div>
                 <div class="mt8">
@@ -83,7 +111,7 @@
                 </div>
               </div>
             </div>
-            <div class="hint" v-if="advMode">将生成：index=filter:{{ advCondPreview }}</div>
+            <div v-if="advMode" class="hint">将生成：index=filter:{{ advCondPreview }}</div>
           </div>
         </template>
 
@@ -96,8 +124,11 @@
               <el-option label="stage:current（当前阶段）" value="stage:current" />
             </el-select>
           </div>
-          <div class="mt8" v-if="specialKey === 'self' || specialKey === 'stage:current'">
-            <el-input v-model="specialPath" placeholder="可选：在此输入字段路径，如 content.volume_number" />
+          <div v-if="specialKey === 'self' || specialKey === 'stage:current'" class="mt8">
+            <el-input
+              v-model="specialPath"
+              placeholder="可选：在此输入字段路径，如 content.volume_number"
+            />
           </div>
         </template>
       </div>
@@ -117,10 +148,10 @@
           :props="{ label: 'label', children: 'children' }"
           :show-checkbox="multiMode"
           :check-strictly="true"
-          @node-click="handleFieldSelect"
-          @check="handleTreeCheck"
           class="field-tree"
           highlight-current
+          @node-click="handleFieldSelect"
+          @check="handleTreeCheck"
         />
         <div v-else class="empty-state">
           <p>在此选择要追加的字段路径（可选）。</p>
@@ -136,7 +167,7 @@
         </span>
         <span class="dialog-footer">
           <el-button @click="$emit('update:modelValue', false)">取消</el-button>
-          <el-button type="primary" @click="handleConfirm" :disabled="!canConfirm">
+          <el-button type="primary" :disabled="!canConfirm" @click="handleConfirm">
             确认
           </el-button>
         </span>
@@ -150,7 +181,18 @@ import { ref, computed, watch } from 'vue'
 import type { CardRead } from '@renderer/api/cards'
 import { schemaService, type JSONSchema } from '@renderer/api/schema'
 import { getCardSchema } from '@renderer/api/setting'
-import { ElDialog, ElInput, ElScrollbar, ElTree, ElButton, ElRadioGroup, ElRadioButton, ElSelect, ElOption, ElCheckbox } from 'element-plus'
+import {
+  ElDialog,
+  ElInput,
+  ElScrollbar,
+  ElTree,
+  ElButton,
+  ElRadioGroup,
+  ElRadioButton,
+  ElSelect,
+  ElOption,
+  ElCheckbox
+} from 'element-plus'
 
 interface FieldPath {
   label: string
@@ -165,8 +207,10 @@ const emit = defineEmits(['update:modelValue', 'confirm'])
 const mode = ref<'title' | 'type' | 'special'>('title')
 
 // 当前卡片与父卡片
-const currentCard = computed(() => props.cards.find(c => c.id === props.currentCardId))
-const parentCard = computed(() => props.cards.find(c => c.id === (currentCard.value?.parent_id || -1)))
+const currentCard = computed(() => props.cards.find((c) => c.id === props.currentCardId))
+const parentCard = computed(() =>
+  props.cards.find((c) => c.id === (currentCard.value?.parent_id || -1))
+)
 const hasParent = computed(() => !!parentCard.value)
 
 // 按标题
@@ -205,7 +249,7 @@ const multiMode = ref<boolean>(false)
 const fieldPaths = ref<FieldPath[]>([])
 // 高级模式（仅 index）：多条件
 const advMode = ref<boolean>(false)
-type AdvCond = { field: string; op: '='|'in'|'<'|'>'; rhs: string }
+type AdvCond = { field: string; op: '=' | 'in' | '<' | '>'; rhs: string }
 const advConds = ref<AdvCond[]>([])
 
 const flatFieldList = computed(() => {
@@ -221,14 +265,18 @@ const flatFieldList = computed(() => {
 })
 
 // 过滤卡片（按标题）
-const filteredCards = computed(() => props.cards.filter(card => card.title.toLowerCase().includes(cardSearch.value.toLowerCase())))
+const filteredCards = computed(() =>
+  props.cards.filter((card) => card.title.toLowerCase().includes(cardSearch.value.toLowerCase()))
+)
 
 // 所有类型名
-const cardTypeNames = computed(() => Array.from(new Set(props.cards.map(c => c.card_type?.name).filter(Boolean) as string[])))
+const cardTypeNames = computed(() =>
+  Array.from(new Set(props.cards.map((c) => c.card_type?.name).filter(Boolean) as string[]))
+)
 
 function buildPathSpec(): string {
   if (multiMode.value && selectedFieldPaths.value.length > 0) {
-    return ".{" + selectedFieldPaths.value.join(',') + "}"
+    return '.{' + selectedFieldPaths.value.join(',') + '}'
   }
   if (selectedFieldPath.value) return `.${selectedFieldPath.value}`
   return ''
@@ -284,14 +332,15 @@ const selectionPreview = computed(() => {
 const canConfirm = computed(() => {
   if (mode.value === 'title') return !!selectedKard.value
   if (mode.value === 'type') return !!selectedTypeName.value
-  if (mode.value === 'special') return !!specialKey.value && (specialKey.value !== 'parent' || hasParent.value)
+  if (mode.value === 'special')
+    return !!specialKey.value && (specialKey.value !== 'parent' || hasParent.value)
   return false
 })
 
 const advCondPreview = computed(() => {
   return advConds.value
-    .filter(c => c.field && c.op && (c.rhs || c.op === 'in'))
-    .map(c => `${c.field || 'content.<field>'} ${c.op} ${c.rhs || '<rhs>'}`)
+    .filter((c) => c.field && c.op && (c.rhs || c.op === 'in'))
+    .map((c) => `${c.field || 'content.<field>'} ${c.op} ${c.rhs || '<rhs>'}`)
     .join(' && ')
 })
 
@@ -303,16 +352,20 @@ function removeCond(idx: number) {
 }
 
 // 同步高级模式表达式到 indexExpr（多条件）
-watch([advMode, advConds], () => {
-  if (mode.value === 'type' && typeFilterMode.value === 'index' && advMode.value) {
-    const expr = advCondPreview.value
-    indexExpr.value = expr ? `filter:${expr}` : 'filter:'
-  }
-}, { deep: true })
+watch(
+  [advMode, advConds],
+  () => {
+    if (mode.value === 'type' && typeFilterMode.value === 'index' && advMode.value) {
+      const expr = advCondPreview.value
+      indexExpr.value = expr ? `filter:${expr}` : 'filter:'
+    }
+  },
+  { deep: true }
+)
 
 watch(
   () => props.modelValue,
-  isOpening => {
+  (isOpening) => {
     if (isOpening) reset()
   }
 )
@@ -343,20 +396,33 @@ function reset() {
 // --- Stage:Current 支持 ---
 function unwrapVolumeOutline(content: any): any {
   if (!content || typeof content !== 'object') return {}
-  for (const k of ['volume_outline','VolumeOutline','volumeOutline','volume_outline_response','VolumeOutlineResponse']) {
+  for (const k of [
+    'volume_outline',
+    'VolumeOutline',
+    'volumeOutline',
+    'volume_outline_response',
+    'VolumeOutlineResponse'
+  ]) {
     if (content[k] && typeof content[k] === 'object') return content[k]
   }
   return content
 }
 
-function findCurrentStage(cards: CardRead[], currentCardId?: number): { stage: any | null; volumeNumber?: number; chapterNumber?: number } {
-  const cur = cards.find(c => c.id === currentCardId)
+function findCurrentStage(
+  cards: CardRead[],
+  currentCardId?: number
+): { stage: any | null; volumeNumber?: number; chapterNumber?: number } {
+  const cur = cards.find((c) => c.id === currentCardId)
   if (!cur) return { stage: null }
   const c = (cur.content || {}) as any
   const vol = typeof c?.volume_number === 'number' ? c.volume_number : undefined
   const chn = typeof c?.chapter_number === 'number' ? c.chapter_number : undefined
   if (!vol || !chn) return { stage: null }
-  const volCard = cards.find(x => (x.card_type as any)?.output_model_name === 'VolumeOutline' || x.card_type?.name === '分卷大纲')
+  const volCard = cards.find(
+    (x) =>
+      (x.card_type as any)?.output_model_name === 'VolumeOutline' ||
+      x.card_type?.name === '分卷大纲'
+  )
   if (!volCard) return { stage: null, volumeNumber: vol, chapterNumber: chn }
   const vo = unwrapVolumeOutline(volCard.content || {})
   const stages = Array.isArray(vo?.stage_lines) ? vo.stage_lines : []
@@ -379,23 +445,37 @@ watch(specialKey, async (key) => {
   selectedFieldPaths.value = []
   fieldPaths.value = []
   if (key === 'parent') {
-    if (!hasParent.value) { fieldPaths.value = []; return }
+    if (!hasParent.value) {
+      fieldPaths.value = []
+      return
+    }
     try {
       const resp = await getCardSchema(parentCard.value!.id)
       const sch = resp?.effective_schema || resp?.json_schema
       fieldPaths.value = sch ? generateFieldPaths(sch as any) : []
-    } catch { fieldPaths.value = [] }
+    } catch {
+      fieldPaths.value = []
+    }
   } else if (key === 'self') {
     try {
       const resp = await getCardSchema(currentCard.value!.id)
       const sch = resp?.effective_schema || resp?.json_schema
       fieldPaths.value = sch ? generateFieldPaths(sch as any) : []
-    } catch { fieldPaths.value = [] }
+    } catch {
+      fieldPaths.value = []
+    }
   } else if (key === 'stage:current') {
     // 自动定位当前章节所在阶段；若命中，则右侧展示 StageLine 字段
-    const { stage, volumeNumber, chapterNumber } = findCurrentStage(props.cards, props.currentCardId)
+    const { stage, volumeNumber, chapterNumber } = findCurrentStage(
+      props.cards,
+      props.currentCardId
+    )
     stageFound.value = !!stage
-    stageMeta.value = { volume: volumeNumber, chapter: chapterNumber, name: typeof stage?.stage_name === 'string' ? stage.stage_name : undefined }
+    stageMeta.value = {
+      volume: volumeNumber,
+      chapter: chapterNumber,
+      name: typeof stage?.stage_name === 'string' ? stage.stage_name : undefined
+    }
     await schemaService.loadSchemas()
     const stageSchema = schemaService.getSchema('StageLine')
     // 对于特殊对象，路径不加 'content.' 前缀，直接展示字段名
@@ -422,7 +502,7 @@ async function handleTypeChange() {
   selectedFieldPath.value = null
   selectedFieldPaths.value = []
   fieldPaths.value = []
-  const sample = props.cards.find(c => c.card_type?.name === selectedTypeName.value)
+  const sample = props.cards.find((c) => c.card_type?.name === selectedTypeName.value)
   if (sample) {
     try {
       const resp = await getCardSchema(sample.id)
@@ -457,7 +537,11 @@ function generateFieldPaths(schema: JSONSchema, prefix = 'content'): FieldPath[]
         if (items && (items.$ref || items.type === 'object')) {
           const itemSchema = items.$ref ? resolveRef(items.$ref) : items
           const arrayPath = `${currentPath}[]`
-          const arrayNode: FieldPath = { label: (propSchema as any).title || key, path: arrayPath, children: [] }
+          const arrayNode: FieldPath = {
+            label: (propSchema as any).title || key,
+            path: arrayPath,
+            children: []
+          }
           arrayNode.children = itemSchema ? generateFieldPaths(itemSchema as any, arrayPath) : []
           node.children = node.children || []
           node.children.push(arrayNode)
@@ -496,24 +580,105 @@ function handleConfirm() {
 </script>
 
 <style scoped>
-.selector-container { display: flex; gap: 20px; height: 60vh; border-top: 1px solid var(--el-border-color); border-bottom: 1px solid var(--el-border-color); padding: 10px 0; }
-.column { flex: 1; display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--el-border-color); padding-right: 20px; }
-.column:last-child { border-right: none; padding-right: 0; }
-.column.left { width: 60%; max-width: 780px; }
-.list-container { margin-top: 10px; flex-grow: 1; }
-.card-list { list-style: none; padding: 0; margin: 0; }
-.card-list li { padding: 8px 12px; cursor: pointer; border-radius: 4px; }
-.card-list li:hover { background-color: var(--el-fill-color-light); }
-.card-list li.selected { background-color: var(--el-color-primary-light-9); color: var(--el-color-primary); font-weight: bold; }
-.field-tree { margin-top: 10px; flex-grow: 1; overflow: auto; }
-.empty-state { margin-top: 10px; color: var(--el-text-color-secondary); text-align: center; padding-top: 20px; }
-.footer-container { display: flex; justify-content: space-between; align-items: center; width: 100%; }
-.selection-preview { font-size: 14px; color: var(--el-text-color-secondary); }
-.mt8 { margin-top: 8px; }
-.row-head { display: flex; align-items: center; justify-content: space-between; }
-.right-tools { display: flex; align-items: center; gap: 8px; }
-.adv-grid { display: flex; gap: 8px; align-items: center; }
-.cond-list { display: flex; flex-direction: column; gap: 8px; width: 100%; }
-.cond-item { display: flex; gap: 8px; align-items: center; }
-.hint { margin-top: 6px; font-size: 12px; color: var(--el-text-color-secondary); }
-</style> 
+.selector-container {
+  display: flex;
+  gap: 20px;
+  height: 60vh;
+  border-top: 1px solid var(--el-border-color);
+  border-bottom: 1px solid var(--el-border-color);
+  padding: 10px 0;
+}
+.column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-right: 1px solid var(--el-border-color);
+  padding-right: 20px;
+}
+.column:last-child {
+  border-right: none;
+  padding-right: 0;
+}
+.column.left {
+  width: 60%;
+  max-width: 780px;
+}
+.list-container {
+  margin-top: 10px;
+  flex-grow: 1;
+}
+.card-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.card-list li {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.card-list li:hover {
+  background-color: var(--el-fill-color-light);
+}
+.card-list li.selected {
+  background-color: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-weight: bold;
+}
+.field-tree {
+  margin-top: 10px;
+  flex-grow: 1;
+  overflow: auto;
+}
+.empty-state {
+  margin-top: 10px;
+  color: var(--el-text-color-secondary);
+  text-align: center;
+  padding-top: 20px;
+}
+.footer-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+.selection-preview {
+  font-size: 14px;
+  color: var(--el-text-color-secondary);
+}
+.mt8 {
+  margin-top: 8px;
+}
+.row-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.right-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.adv-grid {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.cond-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+.cond-item {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+}
+</style>

@@ -11,7 +11,7 @@ export const getFreeProject = async (): Promise<ProjectRead> => {
   } catch (err) {
     // 兼容后端未更新路由顺序导致 /free 命中 /{project_id} 的情况：回退到列表查找
     const list = await request.get<ProjectRead[]>('/projects')
-    const found = (list || []).find(p => (p.name || '') === '__free__')
+    const found = (list || []).find((p) => (p.name || '') === '__free__')
     if (!found) throw err
     return found
   }
@@ -31,4 +31,4 @@ export const updateProject = (id: number, data: ProjectUpdate): Promise<void> =>
 
 export const deleteProject = (id: number): Promise<void> => {
   return request.delete(`/projects/${id}`)
-} 
+}

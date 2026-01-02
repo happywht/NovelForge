@@ -105,20 +105,19 @@ function dereferenceSchema(
   }
 
   if (newSchema.prefixItems) {
-    newSchema.prefixItems = newSchema.prefixItems.map(itemSchema =>
+    newSchema.prefixItems = newSchema.prefixItems.map((itemSchema) =>
       dereferenceSchema(itemSchema, allSchemas, new Set(visited))
-    );
+    )
   }
 
   if (newSchema.anyOf) {
-    newSchema.anyOf = newSchema.anyOf.map(itemSchema =>
+    newSchema.anyOf = newSchema.anyOf.map((itemSchema) =>
       dereferenceSchema(itemSchema, allSchemas, new Set(visited))
-    );
+    )
   }
 
   return newSchema
 }
-
 
 /**
  * 获取完整的 OpenAPI 规范并填充 schemas Map。
@@ -141,16 +140,19 @@ async function loadSchemas() {
 
       // 第一步：先填充所有 schema 到 Map 中
       for (const [name, schema] of schemaMap.entries()) {
-        dereferencedSchemaMap.set(name, schema);
+        dereferencedSchemaMap.set(name, schema)
       }
 
       // 第二步：遍历并解引用每一个 schema
       for (const [name, schema] of dereferencedSchemaMap.entries()) {
-        dereferencedSchemaMap.set(name, dereferenceSchema(schema, dereferencedSchemaMap));
+        dereferencedSchemaMap.set(name, dereferenceSchema(schema, dereferencedSchemaMap))
       }
 
       // DEBUG: Log all the schema keys that were loaded
-      console.log('[SchemaService] All schema keys loaded from /ai/schemas:', Array.from(dereferencedSchemaMap.keys()));
+      console.log(
+        '[SchemaService] All schema keys loaded from /ai/schemas:',
+        Array.from(dereferencedSchemaMap.keys())
+      )
 
       schemas.value = dereferencedSchemaMap
     }

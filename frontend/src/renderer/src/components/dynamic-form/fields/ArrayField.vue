@@ -16,15 +16,15 @@
       <div class="array-item-content">
         <!-- 对于简单类型，直接使用对应的字段组件 -->
         <component
-          v-if="isSimpleTypeForIndex(index)"
           :is="getSimpleFieldComponentForIndex(index)"
+          v-if="isSimpleTypeForIndex(index)"
           :label="`项目 ${index + 1}`"
           :prop="String(index)"
           :schema="getItemSchemaForIndex(index)"
           :model-value="item"
           :root-schema="rootSchema"
           :readonly="readonly"
-          @update:modelValue="updateItem(index, $event)"
+          @update:model-value="updateItem(index, $event)"
         />
         <!-- 对于复杂类型，使用ModelDrivenForm -->
         <ModelDrivenForm
@@ -34,10 +34,10 @@
           :display-name-map="displayNameMap"
           :root-schema="rootSchema"
           :readonly-fields="readonly ? Object.keys(item || {}) : []"
-          @update:modelValue="updateItem(index, $event)"
+          @update:model-value="updateItem(index, $event)"
         />
       </div>
-      <div class="array-item-actions" v-if="!readonly">
+      <div v-if="!readonly" class="array-item-actions">
         <el-button
           type="danger"
           :icon="Delete"
@@ -48,8 +48,18 @@
         />
       </div>
     </div>
-    <el-button v-if="!readonly" type="primary" :icon="Plus" plain @click="addItem" class="add-button">
-      添加 {{ (displayNameMap && displayNameMap[itemSchema.title || '']) || itemSchema.title || '新项目' }}
+    <el-button
+      v-if="!readonly"
+      type="primary"
+      :icon="Plus"
+      plain
+      class="add-button"
+      @click="addItem"
+    >
+      添加
+      {{
+        (displayNameMap && displayNameMap[itemSchema.title || '']) || itemSchema.title || '新项目'
+      }}
     </el-button>
   </el-card>
 </template>
@@ -58,7 +68,11 @@
 import { computed, defineAsyncComponent } from 'vue'
 import { type JSONSchema } from '@renderer/api/schema'
 import { Delete, Plus } from '@element-plus/icons-vue'
-import { resolveActualSchema, createDefaultValue, matchSchemaForValue } from '@renderer/services/schemaFieldParser'
+import {
+  resolveActualSchema,
+  createDefaultValue,
+  matchSchemaForValue
+} from '@renderer/services/schemaFieldParser'
 
 const ModelDrivenForm = defineAsyncComponent(() => import('../ModelDrivenForm.vue'))
 const StringField = defineAsyncComponent(() => import('./StringField.vue'))
@@ -96,7 +110,12 @@ function getItemSchemaForIndex(index: number): JSONSchema {
 
 function isSimpleTypeForIndex(index: number) {
   const actualSchema = getItemSchemaForIndex(index)
-  return actualSchema.type === 'string' || actualSchema.type === 'number' || actualSchema.type === 'integer' || actualSchema.type === 'boolean'
+  return (
+    actualSchema.type === 'string' ||
+    actualSchema.type === 'number' ||
+    actualSchema.type === 'integer' ||
+    actualSchema.type === 'boolean'
+  )
 }
 
 function getSimpleFieldComponentForIndex(index: number) {
@@ -129,7 +148,7 @@ function removeItem(index: number) {
 function addItem() {
   const newArray = [...(props.modelValue || [])]
   const base = itemSchema.value
-  
+
   const defaultValue = createDefaultValue(base, props.rootSchema)
 
   newArray.push(defaultValue)

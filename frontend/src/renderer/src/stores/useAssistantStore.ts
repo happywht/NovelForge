@@ -3,7 +3,14 @@ import { ref, shallowRef } from 'vue'
 import { getProjects, type ProjectRead } from '@renderer/api/projects'
 import { getCardsForProject, type CardRead } from '@renderer/api/cards'
 
-export type InjectRef = { projectId: number; projectName: string; cardId: number; cardTitle: string; content: any; source?: 'auto' | 'manual' }
+export type InjectRef = {
+  projectId: number
+  projectName: string
+  cardId: number
+  cardTitle: string
+  content: any
+  source?: 'auto' | 'manual'
+}
 export type AssistantMessage = { role: 'user' | 'assistant'; content: string; ts?: number }
 
 // 卡片上下文信息接口
@@ -13,19 +20,19 @@ export interface CardContextInfo {
   card_type: string
   parent_id: number | null
   project_id: number
-  first_seen: number  // timestamp
-  last_seen: number   // timestamp
+  first_seen: number // timestamp
+  last_seen: number // timestamp
   access_count: number
 }
 
 // 用户操作记录接口
 export interface UserOperation {
   timestamp: number
-  type: 'create' | 'edit' | 'delete' | 'move'  // 增加 'move' 类型
+  type: 'create' | 'edit' | 'delete' | 'move' // 增加 'move' 类型
   cardId: number
   cardTitle: string
   cardType: string
-  detail?: string  // 操作详情（如层级变化、移动位置等）
+  detail?: string // 操作详情（如层级变化、移动位置等）
 }
 
 // 项目结构化上下文接口
@@ -33,11 +40,11 @@ export interface ProjectStructureContext {
   project_id: number
   project_name: string
   total_cards: number
-  stats: Record<string, number>  // 卡片类型 -> 数量
-  tree_text: string              // 树形文本
+  stats: Record<string, number> // 卡片类型 -> 数量
+  tree_text: string // 树形文本
   available_card_types: string[] // 可用卡片类型
-  last_updated: number           // 最后更新时间戳
-  version: number                // 数据版本（用于缓存失效）
+  last_updated: number // 最后更新时间戳
+  version: number // 数据版本（用于缓存失效）
 }
 
 // 为避免开发/打包共用本地缓存，对话历史 key 加上环境前缀
@@ -47,9 +54,15 @@ const HISTORY_KEY_PREFIX = `nf:${ENV_PREFIX}:assistant:history:`
 const STRUCTURE_KEY_PREFIX = `nf:${ENV_PREFIX}:assistant:structure:`
 const OPERATIONS_KEY_PREFIX = `nf:${ENV_PREFIX}:assistant:operations:`
 
-function projectHistoryKey(projectId: number) { return `${HISTORY_KEY_PREFIX}${projectId}` }
-function projectStructureKey(projectId: number) { return `${STRUCTURE_KEY_PREFIX}${projectId}` }
-function projectOperationsKey(projectId: number) { return `${OPERATIONS_KEY_PREFIX}${projectId}` }
+function projectHistoryKey(projectId: number) {
+  return `${HISTORY_KEY_PREFIX}${projectId}`
+}
+function projectStructureKey(projectId: number) {
+  return `${STRUCTURE_KEY_PREFIX}${projectId}`
+}
+function projectOperationsKey(projectId: number) {
+  return `${OPERATIONS_KEY_PREFIX}${projectId}`
+}
 
 export const useAssistantStore = defineStore('assistant', () => {
   const projects = ref<ProjectRead[]>([])
@@ -81,7 +94,7 @@ export const useAssistantStore = defineStore('assistant', () => {
   function addInjectedRefs(pid: number, pname: string, ids: number[]) {
     const list = cardsByProject.value[pid] || []
     const map = new Map<number, CardRead>()
-    list.forEach(c => map.set(c.id, c))
+    list.forEach((c) => map.set(c.id, c))
 
     // 创建新数组以触发 shallowRef 更新
     const newRefs = [...injectedRefs.value]
@@ -89,14 +102,27 @@ export const useAssistantStore = defineStore('assistant', () => {
     for (const id of ids) {
       const c = map.get(id)
       if (!c) continue
-      const existingIdx = newRefs.findIndex(r => r.projectId === pid && r.cardId === id)
+      const existingIdx = newRefs.findIndex((r) => r.projectId === pid && r.cardId === id)
       if (existingIdx >= 0) {
         // 升级为 manual（若原为 auto）并刷新标题/内容
         const prev = newRefs[existingIdx]
-        newRefs[existingIdx] = { ...prev, projectName: pname, cardTitle: c.title, content: (c as any).content, source: 'manual' }
+        newRefs[existingIdx] = {
+          ...prev,
+          projectName: pname,
+          cardTitle: c.title,
+          content: (c as any).content,
+          source: 'manual'
+        }
         continue
       }
-      newRefs.push({ projectId: pid, projectName: pname, cardId: id, cardTitle: c.title, content: (c as any).content, source: 'manual' })
+      newRefs.push({
+        projectId: pid,
+        projectName: pname,
+        cardId: id,
+        cardTitle: c.title,
+        content: (c as any).content,
+        source: 'manual'
+      })
     }
 
     injectedRefs.value = newRefs
@@ -107,14 +133,20 @@ export const useAssistantStore = defineStore('assistant', () => {
 
     // 创建新数组以触发 shallowRef 更新
     const newRefs = [...injectedRefs.value]
-    const idx = newRefs.findIndex(r => r.projectId === ref.projectId && r.cardId === ref.cardId)
+    const idx = newRefs.findIndex((r) => r.projectId === ref.projectId && r.cardId === ref.cardId)
     const prev = idx >= 0 ? newRefs[idx] : null
 
     // 规则：manual 永远不被 auto 覆盖；manual 会覆盖 auto；同源则更新内容
     if (idx >= 0) {
       if (prev?.source === 'manual' && source === 'auto') {
         // 保留 manual，不做降级，仅更新显示信息/内容
-        newRefs[idx] = { ...prev, projectName: ref.projectName, cardTitle: ref.cardTitle, content: ref.content, source: 'manual' }
+        newRefs[idx] = {
+          ...prev,
+          projectName: ref.projectName,
+          cardTitle: ref.cardTitle,
+          content: ref.content,
+          source: 'manual'
+        }
       } else {
         newRefs[idx] = { ...prev, ...ref, source }
       }
@@ -126,7 +158,7 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   function clearAutoRefs() {
-    injectedRefs.value = injectedRefs.value.filter(r => r.source !== 'auto')
+    injectedRefs.value = injectedRefs.value.filter((r) => r.source !== 'auto')
   }
 
   function addAutoRef(ref: InjectRef) {
@@ -139,7 +171,9 @@ export const useAssistantStore = defineStore('assistant', () => {
     // 创建新数组以触发 shallowRef 更新
     injectedRefs.value = injectedRefs.value.filter((_, i) => i !== index)
   }
-  function clearInjectedRefs() { injectedRefs.value = [] }
+  function clearInjectedRefs() {
+    injectedRefs.value = []
+  }
 
   // --- 对话历史（按项目持久化到 localStorage）---
   function getHistory(projectId: number): AssistantMessage[] {
@@ -149,13 +183,15 @@ export const useAssistantStore = defineStore('assistant', () => {
       const arr = JSON.parse(raw)
       if (!Array.isArray(arr)) return []
       return arr as AssistantMessage[]
-    } catch { return [] }
+    } catch {
+      return []
+    }
   }
 
   function setHistory(projectId: number, history: AssistantMessage[]) {
     try {
       localStorage.setItem(projectHistoryKey(projectId), JSON.stringify(history || []))
-    } catch { }
+    } catch {}
   }
 
   function appendHistory(projectId: number, msg: AssistantMessage) {
@@ -165,7 +201,9 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   function clearHistory(projectId: number) {
-    try { localStorage.removeItem(projectHistoryKey(projectId)) } catch { }
+    try {
+      localStorage.removeItem(projectHistoryKey(projectId))
+    } catch {}
   }
 
   // 卡片上下文管理方法
@@ -180,7 +218,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     const info: CardContextInfo = {
       card_id: card.id,
       title: card.title,
-      card_type: (card as any).card_type?.name || 'Unknown',  // 修复：使用 card_type.name
+      card_type: (card as any).card_type?.name || 'Unknown', // 修复：使用 card_type.name
       parent_id: (card as any).parent_id || null,
       project_id: projectId,
       first_seen: now,
@@ -203,7 +241,7 @@ export const useAssistantStore = defineStore('assistant', () => {
       // 更新已存在的卡片信息
       cardRegistry.value.set(info.card_id, {
         ...existing,
-        title: info.title,  // 更新标题（可能改变）
+        title: info.title, // 更新标题（可能改变）
         card_type: info.card_type,
         last_seen: Date.now(),
         access_count: existing.access_count + 1
@@ -271,9 +309,15 @@ export const useAssistantStore = defineStore('assistant', () => {
   /**
    * 构建卡片树形文本（递归）
    */
-  function buildCardTreeText(cards: CardRead[], parentId: number | null = null, depth: number = 0, currentCardId?: number): string {
+  function buildCardTreeText(
+    cards: CardRead[],
+    parentId: number | null = null,
+    depth: number = 0,
+    currentCardId?: number
+  ): string {
     const indent = depth === 0 ? '' : '│  '.repeat(depth - 1) + '├─ '
-    const children = cards.filter(c => (c as any).parent_id === parentId)
+    const children = cards
+      .filter((c) => (c as any).parent_id === parentId)
       .sort((a, b) => ((a as any).display_order || 0) - ((b as any).display_order || 0))
 
     const lines: string[] = []
@@ -282,11 +326,15 @@ export const useAssistantStore = defineStore('assistant', () => {
       const card = children[i]
       const typeName = (card as any).card_type?.name || 'Unknown'
       const updatedAt = (card as any).updated_at
-      const updatedDate = updatedAt ? new Date(updatedAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) : ''
+      const updatedDate = updatedAt
+        ? new Date(updatedAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' })
+        : ''
       const isCurrent = currentCardId && card.id === currentCardId
       const marker = isCurrent ? ' ⭐当前' : ''
 
-      lines.push(`${indent}[${typeName}] ${card.title} {id:${card.id} | 更新:${updatedDate}${marker}}`)
+      lines.push(
+        `${indent}[${typeName}] ${card.title} {id:${card.id} | 更新:${updatedDate}${marker}}`
+      )
 
       // 递归处理子卡片
       const childText = buildCardTreeText(cards, card.id, depth + 1, currentCardId)
@@ -324,7 +372,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     const treeText = buildCardTreeText(cards, null, 0, currentCardId)
 
     // 可用卡片类型
-    const availableTypes = cardTypes.map(ct => ct.name)
+    const availableTypes = cardTypes.map((ct) => ct.name)
 
     return {
       project_id: projectId,
@@ -334,7 +382,7 @@ export const useAssistantStore = defineStore('assistant', () => {
       tree_text: treeText || 'ROOT\n(暂无卡片)',
       available_card_types: availableTypes,
       last_updated: Date.now(),
-      version: cards.length  // 简单用卡片数量作为版本号
+      version: cards.length // 简单用卡片数量作为版本号
     }
   }
 
@@ -360,7 +408,13 @@ export const useAssistantStore = defineStore('assistant', () => {
       const cached = loadProjectStructureFromCache(projectId)
       if (cached && cached.version === cards.length) {
         // 缓存有效，直接使用（但更新当前卡片标记）
-        const updated = buildProjectStructure(projectId, projectName, cards, cardTypes, currentCardId)
+        const updated = buildProjectStructure(
+          projectId,
+          projectName,
+          cards,
+          cardTypes,
+          currentCardId
+        )
         projectStructure.value = updated
         saveProjectStructureToCache(updated)
         console.log('📋 [AssistantStore] 使用缓存的项目结构（已更新当前卡片）')
@@ -453,14 +507,16 @@ export const useAssistantStore = defineStore('assistant', () => {
         hour: '2-digit',
         minute: '2-digit'
       })
-      const emoji = op.type === 'create' ? '➕' :
-        op.type === 'edit' ? '✏️' :
-          op.type === 'move' ? '📦' :
-            '🗑️'
-      const action = op.type === 'create' ? '创建' :
-        op.type === 'edit' ? '编辑' :
-          op.type === 'move' ? '移动' :
-            '删除'
+      const emoji =
+        op.type === 'create' ? '➕' : op.type === 'edit' ? '✏️' : op.type === 'move' ? '📦' : '🗑️'
+      const action =
+        op.type === 'create'
+          ? '创建'
+          : op.type === 'edit'
+            ? '编辑'
+            : op.type === 'move'
+              ? '移动'
+              : '删除'
 
       let line = `${idx + 1}. [${time}] ${emoji} ${action} "${op.cardTitle}" (${op.cardType} #${op.cardId})`
 
@@ -482,7 +538,7 @@ export const useAssistantStore = defineStore('assistant', () => {
     recentOperations.value = []
     try {
       localStorage.removeItem(projectOperationsKey(projectId))
-    } catch { }
+    } catch {}
   }
 
   /**
@@ -494,13 +550,30 @@ export const useAssistantStore = defineStore('assistant', () => {
   }
 
   return {
-    projects, cardsByProject, injectedRefs,
-    loadProjects, loadCardsForProject,
-    addInjectedRefs, addInjectedRefDirect, addAutoRef, clearAutoRefs, removeInjectedRefAt, clearInjectedRefs,
-    getHistory, setHistory, appendHistory, clearHistory,
+    projects,
+    cardsByProject,
+    injectedRefs,
+    loadProjects,
+    loadCardsForProject,
+    addInjectedRefs,
+    addInjectedRefDirect,
+    addAutoRef,
+    clearAutoRefs,
+    removeInjectedRefAt,
+    clearInjectedRefs,
+    getHistory,
+    setHistory,
+    appendHistory,
+    clearHistory,
     // 卡片上下文方法
-    updateActiveCard, registerCard, updateProjectCardTypes, getContextForAssistant, clearCardContext,
-    activeCardContext, cardRegistry, projectCardTypes,
+    updateActiveCard,
+    registerCard,
+    updateProjectCardTypes,
+    getContextForAssistant,
+    clearCardContext,
+    activeCardContext,
+    cardRegistry,
+    projectCardTypes,
     // 项目结构化上下文方法
     projectStructure,
     updateProjectStructure,
@@ -514,4 +587,4 @@ export const useAssistantStore = defineStore('assistant', () => {
     // 助手定稿
     finalizeAssistant
   }
-}) 
+})

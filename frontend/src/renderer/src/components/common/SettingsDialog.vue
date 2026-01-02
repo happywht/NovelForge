@@ -8,7 +8,7 @@ import KnowledgeManager from '../setting/KnowledgeManager.vue'
 import AssistantSettings from '../setting/AssistantSettings.vue'
 
 const props = defineProps<{ modelValue: boolean }>()
-const emit = defineEmits<{ 'update:modelValue': [value: boolean]; 'close': [] }>()
+const emit = defineEmits<{ 'update:modelValue': [value: boolean]; close: [] }>()
 
 const activeTab = ref('llm')
 // 读取全局 store 预设的初始 tab
@@ -30,18 +30,29 @@ function emitRefreshIfLLM() {
   }
 }
 onMounted(() => emitRefreshIfLLM())
-watch(() => activeTab.value, () => emitRefreshIfLLM())
+watch(
+  () => activeTab.value,
+  () => emitRefreshIfLLM()
+)
 // 对话框每次打开也刷新一次（等待子组件渲染完成）
-watch(() => props.modelValue, async (open) => { if (open) { await nextTick(); emitRefreshIfLLM() } })
+watch(
+  () => props.modelValue,
+  async (open) => {
+    if (open) {
+      await nextTick()
+      emitRefreshIfLLM()
+    }
+  }
+)
 </script>
 
 <template>
-  <el-dialog 
-    :model-value="modelValue" 
-    @update:model-value="(val) => emit('update:modelValue', val)"
-    title="应用设置" 
-    width="85%" 
+  <el-dialog
+    :model-value="modelValue"
+    title="应用设置"
+    width="85%"
     top="4vh"
+    @update:model-value="(val) => emit('update:modelValue', val)"
     @close="handleClose"
   >
     <div class="settings-container">
@@ -70,8 +81,17 @@ watch(() => props.modelValue, async (open) => { if (open) { await nextTick(); em
 </template>
 
 <style scoped>
-.settings-container { height: 78vh; }
-.settings-tabs { height: 100%; }
-:deep(.el-dialog__body) { padding-top: 8px; }
-:deep(.el-tabs__content) { height: 100%; overflow-y: auto; }
-</style> 
+.settings-container {
+  height: 78vh;
+}
+.settings-tabs {
+  height: 100%;
+}
+:deep(.el-dialog__body) {
+  padding-top: 8px;
+}
+:deep(.el-tabs__content) {
+  height: 100%;
+  overflow-y: auto;
+}
+</style>

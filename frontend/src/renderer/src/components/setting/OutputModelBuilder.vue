@@ -4,12 +4,22 @@
       <el-button type="primary" @click="addField">新增字段</el-button>
     </div>
     <el-table :data="localFields" size="small" class="field-table">
-             <el-table-column label="操作" width="100" align="left">
+      <el-table-column label="操作" width="100" align="left">
         <template #default="{ $index }">
           <div class="ops-col">
-            <el-button class="ops-btn" size="small" @click="moveUp($index)" :disabled="$index===0">上移</el-button>
-            <el-button class="ops-btn" size="small" @click="moveDown($index)" :disabled="$index===localFields.length-1">下移</el-button>
-            <el-button class="ops-btn" size="small" type="danger" plain @click="removeField($index)">删除</el-button>
+            <el-button class="ops-btn" size="small" :disabled="$index === 0" @click="moveUp($index)"
+              >上移</el-button
+            >
+            <el-button
+              class="ops-btn"
+              size="small"
+              :disabled="$index === localFields.length - 1"
+              @click="moveDown($index)"
+              >下移</el-button
+            >
+            <el-button class="ops-btn" size="small" type="danger" plain @click="removeField($index)"
+              >删除</el-button
+            >
           </div>
         </template>
       </el-table-column>
@@ -53,28 +63,51 @@
       </el-table-column>
       <el-table-column label="示例" min-width="220">
         <template #default="{ row }">
-          <el-input v-model="row.example" placeholder="示例（兼容 pydantic 的 examples[0]/example，可填写 JSON 字符串）" />
+          <el-input
+            v-model="row.example"
+            placeholder="示例（兼容 pydantic 的 examples[0]/example，可填写 JSON 字符串）"
+          />
         </template>
       </el-table-column>
       <el-table-column label="元组元素" min-width="260">
         <template #default="{ row }">
-          <div v-if="row.kind==='tuple'" class="tuple-editor">
+          <div v-if="row.kind === 'tuple'" class="tuple-editor">
             <div v-for="(t, i) in row.tupleItems" :key="i" class="tuple-chip">
-              <el-select v-model="row.tupleItems[i]" size="small" style="width:120px">
+              <el-select v-model="row.tupleItems[i]" size="small" style="width: 120px">
                 <el-option v-for="tk in tupleKinds" :key="tk" :label="tk" :value="tk" />
               </el-select>
-              <el-button size="small" text type="danger" @click="removeTupleItem(row, i)" :disabled="(row.tupleItems?.length||0) <= 1">删</el-button>
+              <el-button
+                size="small"
+                text
+                type="danger"
+                :disabled="(row.tupleItems?.length || 0) <= 1"
+                @click="removeTupleItem(row, i)"
+                >删</el-button
+              >
             </div>
-            <el-button size="small" text type="primary" @click="addTupleItem(row)">+ 元素</el-button>
+            <el-button size="small" text type="primary" @click="addTupleItem(row)"
+              >+ 元素</el-button
+            >
           </div>
           <div v-else class="rel-config muted">—</div>
         </template>
       </el-table-column>
       <el-table-column label="关系配置" min-width="200">
         <template #default="{ row }">
-          <div v-if="row.kind==='relation'" class="rel-config">
-            <el-select v-model="row.relation.targetModelName" filterable placeholder="选择目标输出模型" style="width:260px">
-              <el-option v-for="t in targetModels" :key="t.name" :label="t.name" :value="t.name" :disabled="isEmbedSelf(row, t.name)" />
+          <div v-if="row.kind === 'relation'" class="rel-config">
+            <el-select
+              v-model="row.relation.targetModelName"
+              filterable
+              placeholder="选择目标输出模型"
+              style="width: 260px"
+            >
+              <el-option
+                v-for="t in targetModels"
+                :key="t.name"
+                :label="t.name"
+                :value="t.name"
+                :disabled="isEmbedSelf(row, t.name)"
+              />
             </el-select>
           </div>
           <div v-else class="rel-config muted">—</div>
@@ -88,40 +121,89 @@
 import { ref, watch, computed, nextTick } from 'vue'
 import { type BuilderField } from '@renderer/utils/outputModelSchemaUtils'
 
-export interface OutputModelLite { name: string; json_schema?: any }
+export interface OutputModelLite {
+  name: string
+  json_schema?: any
+}
 
-const props = defineProps<{ modelValue: BuilderField[]; models: OutputModelLite[]; currentModelName?: string }>()
+const props = defineProps<{
+  modelValue: BuilderField[]
+  models: OutputModelLite[]
+  currentModelName?: string
+}>()
 const emit = defineEmits<{ 'update:modelValue': [value: BuilderField[]] }>()
 
 const baseKinds: Array<BuilderField['kind']> = ['string', 'number', 'integer', 'boolean', 'tuple']
-const tupleKinds: Array<NonNullable<BuilderField['tupleItems']>[number]> = ['string','number','integer','boolean']
+const tupleKinds: Array<NonNullable<BuilderField['tupleItems']>[number]> = [
+  'string',
+  'number',
+  'integer',
+  'boolean'
+]
 
 const localFields = ref<BuilderField[]>(props.modelValue?.map(cloneField) || [])
 const syncingFromProps = ref(false)
-watch(() => props.modelValue, async (v) => {
-  syncingFromProps.value = true
-  localFields.value = (v || []).map(cloneField)
-  await nextTick()
-  syncingFromProps.value = false
-})
-watch(localFields, (v) => { if (!syncingFromProps.value) emit('update:modelValue', v) }, { deep: true })
+watch(
+  () => props.modelValue,
+  async (v) => {
+    syncingFromProps.value = true
+    localFields.value = (v || []).map(cloneField)
+    await nextTick()
+    syncingFromProps.value = false
+  }
+)
+watch(
+  localFields,
+  (v) => {
+    if (!syncingFromProps.value) emit('update:modelValue', v)
+  },
+  { deep: true }
+)
 
 const targetModels = computed(() => props.models || [])
 
-function cloneField(f: BuilderField): BuilderField { return JSON.parse(JSON.stringify(f)) }
-function addField() { localFields.value.push({ name: '', label: '', kind: 'string', isArray: false, required: false, aiExclude: false, relation: { targetModelName: null }, description: '', example: '', tupleItems: [] }) }
-function removeField(idx: number) { localFields.value.splice(idx, 1) }
-function moveUp(idx: number) { if (idx <= 0) return; const a = localFields.value; [a[idx-1], a[idx]] = [a[idx], a[idx-1]] }
-function moveDown(idx: number) { const a = localFields.value; if (idx >= a.length - 1) return; [a[idx+1], a[idx]] = [a[idx], a[idx+1]] }
+function cloneField(f: BuilderField): BuilderField {
+  return JSON.parse(JSON.stringify(f))
+}
+function addField() {
+  localFields.value.push({
+    name: '',
+    label: '',
+    kind: 'string',
+    isArray: false,
+    required: false,
+    aiExclude: false,
+    relation: { targetModelName: null },
+    description: '',
+    example: '',
+    tupleItems: []
+  })
+}
+function removeField(idx: number) {
+  localFields.value.splice(idx, 1)
+}
+function moveUp(idx: number) {
+  if (idx <= 0) return
+  const a = localFields.value
+  ;[a[idx - 1], a[idx]] = [a[idx], a[idx - 1]]
+}
+function moveDown(idx: number) {
+  const a = localFields.value
+  if (idx >= a.length - 1) return
+  ;[a[idx + 1], a[idx]] = [a[idx], a[idx + 1]]
+}
 function onKindChange(row: BuilderField) {
   if (row.kind !== 'relation') row.relation = { targetModelName: null }
   if (row.kind === 'tuple') {
-    if (!Array.isArray(row.tupleItems) || row.tupleItems.length === 0) row.tupleItems = ['string','string']
+    if (!Array.isArray(row.tupleItems) || row.tupleItems.length === 0)
+      row.tupleItems = ['string', 'string']
   } else {
     row.tupleItems = []
   }
 }
-function isEmbedSelf(row: BuilderField, targetName: string) { return row.kind === 'relation' && props.currentModelName && props.currentModelName === targetName }
+function isEmbedSelf(row: BuilderField, targetName: string) {
+  return row.kind === 'relation' && props.currentModelName && props.currentModelName === targetName
+}
 
 function addTupleItem(row: BuilderField) {
   if (!Array.isArray(row.tupleItems)) row.tupleItems = []
@@ -134,14 +216,52 @@ function removeTupleItem(row: BuilderField, idx: number) {
 </script>
 
 <style scoped>
-.schema-builder { display: flex; flex-direction: column; gap: 8px; }
-.toolbar { display: flex; gap: 8px; }
-.field-table { width: 100%; }
-.rel-config { display: flex; gap: 8px; align-items: center; }
-.muted { color: var(--el-text-color-secondary); }
-.tuple-editor { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-.tuple-chip { display: flex; gap: 6px; align-items: center; }
-.ops-col { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; width: 100%; }
-.ops-col .el-button + .el-button { margin-left: 0 !important; }
-.ops-btn { width: 100%; box-sizing: border-box; padding-left: 0; padding-right: 0; display: block; }
-</style> 
+.schema-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.toolbar {
+  display: flex;
+  gap: 8px;
+}
+.field-table {
+  width: 100%;
+}
+.rel-config {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.muted {
+  color: var(--el-text-color-secondary);
+}
+.tuple-editor {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.tuple-chip {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.ops-col {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+  width: 100%;
+}
+.ops-col .el-button + .el-button {
+  margin-left: 0 !important;
+}
+.ops-btn {
+  width: 100%;
+  box-sizing: border-box;
+  padding-left: 0;
+  padding-right: 0;
+  display: block;
+}
+</style>

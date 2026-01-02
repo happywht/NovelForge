@@ -1,7 +1,12 @@
-
 <template>
-  <el-dialog v-model="visible" :title="dialogTitle" width="500" >
-    <el-form :model="form" ref="formRef" :rules="rules" label-width="80px" @submit.prevent="handleConfirm">
+  <el-dialog v-model="visible" :title="dialogTitle" width="500">
+    <el-form
+      ref="formRef"
+      :model="form"
+      :rules="rules"
+      label-width="80px"
+      @submit.prevent="handleConfirm"
+    >
       <el-form-item label="项目名称" prop="name">
         <el-input v-model="form.name" />
       </el-form-item>
@@ -9,12 +14,19 @@
         <el-input v-model="form.description" type="textarea" />
       </el-form-item>
       <el-form-item v-if="!isEditMode" label="项目模板">
-        <el-select v-model="selectedWorkflowId" placeholder="选择初始化工作流(类型:onprojectcreate)" filterable clearable :loading="loadingWorkflows" style="width:100%">
+        <el-select
+          v-model="selectedWorkflowId"
+          placeholder="选择初始化工作流(类型:onprojectcreate)"
+          filterable
+          clearable
+          :loading="loadingWorkflows"
+          style="width: 100%"
+        >
           <el-option v-for="wf in initWorkflows" :key="wf.id" :label="wf.name" :value="wf.id" />
         </el-select>
       </el-form-item>
       <!-- 隐藏的提交按钮，确保在输入框按回车会触发表单提交 -->
-      <button type="submit" style="display:none"></button>
+      <button type="submit" style="display: none"></button>
     </el-form>
     <template #footer>
       <div class="dialog-footer">
@@ -30,12 +42,16 @@ import { ref, reactive, computed, nextTick, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import type { components } from '@renderer/types/generated'
-import { listWorkflowTriggers, listWorkflows, type WorkflowRead, type WorkflowTriggerRead } from '@renderer/api/workflows'
+import {
+  listWorkflowTriggers,
+  listWorkflows,
+  type WorkflowRead,
+  type WorkflowTriggerRead
+} from '@renderer/api/workflows'
 
 type Project = components['schemas']['ProjectRead']
 type ProjectCreate = components['schemas']['ProjectCreate']
 type ProjectUpdate = components['schemas']['ProjectUpdate']
-
 
 const visible = ref(false)
 const formRef = ref<FormInstance>()
@@ -51,7 +67,7 @@ const initWorkflows = ref<WorkflowRead[]>([])
 const loadingWorkflows = ref(false)
 
 const isEditMode = computed(() => !!editingProject.value)
-const dialogTitle = computed(() => isEditMode.value ? '编辑项目' : '新建项目')
+const dialogTitle = computed(() => (isEditMode.value ? '编辑项目' : '新建项目'))
 
 const rules = reactive<FormRules>({
   name: [{ required: true, message: '请输入项目名称', trigger: 'blur' }]
@@ -59,16 +75,17 @@ const rules = reactive<FormRules>({
 
 const emit = defineEmits(['create', 'update'])
 
-
 async function loadInitWorkflows() {
   try {
     loadingWorkflows.value = true
     // 取所有触发器中过滤 onprojectcreate，再映射到工作流
     const triggers = await listWorkflowTriggers()
-    const ids = Array.from(new Set(triggers.filter(t=>t.trigger_on==='onprojectcreate').map(t=>t.workflow_id)))
+    const ids = Array.from(
+      new Set(triggers.filter((t) => t.trigger_on === 'onprojectcreate').map((t) => t.workflow_id))
+    )
     if (ids.length) {
       const all = await listWorkflows()
-      initWorkflows.value = all.filter(w => ids.includes(w.id))
+      initWorkflows.value = all.filter((w) => ids.includes(w.id))
       selectedWorkflowId.value = initWorkflows.value[0]?.id ?? null
     } else {
       initWorkflows.value = []
@@ -82,7 +99,7 @@ async function loadInitWorkflows() {
 function open(project: Project | null = null) {
   visible.value = true
   editingProject.value = project
-  
+
   nextTick(() => {
     formRef.value?.resetFields()
     if (project) {
@@ -122,6 +139,10 @@ defineExpose({
 </script>
 
 <style scoped>
-.mode-switch { margin-bottom: 8px; }
-.selector-block { width: 100%; }
+.mode-switch {
+  margin-bottom: 8px;
+}
+.selector-block {
+  width: 100%;
+}
 </style>

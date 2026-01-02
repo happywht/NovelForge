@@ -10,7 +10,7 @@ import {
   type CardRead,
   type CardTypeRead,
   type CardCreate,
-  type CardUpdate,
+  type CardUpdate
 } from '@renderer/api/cards'
 import { useProjectStore } from './useProjectStore'
 import { ElMessage } from 'element-plus'
@@ -46,7 +46,6 @@ const buildCardTree = (cards: CardRead[]): CardNode[] => {
   return tree
 }
 
-
 export const useCardStore = defineStore('card', () => {
   const projectStore = useProjectStore()
   const { currentProject } = storeToRefs(projectStore)
@@ -66,18 +65,22 @@ export const useCardStore = defineStore('card', () => {
   })
 
   // --- Watchers ---
-  watch(currentProject, (newProject) => {
-    if (newProject?.id) {
-      fetchCards(newProject.id);
-    } else {
-      // If there's no project, clear the cards
-      cards.value = [];
-    }
-  }, { immediate: true });
+  watch(
+    currentProject,
+    (newProject) => {
+      if (newProject?.id) {
+        fetchCards(newProject.id)
+      } else {
+        // If there's no project, clear the cards
+        cards.value = []
+      }
+    },
+    { immediate: true }
+  )
 
   // --- 内部工具：根据卡片类型名称拿到ID ---
   function getCardTypeIdByName(name: string): number | null {
-    const ct = cardTypes.value.find(t => t.name === name)
+    const ct = cardTypes.value.find((t) => t.name === name)
     return ct ? ct.id : null
   }
 
@@ -91,10 +94,7 @@ export const useCardStore = defineStore('card', () => {
   // --- Actions ---
 
   async function fetchInitialData() {
-    await Promise.all([
-      fetchCardTypes(),
-      fetchAvailableModels()
-    ]);
+    await Promise.all([fetchCardTypes(), fetchAvailableModels()])
   }
 
   // Card Actions
@@ -106,7 +106,10 @@ export const useCardStore = defineStore('card', () => {
     isLoading.value = true
     try {
       const fetchedCards = await getCardsForProject(projectId)
-      console.log(`[CardStore] Fetched ${fetchedCards.length} cards for project ${projectId}:`, fetchedCards);
+      console.log(
+        `[CardStore] Fetched ${fetchedCards.length} cards for project ${projectId}:`,
+        fetchedCards
+      )
       cards.value = fetchedCards
     } catch (error) {
       ElMessage.error('Failed to fetch cards.')
@@ -137,11 +140,17 @@ export const useCardStore = defineStore('card', () => {
   }
 
   // 增加可选参数：skipHooks 用于内部更新时跳过“保存后钩子”
-  async function modifyCard(cardId: number, cardData: { content: Record<string, any> | null } | CardUpdate, options?: { skipHooks?: boolean }) {
+  async function modifyCard(
+    cardId: number,
+    cardData: { content: Record<string, any> | null } | CardUpdate,
+    options?: { skipHooks?: boolean }
+  ) {
     try {
       console.log('[CardStore] 准备更新卡片:', cardId, cardData)
       // 使用原始响应以读取头部 X-Workflows-Started
-      const axiosResp: any = await (await import('@renderer/api/cards')).updateCardRaw(cardId, cardData as CardUpdate)
+      const axiosResp: any = await (
+        await import('@renderer/api/cards')
+      ).updateCardRaw(cardId, cardData as CardUpdate)
       const updatedCard: CardRead = axiosResp.data
       console.log('[CardStore] 更新卡片成功，检查工作流回执响应头:', axiosResp.headers)
 
@@ -152,7 +161,10 @@ export const useCardStore = defineStore('card', () => {
         const index = cards.value.findIndex((c) => c.id === cardId)
         if (index !== -1) {
           const existingCard = cards.value[index]
-          const newContent = (cardData as any).content !== undefined ? (cardData as any).content : existingCard.content
+          const newContent =
+            (cardData as any).content !== undefined
+              ? (cardData as any).content
+              : existingCard.content
           cards.value[index] = { ...existingCard, ...updatedCard, content: newContent }
         }
       }
@@ -160,10 +172,17 @@ export const useCardStore = defineStore('card', () => {
 
       // 读取工作流运行回执并订阅事件，完成后刷新
       const hdr = axiosResp.headers || {}
-      const runHeader: string | undefined = hdr['x-workflows-started'] || hdr['X-Workflows-Started'] || hdr['x-workflows-started'.toLowerCase()]
-      const runIds: number[] = typeof runHeader === 'string' && runHeader.trim()
-        ? runHeader.split(',').map((s: string) => Number(s.trim())).filter((n: number) => Number.isFinite(n))
-        : []
+      const runHeader: string | undefined =
+        hdr['x-workflows-started'] ||
+        hdr['X-Workflows-Started'] ||
+        hdr['x-workflows-started'.toLowerCase()]
+      const runIds: number[] =
+        typeof runHeader === 'string' && runHeader.trim()
+          ? runHeader
+              .split(',')
+              .map((s: string) => Number(s.trim()))
+              .filter((n: number) => Number.isFinite(n))
+          : []
       console.log('[Workflow] 工作流启动回执 runIds =', runIds)
 
       // 兜底轮询函数
@@ -179,8 +198,10 @@ export const useCardStore = defineStore('card', () => {
               if (currentProject.value?.id) await fetchCards(currentProject.value.id)
               return
             }
-          } catch (e) { console.warn('[Workflow] 轮询异常，将继续重试', e) }
-          await new Promise(r => setTimeout(r, 1000))
+          } catch (e) {
+            console.warn('[Workflow] 轮询异常，将继续重试', e)
+          }
+          await new Promise((r) => setTimeout(r, 1000))
         }
       }
 
@@ -192,15 +213,31 @@ export const useCardStore = defineStore('card', () => {
             let finished = false
             es.onopen = () => console.log(`[Workflow] SSE 已连接 run_id=${rid}`)
             es.onmessage = (evt) => console.log(`[Workflow] 默认消息 run_id=${rid}:`, evt.data)
-            es.addEventListener('step_started', (evt: MessageEvent) => console.log(`[Workflow] 步骤开始 run_id=${rid}:`, evt.data))
-            es.addEventListener('step_succeeded', (evt: MessageEvent) => console.log(`[Workflow] 步骤成功 run_id=${rid}:`, evt.data))
-            es.addEventListener('step_failed', (evt: MessageEvent) => console.warn(`[Workflow] 步骤失败 run_id=${rid}:`, evt.data))
+            es.addEventListener('step_started', (evt: MessageEvent) =>
+              console.log(`[Workflow] 步骤开始 run_id=${rid}:`, evt.data)
+            )
+            es.addEventListener('step_succeeded', (evt: MessageEvent) =>
+              console.log(`[Workflow] 步骤成功 run_id=${rid}:`, evt.data)
+            )
+            es.addEventListener('step_failed', (evt: MessageEvent) =>
+              console.warn(`[Workflow] 步骤失败 run_id=${rid}:`, evt.data)
+            )
             es.addEventListener('run_completed', async (evt: MessageEvent) => {
               console.log(`[Workflow] 运行完成 run_id=${rid}:`, evt.data)
               finished = true
               try {
-                const payload = (() => { try { return JSON.parse(String(evt.data || '{}')) } catch { return {} } })()
-                const affected: number[] = Array.isArray(payload?.affected_card_ids) ? payload.affected_card_ids.filter((n: any) => Number.isFinite(Number(n))).map((n: any) => Number(n)) : []
+                const payload = (() => {
+                  try {
+                    return JSON.parse(String(evt.data || '{}'))
+                  } catch {
+                    return {}
+                  }
+                })()
+                const affected: number[] = Array.isArray(payload?.affected_card_ids)
+                  ? payload.affected_card_ids
+                      .filter((n: any) => Number.isFinite(Number(n)))
+                      .map((n: any) => Number(n))
+                  : []
                 if (affected.length > 0) {
                   // 精准刷新：按受影响卡片拉取详情并合并到本地
                   for (const cid of affected) {
@@ -208,22 +245,30 @@ export const useCardStore = defineStore('card', () => {
                       const resp = await fetch(`${BASE_URL}/api/cards/${cid}`, { method: 'GET' })
                       if (resp.ok) {
                         const updated = await resp.json()
-                        const i = cards.value.findIndex(c => c.id === cid)
+                        const i = cards.value.findIndex((c) => c.id === cid)
                         if (i >= 0) {
                           const prev = cards.value[i]
-                          cards.value[i] = { ...prev, ...updated, content: updated?.content ?? prev.content }
+                          cards.value[i] = {
+                            ...prev,
+                            ...updated,
+                            content: updated?.content ?? prev.content
+                          }
                         } else {
                           // 若本地列表没有该卡，退化为全量刷新
                           if (currentProject.value?.id) await fetchCards(currentProject.value.id)
                         }
                       }
-                    } catch (e) { console.warn('[Workflow] 刷新受影响卡片失败', cid, e) }
+                    } catch (e) {
+                      console.warn('[Workflow] 刷新受影响卡片失败', cid, e)
+                    }
                   }
                 } else {
                   // 没有携带受影响集合，回退为全量刷新
                   if (currentProject.value?.id) await fetchCards(currentProject.value.id)
                 }
-              } finally { es.close() }
+              } finally {
+                es.close()
+              }
             })
             es.onerror = async (err) => {
               if (finished) {
@@ -310,6 +355,6 @@ export const useCardStore = defineStore('card', () => {
     fetchCardTypes,
     fetchAvailableModels,
     setActiveCard,
-    updateCardContentLocally,
+    updateCardContentLocally
   }
 })

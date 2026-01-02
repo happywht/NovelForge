@@ -8,17 +8,16 @@
 const env = 'local'
 
 const EnvConfig = {
-    local: {
-        baseApi: 'http://localhost:8000',
-    },
-    prod: {
-        baseApi: 'http://localhost:8000',
-
-    },
+  local: {
+    baseApi: 'http://localhost:8000'
+  },
+  prod: {
+    baseApi: 'http://localhost:8000'
+  }
 }
 
 export default {
-    env,
-    //mock的总开关
-    ...EnvConfig[env]
+  env,
+  //mock的总开关
+  ...EnvConfig[env]
 }

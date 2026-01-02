@@ -37,7 +37,10 @@ function formatValueForDisplay(value: any): any {
 
 // 解析显示值为实际值
 function parseDisplayValue(displayValue: any): any {
-  if (typeof displayValue === 'string' && (displayValue.trim().startsWith('{') || displayValue.trim().startsWith('['))) {
+  if (
+    typeof displayValue === 'string' &&
+    (displayValue.trim().startsWith('{') || displayValue.trim().startsWith('['))
+  ) {
     try {
       return JSON.parse(displayValue)
     } catch {
@@ -58,9 +61,12 @@ const validationResult = computed(() => {
 })
 
 // 监听外部值变化
-watch(() => props.fieldValue, (newValue) => {
-  localValue.value = formatValueForDisplay(newValue)
-})
+watch(
+  () => props.fieldValue,
+  (newValue) => {
+    localValue.value = formatValueForDisplay(newValue)
+  }
+)
 
 // 提交值的变化
 const commitValue = () => {
@@ -88,8 +94,8 @@ const handleInput = (value: any) => {
         {{ fieldKey }}
         <span v-if="fieldConfig.required" class="required-mark">*</span>
       </label>
-      <el-tooltip 
-        v-if="fieldConfig.description" 
+      <el-tooltip
+        v-if="fieldConfig.description"
         :content="fieldConfig.description"
         placement="top"
         :show-after="500"
@@ -161,11 +167,7 @@ const handleInput = (value: any) => {
 
       <!-- Switch 类型 -->
       <template v-else-if="fieldConfig.type === 'switch'">
-        <el-switch
-          v-model="localValue"
-          :disabled="disabled"
-          @change="handleInput"
-        />
+        <el-switch v-model="localValue" :disabled="disabled" @change="handleInput" />
       </template>
     </div>
 

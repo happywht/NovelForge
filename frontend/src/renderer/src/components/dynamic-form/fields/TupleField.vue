@@ -1,6 +1,6 @@
 <template>
   <el-form-item :label="label" :prop="prop">
-    <template #label v-if="$slots.label">
+    <template v-if="$slots.label" #label>
       <slot name="label"></slot>
     </template>
     <div class="tuple-field-wrapper">
@@ -8,12 +8,12 @@
         <component
           :is="getFieldComponent(itemSchema)"
           :model-value="modelValue ? modelValue[index] : undefined"
-          @update:modelValue="updateItem(index, $event)"
           :schema="itemSchema"
           :root-schema="rootSchema"
           :readonly="readonly"
           label=""
           prop=""
+          @update:model-value="updateItem(index, $event)"
         />
       </div>
     </div>

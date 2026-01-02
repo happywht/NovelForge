@@ -6,7 +6,7 @@ const STORAGE_KEYS = {
   reactModeEnabled: 'nf:assistant:react_mode_enabled',
   assistantTemperature: 'nf:assistant:temperature',
   assistantMaxTokens: 'nf:assistant:max_tokens',
-  assistantTimeout: 'nf:assistant:timeout',
+  assistantTimeout: 'nf:assistant:timeout'
 } as const
 
 const contextSummaryEnabled = ref(false)
@@ -73,20 +73,43 @@ function ensureInitialized() {
   assistantMaxTokens.value = readNumber(STORAGE_KEYS.assistantMaxTokens, 8192)
   assistantTimeout.value = readNumber(STORAGE_KEYS.assistantTimeout, 90)
 
-  watch(contextSummaryEnabled, (val) => persistBoolean(STORAGE_KEYS.contextSummaryEnabled, !!val), { immediate: true })
-  watch(contextSummaryThreshold, (val) => {
-    if (val && val > 0) persistNumber(STORAGE_KEYS.contextSummaryThreshold, val)
-  }, { immediate: true })
-  watch(reactModeEnabled, (val) => persistBoolean(STORAGE_KEYS.reactModeEnabled, !!val), { immediate: true })
-  watch(assistantTemperature, (val) => {
-    if (val != null && !Number.isNaN(val) && val > 0) persistNumber(STORAGE_KEYS.assistantTemperature, val)
-  }, { immediate: true })
-  watch(assistantMaxTokens, (val) => {
-    if (val != null && !Number.isNaN(val) && val > 0) persistNumber(STORAGE_KEYS.assistantMaxTokens, val)
-  }, { immediate: true })
-  watch(assistantTimeout, (val) => {
-    if (val != null && !Number.isNaN(val) && val > 0) persistNumber(STORAGE_KEYS.assistantTimeout, val)
-  }, { immediate: true })
+  watch(contextSummaryEnabled, (val) => persistBoolean(STORAGE_KEYS.contextSummaryEnabled, !!val), {
+    immediate: true
+  })
+  watch(
+    contextSummaryThreshold,
+    (val) => {
+      if (val && val > 0) persistNumber(STORAGE_KEYS.contextSummaryThreshold, val)
+    },
+    { immediate: true }
+  )
+  watch(reactModeEnabled, (val) => persistBoolean(STORAGE_KEYS.reactModeEnabled, !!val), {
+    immediate: true
+  })
+  watch(
+    assistantTemperature,
+    (val) => {
+      if (val != null && !Number.isNaN(val) && val > 0)
+        persistNumber(STORAGE_KEYS.assistantTemperature, val)
+    },
+    { immediate: true }
+  )
+  watch(
+    assistantMaxTokens,
+    (val) => {
+      if (val != null && !Number.isNaN(val) && val > 0)
+        persistNumber(STORAGE_KEYS.assistantMaxTokens, val)
+    },
+    { immediate: true }
+  )
+  watch(
+    assistantTimeout,
+    (val) => {
+      if (val != null && !Number.isNaN(val) && val > 0)
+        persistNumber(STORAGE_KEYS.assistantTimeout, val)
+    },
+    { immediate: true }
+  )
 }
 
 export function useAssistantPreferences() {

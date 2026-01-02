@@ -4,15 +4,21 @@
       <h2>提示词工坊</h2>
       <el-button type="primary" @click="handleCreate">新建提示词</el-button>
     </div>
-    <el-table :data="prompts" style="width: 100%" v-loading="loading">
+    <el-table v-loading="loading" :data="prompts" style="width: 100%">
       <el-table-column prop="name" label="名称" width="180" />
       <el-table-column prop="description" label="描述" />
       <el-table-column label="操作" width="220">
         <template #default="{ row }">
           <el-button size="small" @click="handleEdit(row)">编辑</el-button>
-          <el-popconfirm title="删除该提示词？" @confirm="handleDelete(row.id)" v-if="!isBuiltInPrompt(row)">
+          <el-popconfirm
+            v-if="!isBuiltInPrompt(row)"
+            title="删除该提示词？"
+            @confirm="handleDelete(row.id)"
+          >
             <template #reference>
-              <el-button size="small" type="danger" :disabled="isBuiltInPrompt(row)">删除</el-button>
+              <el-button size="small" type="danger" :disabled="isBuiltInPrompt(row)"
+                >删除</el-button
+              >
             </template>
           </el-popconfirm>
           <el-button v-else size="small" type="danger" plain disabled>删除</el-button>
@@ -22,8 +28,12 @@
 
     <!-- 抽屉编辑器 -->
     <el-drawer v-model="drawerVisible" :title="dialogTitle" size="60%" append-to-body>
-      <el-form :model="currentPrompt" label-width="90px" ref="promptForm" class="form-grid">
-        <el-form-item label="名称" prop="name" :rules="{ required: true, message: '请输入名称', trigger: 'blur' }">
+      <el-form ref="promptForm" :model="currentPrompt" label-width="90px" class="form-grid">
+        <el-form-item
+          label="名称"
+          prop="name"
+          :rules="{ required: true, message: '请输入名称', trigger: 'blur' }"
+        >
           <el-input v-model="currentPrompt.name" />
         </el-form-item>
         <el-form-item label="描述" prop="description">
@@ -31,7 +41,10 @@
         </el-form-item>
         <el-form-item label="结构化编辑">
           <el-switch v-model="useStructured" />
-          <span class="hint">（开启后按 Role/Skills/Goals/Knowledge/OutputFormat 分区编辑，保存时会自动组合模板并写入数据库）</span>
+          <span class="hint"
+            >（开启后按 Role/Skills/Goals/Knowledge/OutputFormat
+            分区编辑，保存时会自动组合模板并写入数据库）</span
+          >
         </el-form-item>
 
         <!-- 结构化编辑模式 -->
@@ -40,10 +53,20 @@
           <el-input v-model="structured.role" placeholder="如：小说创作助手" />
 
           <el-divider content-position="left">Skills</el-divider>
-          <el-input v-model="structured.skills" type="textarea" :rows="2" placeholder="可写要点，换行分隔" />
+          <el-input
+            v-model="structured.skills"
+            type="textarea"
+            :rows="2"
+            placeholder="可写要点，换行分隔"
+          />
 
           <el-divider content-position="left">Goals</el-divider>
-          <el-input v-model="structured.goals" type="textarea" :rows="4" placeholder="每行一个目标，或用序号/短句" />
+          <el-input
+            v-model="structured.goals"
+            type="textarea"
+            :rows="4"
+            placeholder="每行一个目标，或用序号/短句"
+          />
 
           <el-divider content-position="left">Knowledge（可选）</el-divider>
           <div class="knowledge-grid">
@@ -53,15 +76,33 @@
                 <el-radio-button label="id">按ID</el-radio-button>
                 <el-radio-button label="name">按名称</el-radio-button>
               </el-radio-group>
-              <span class="hint" style="margin-left:8px">将插入 @KB{ id=... } 或 @KB{ name=... }，生成时后端会动态注入最新内容</span>
+              <span class="hint" style="margin-left: 8px"
+                >将插入 @KB{ id=... } 或 @KB{ name=... }，生成时后端会动态注入最新内容</span
+              >
             </div>
-            <el-select v-model="selectedKnowledgeIds" multiple filterable placeholder="选择要引用的知识库（可多选）" style="width:100%">
-              <el-option v-for="kb in knowledgeItems" :key="kb.id" :label="kb.name" :value="kb.id" />
+            <el-select
+              v-model="selectedKnowledgeIds"
+              multiple
+              filterable
+              placeholder="选择要引用的知识库（可多选）"
+              style="width: 100%"
+            >
+              <el-option
+                v-for="kb in knowledgeItems"
+                :key="kb.id"
+                :label="kb.name"
+                :value="kb.id"
+              />
             </el-select>
           </div>
 
           <el-divider content-position="left">OutputFormat（可选）</el-divider>
-          <el-input v-model="structured.outputFormat" type="textarea" :rows="2" placeholder="默认：请严格根据提供的Json Schema返回结果" />
+          <el-input
+            v-model="structured.outputFormat"
+            type="textarea"
+            :rows="2"
+            placeholder="默认：请严格根据提供的Json Schema返回结果"
+          />
 
           <el-divider content-position="left">预览</el-divider>
           <el-input :model-value="composedTemplate" type="textarea" :rows="10" readonly />
@@ -69,16 +110,22 @@
 
         <!-- 原始模板模式 -->
         <template v-else>
-          <el-form-item label="模板" prop="template" :rules="{ required: true, message: '请输入模板内容', trigger: 'blur' }">
+          <el-form-item
+            label="模板"
+            prop="template"
+            :rules="{ required: true, message: '请输入模板内容', trigger: 'blur' }"
+          >
             <el-input v-model="currentPrompt.template" type="textarea" :rows="14" />
-            <div class="template-hint">使用 <code>${variable}</code> 的形式来定义占位符，例如 <code>${text_content}</code>。</div>
+            <div class="template-hint">
+              使用 <code>${variable}</code> 的形式来定义占位符，例如 <code>${text_content}</code>。
+            </div>
           </el-form-item>
         </template>
       </el-form>
       <template #footer>
         <div class="drawer-footer">
           <el-button @click="drawerVisible = false">取消</el-button>
-          <el-button type="primary" @click="handleSave" :loading="saving">保存</el-button>
+          <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
         </div>
       </template>
     </el-drawer>
@@ -89,7 +136,14 @@
 import { ref, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance } from 'element-plus'
-import { listKnowledge, type Knowledge, listPrompts, createPrompt, updatePrompt, deletePrompt } from '@renderer/api/setting'
+import {
+  listKnowledge,
+  type Knowledge,
+  listPrompts,
+  createPrompt,
+  updatePrompt,
+  deletePrompt
+} from '@renderer/api/setting'
 
 interface Prompt {
   id: number
@@ -114,7 +168,13 @@ const isBuiltInPrompt = (row: Prompt) => !!row.built_in
 
 // 结构化编辑相关
 const useStructured = ref(true)
-const structured = ref({ role: '', skills: '', goals: '', knowledge: '', outputFormat: DEFAULT_OUTPUT_FORMAT })
+const structured = ref({
+  role: '',
+  skills: '',
+  goals: '',
+  knowledge: '',
+  outputFormat: DEFAULT_OUTPUT_FORMAT
+})
 
 // 知识库选择与模式
 const knowledgeItems = ref<Knowledge[]>([])
@@ -124,21 +184,30 @@ const knowledgeMode = ref<'id' | 'name'>('name')
 // 组合预览
 const composedTemplate = computed(() => composeTemplate(structured.value))
 
-function composeTemplate(s: { role: string; skills: string; goals: string; knowledge?: string; outputFormat?: string }) {
+function composeTemplate(s: {
+  role: string
+  skills: string
+  goals: string
+  knowledge?: string
+  outputFormat?: string
+}) {
   const lines: string[] = []
   if (s.role?.trim()) lines.push(`- Role: ${s.role.trim()}`)
   if (s.skills?.trim()) lines.push(`- Skills: ${s.skills.trim()}`)
   if (s.goals?.trim()) {
     lines.push('- Goals:')
     // 将多行 goals 做缩进
-    const gl = s.goals.split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+    const gl = s.goals
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
     for (const g of gl) lines.push(`    - ${g}`)
   }
   // 知识库占位符引用
   if (selectedKnowledgeIds.value.length) {
     lines.push('\n- knowledge:')
     for (const kid of selectedKnowledgeIds.value) {
-      const item = knowledgeItems.value.find(k => k.id === kid)
+      const item = knowledgeItems.value.find((k) => k.id === kid)
       if (!item) continue
       if (knowledgeMode.value === 'id') {
         lines.push(`    - @KB{ id=${kid} }  # ${item.name}`)
@@ -171,7 +240,13 @@ async function fetchKnowledgeList() {
 }
 
 function resetStructuredDefaults() {
-  structured.value = { role: '', skills: '', goals: '', knowledge: '', outputFormat: DEFAULT_OUTPUT_FORMAT }
+  structured.value = {
+    role: '',
+    skills: '',
+    goals: '',
+    knowledge: '',
+    outputFormat: DEFAULT_OUTPUT_FORMAT
+  }
   selectedKnowledgeIds.value = []
   knowledgeMode.value = 'name'
 }
@@ -206,7 +281,7 @@ function parseKnowledgeBlock(tpl: string) {
       if (names.length) {
         mode = 'name'
         for (const n of names) {
-          const found = knowledgeItems.value.find(kb => kb.name === n)
+          const found = knowledgeItems.value.find((kb) => kb.name === n)
           if (found) ids.push(found.id)
         }
       }
@@ -223,7 +298,10 @@ async function tryParseStructured(tpl?: string) {
   // 粗略解析，仅在常见格式时填充字段，解析失败保持默认
   try {
     const r = /-\s*Role:\s*(.*)/i.exec(tpl)
-    const s = /-\s*Skills?:\s*([\s\S]*?)(?:\n-\s*Goals?:|\n-\s*knowledge:|\n-\s*OutputFormat\s*[:：]|$)/i.exec(tpl)
+    const s =
+      /-\s*Skills?:\s*([\s\S]*?)(?:\n-\s*Goals?:|\n-\s*knowledge:|\n-\s*OutputFormat\s*[:：]|$)/i.exec(
+        tpl
+      )
     const g = /-\s*Goals?:\s*([\s\S]*?)(?:\n-\s*knowledge:|\n-\s*OutputFormat\s*[:：]|$)/i.exec(tpl)
     const o = /-\s*OutputFormat\s*[:：]\s*([\s\S]*)/i.exec(tpl)
     structured.value.role = r?.[1]?.trim() || ''
@@ -279,7 +357,7 @@ async function handleDelete(id: number) {
     await ElMessageBox.confirm('确定要删除这个提示词吗？', '警告', {
       confirmButtonText: '确定',
       cancelButtonText: '取消',
-      type: 'warning',
+      type: 'warning'
     })
     await deletePrompt(id)
     ElMessage.success('删除成功')
@@ -291,17 +369,53 @@ async function handleDelete(id: number) {
   }
 }
 
-onMounted(async () => { await fetchKnowledgeList(); await fetchPrompts() })
+onMounted(async () => {
+  await fetchKnowledgeList()
+  await fetchPrompts()
+})
 </script>
 
 <style scoped>
-.prompt-workshop { padding: 20px; }
-.toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.form-grid { display: flex; flex-direction: column; gap: 8px; }
-.hint { color: var(--el-text-color-secondary); margin-left: 8px; font-size: 12px; }
-.template-hint { font-size: 12px; color: #909399; margin-top: 5px; }
-.drawer-footer { display: flex; justify-content: flex-end; gap: 8px; }
-.knowledge-grid { display: flex; flex-direction: column; gap: 8px; }
-.row { display: flex; align-items: center; gap: 8px; }
-.label { color: var(--el-text-color-regular); }
-</style> 
+.prompt-workshop {
+  padding: 20px;
+}
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.form-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.hint {
+  color: var(--el-text-color-secondary);
+  margin-left: 8px;
+  font-size: 12px;
+}
+.template-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-top: 5px;
+}
+.drawer-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.knowledge-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.label {
+  color: var(--el-text-color-regular);
+}
+</style>

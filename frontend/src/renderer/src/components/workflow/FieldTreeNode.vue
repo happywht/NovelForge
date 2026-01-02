@@ -25,20 +25,29 @@ const hasChildren = computed(() => {
 
 const typeIcon = computed(() => {
   switch (props.field.type) {
-    case 'object': return hasChildren.value ? '📁' : '📄'
-    case 'array': return '📊'
-    default: return '📄'
+    case 'object':
+      return hasChildren.value ? '📁' : '📄'
+    case 'array':
+      return '📊'
+    default:
+      return '📄'
   }
 })
 
 const typeColor = computed(() => {
   switch (props.field.type) {
-    case 'object': return '#409eff'
-    case 'array': return '#67c23a'
-    case 'string': return '#909399'
-    case 'number': return '#e6a23c'
-    case 'boolean': return '#f56c6c'
-    default: return '#909399'
+    case 'object':
+      return '#409eff'
+    case 'array':
+      return '#67c23a'
+    case 'string':
+      return '#909399'
+    case 'number':
+      return '#e6a23c'
+    case 'boolean':
+      return '#f56c6c'
+    default:
+      return '#909399'
   }
 })
 
@@ -65,14 +74,14 @@ function handleChildToggle(fieldPath: string) {
   <div class="field-node" :style="{ paddingLeft: `${level * 16}px` }">
     <div class="field-row" @click="handleClick">
       <!-- 展开/收起图标 -->
-      <div class="expand-icon" @click.stop="toggleExpanded" v-if="hasChildren">
+      <div v-if="hasChildren" class="expand-icon" @click.stop="toggleExpanded">
         <span class="expand-arrow">{{ expanded ? '▼' : '▶' }}</span>
       </div>
-      <div class="expand-placeholder" v-else></div>
-      
+      <div v-else class="expand-placeholder"></div>
+
       <!-- 类型图标 -->
       <span class="type-icon" :style="{ color: typeColor }">{{ typeIcon }}</span>
-      
+
       <!-- 字段信息 -->
       <div class="field-info">
         <span class="field-name">{{ field.title || field.name }}</span>
@@ -82,11 +91,11 @@ function handleChildToggle(fieldPath: string) {
         <span class="field-path">{{ field.path }}</span>
       </div>
     </div>
-    
+
     <!-- 子字段 -->
     <div v-if="expanded && hasChildren" class="children">
-      <FieldTreeNode 
-        v-for="child in field.children" 
+      <FieldTreeNode
+        v-for="child in field.children"
         :key="child.path"
         :field="child"
         :level="level + 1"
@@ -237,7 +246,7 @@ function handleChildToggle(fieldPath: string) {
   .field-path {
     display: none;
   }
-  
+
   .field-name {
     max-width: 80px;
   }

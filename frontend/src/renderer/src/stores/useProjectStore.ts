@@ -48,7 +48,7 @@ export const useProjectStore = defineStore('project', () => {
     currentProject,
     isLoading,
     isSaving,
-    
+
     // Actions
     setCurrentProject,
     setLoading,
@@ -56,4 +56,4 @@ export const useProjectStore = defineStore('project', () => {
     loadFreeProject,
     reset
   }
-}) 
+})

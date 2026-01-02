@@ -54,7 +54,9 @@ export function getWorkflow(id: number): Promise<WorkflowRead> {
   return request.get(`/workflows/${id}`, undefined, '/api', { showLoading: false })
 }
 
-export function createWorkflow(payload: Partial<WorkflowRead> & { name: string; definition_json?: any }): Promise<WorkflowRead> {
+export function createWorkflow(
+  payload: Partial<WorkflowRead> & { name: string; definition_json?: any }
+): Promise<WorkflowRead> {
   return request.post('/workflows', payload, '/api', { showLoading: false })
 }
 
@@ -66,7 +68,9 @@ export function deleteWorkflow(id: number): Promise<void> {
   return request.delete(`/workflows/${id}`, undefined, '/api', { showLoading: false })
 }
 
-export function validateWorkflow(id: number): Promise<{ canonical_nodes: any[]; errors: string[] }> {
+export function validateWorkflow(
+  id: number
+): Promise<{ canonical_nodes: any[]; errors: string[] }> {
   return request.post(`/workflows/${id}/validate`, {}, '/api', { showLoading: false })
 }
 
@@ -74,11 +78,16 @@ export function listWorkflowTriggers(): Promise<WorkflowTriggerRead[]> {
   return request.get('/workflow-triggers', undefined, '/api', { showLoading: false })
 }
 
-export function createWorkflowTrigger(payload: WorkflowTriggerCreate): Promise<WorkflowTriggerRead> {
+export function createWorkflowTrigger(
+  payload: WorkflowTriggerCreate
+): Promise<WorkflowTriggerRead> {
   return request.post('/workflow-triggers', payload, '/api', { showLoading: false })
 }
 
-export function updateWorkflowTrigger(id: number, payload: WorkflowTriggerUpdate): Promise<WorkflowTriggerRead> {
+export function updateWorkflowTrigger(
+  id: number,
+  payload: WorkflowTriggerUpdate
+): Promise<WorkflowTriggerRead> {
   return request.put(`/workflow-triggers/${id}`, payload, '/api', { showLoading: false })
 }
 
@@ -97,8 +106,9 @@ export function getWorkflowNodeTypes(): Promise<{ node_types: WorkflowNodeType[]
   return request.get('/workflow-node-types', undefined, '/api', { showLoading: false })
 }
 
-export function runWorkflow(id: number, payload: { scope_json: any; params_json: any }): Promise<any> {
+export function runWorkflow(
+  id: number,
+  payload: { scope_json: any; params_json: any }
+): Promise<any> {
   return request.post(`/workflows/${id}/run`, payload, '/api', { showLoading: true })
 }
-
-

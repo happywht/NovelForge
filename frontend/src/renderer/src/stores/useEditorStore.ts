@@ -4,20 +4,20 @@ import { ref, reactive } from 'vue'
 export const useEditorStore = defineStore('editor', () => {
   // 当前激活的编辑器
   const activeEditor = ref<{ type: string; id: string; data?: any } | null>(null)
-  
+
   // 侧栏宽度
   const leftSidebarWidth = ref(250)
   const rightSidebarWidth = ref(300)
-  
+
   // 侧栏宽度限制
   const minLeftWidth = 180
   const maxLeftWidth = 400
   const minRightWidth = 220
   const maxRightWidth = 500
-  
+
   // 导航树展开状态
   const expandedKeys = ref<string[]>(['content-root'])
-  
+
   // 右键菜单状态
   const contextMenu = reactive({
     visible: false,
@@ -26,14 +26,14 @@ export const useEditorStore = defineStore('editor', () => {
     items: [] as { label: string; action: () => void }[],
     nodeData: null as any | null
   })
-  
+
   // AI配置对话框状态
   const aiConfigDialog = reactive({
     visible: false,
     task: '',
     input: {} as any
   })
-  
+
   // 拖拽调整状态
   const resizing = ref<'left' | 'right' | null>(null)
   let startX = 0
@@ -41,10 +41,14 @@ export const useEditorStore = defineStore('editor', () => {
 
   // 编辑器跨组件修订接口（由 NovelEditor 注册）
   type ReplacePair = { from: string; to: string }
-  const applyChapterReplacements = ref<null | ((pairs: ReplacePair[]) => Promise<void> | void)>(null)
+  const applyChapterReplacements = ref<null | ((pairs: ReplacePair[]) => Promise<void> | void)>(
+    null
+  )
 
   // 用于跨组件触发“提取动态信息”的回调
-  const triggerExtractDynamicInfoRef = ref<null | ((opts: { llm_config_id?: number; preview?: boolean }) => Promise<void>)>(null)
+  const triggerExtractDynamicInfoRef = ref<
+    null | ((opts: { llm_config_id?: number; preview?: boolean }) => Promise<void>)
+  >(null)
 
   // 写作上下文共享：卷号/章节号/标题（供其它面板使用）
   const currentVolumeNumber = ref<number | null>(null)
@@ -81,7 +85,12 @@ export const useEditorStore = defineStore('editor', () => {
     expandedKeys.value = keys
   }
 
-  function showContextMenu(x: number, y: number, items: { label: string; action: () => void }[], nodeData?: any) {
+  function showContextMenu(
+    x: number,
+    y: number,
+    items: { label: string; action: () => void }[],
+    nodeData?: any
+  ) {
     contextMenu.x = x
     contextMenu.y = y
     contextMenu.items = items
@@ -115,10 +124,10 @@ export const useEditorStore = defineStore('editor', () => {
   function handleResizing(e: MouseEvent) {
     if (!resizing.value) return
     if (resizing.value === 'left') {
-      let newWidth = startWidth + (e.clientX - startX)
+      const newWidth = startWidth + (e.clientX - startX)
       setLeftSidebarWidth(newWidth)
     } else if (resizing.value === 'right') {
-      let newWidth = startWidth - (e.clientX - startX)
+      const newWidth = startWidth - (e.clientX - startX)
       setRightSidebarWidth(newWidth)
     }
   }
@@ -130,7 +139,9 @@ export const useEditorStore = defineStore('editor', () => {
     window.removeEventListener('mouseup', stopResizing)
   }
 
-  function setApplyChapterReplacements(fn: ((pairs: ReplacePair[]) => Promise<void> | void) | null) {
+  function setApplyChapterReplacements(
+    fn: ((pairs: ReplacePair[]) => Promise<void> | void) | null
+  ) {
     applyChapterReplacements.value = fn
   }
 
@@ -140,7 +151,9 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
-  function setTriggerExtractDynamicInfo(fn: null | ((opts: { llm_config_id?: number; preview?: boolean }) => Promise<void>)) {
+  function setTriggerExtractDynamicInfo(
+    fn: null | ((opts: { llm_config_id?: number; preview?: boolean }) => Promise<void>)
+  ) {
     triggerExtractDynamicInfoRef.value = fn
   }
 
@@ -150,7 +163,11 @@ export const useEditorStore = defineStore('editor', () => {
     }
   }
 
-  function setCurrentContextInfo(payload: { volume?: number | null; chapter?: number | null; title?: string }) {
+  function setCurrentContextInfo(payload: {
+    volume?: number | null
+    chapter?: number | null
+    title?: string
+  }) {
     if (payload.volume !== undefined) currentVolumeNumber.value = payload.volume ?? null
     if (payload.chapter !== undefined) currentChapterNumber.value = payload.chapter ?? null
     if (payload.title !== undefined) currentChapterTitle.value = payload.title ?? ''
@@ -188,7 +205,7 @@ export const useEditorStore = defineStore('editor', () => {
     currentVolumeNumber,
     currentChapterNumber,
     currentChapterTitle,
-    
+
     // Actions
     setActiveEditor,
     setLeftSidebarWidth,
@@ -210,4 +227,4 @@ export const useEditorStore = defineStore('editor', () => {
     setCurrentContextInfo,
     reset
   }
-}) 
+})

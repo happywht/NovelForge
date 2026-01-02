@@ -35,7 +35,10 @@ class HttpClient {
         return config
       },
       (error) => {
-        try { this.loadingCount = Math.max(0, this.loadingCount - 1); if (this.loadingCount === 0) this.loadingInstance?.close() } catch {}
+        try {
+          this.loadingCount = Math.max(0, this.loadingCount - 1)
+          if (this.loadingCount === 0) this.loadingInstance?.close()
+        } catch {}
         return Promise.reject(error)
       }
     )
@@ -74,16 +77,27 @@ class HttpClient {
         if (error.response && error.response.status === 422) {
           const validationErrors = error.response.data.detail
           if (Array.isArray(validationErrors)) {
-            const errorMessages = validationErrors.map((err: any) => {
-              const fieldName = err.loc.slice(1).join(' -> ')
-              return `字段 '${fieldName}': ${err.msg}`
-            }).join('<br/>')
-            ElMessage({ type: 'error', dangerouslyUseHTMLString: true, message: `<strong>输入校验失败:</strong><br/>${errorMessages}`, duration: 5000 })
+            const errorMessages = validationErrors
+              .map((err: any) => {
+                const fieldName = err.loc.slice(1).join(' -> ')
+                return `字段 '${fieldName}': ${err.msg}`
+              })
+              .join('<br/>')
+            ElMessage({
+              type: 'error',
+              dangerouslyUseHTMLString: true,
+              message: `<strong>输入校验失败:</strong><br/>${errorMessages}`,
+              duration: 5000
+            })
           } else {
             ElMessage.error('发生了一个未知的校验错误')
           }
         } else {
-          const errorMessage = error.response?.data?.message || error.response?.data?.detail || error.message || '请求失败'
+          const errorMessage =
+            error.response?.data?.message ||
+            error.response?.data?.detail ||
+            error.message ||
+            '请求失败'
           ElMessage.error(errorMessage)
         }
         console.error('请求错误:', error.response?.data || error)
@@ -96,24 +110,68 @@ class HttpClient {
     return this.instance.request(config)
   }
 
-  public get<T>(url: string, params?: object, prefix: string = '/api', options?: { showLoading?: boolean, signal?: AbortSignal }): Promise<T> {
+  public get<T>(
+    url: string,
+    params?: object,
+    prefix: string = '/api',
+    options?: { showLoading?: boolean; signal?: AbortSignal }
+  ): Promise<T> {
     const fullUrl = prefix ? `${prefix}${url}` : url
-    return this.request<T>({ method: 'GET', url: fullUrl, params, signal: options?.signal, ...(options || {}) })
+    return this.request<T>({
+      method: 'GET',
+      url: fullUrl,
+      params,
+      signal: options?.signal,
+      ...(options || {})
+    })
   }
 
-  public post<T>(url: string, data?: object, prefix: string = '/api', options?: { showLoading?: boolean, signal?: AbortSignal }): Promise<T> {
+  public post<T>(
+    url: string,
+    data?: object,
+    prefix: string = '/api',
+    options?: { showLoading?: boolean; signal?: AbortSignal }
+  ): Promise<T> {
     const fullUrl = prefix ? `${prefix}${url}` : url
-    return this.request<T>({ method: 'POST', url: fullUrl, data, signal: options?.signal, ...(options || {}) })
+    return this.request<T>({
+      method: 'POST',
+      url: fullUrl,
+      data,
+      signal: options?.signal,
+      ...(options || {})
+    })
   }
 
-  public put<T>(url: string, data?: object, prefix: string = '/api', options?: { showLoading?: boolean, rawResponse?: boolean, signal?: AbortSignal }): Promise<T> {
+  public put<T>(
+    url: string,
+    data?: object,
+    prefix: string = '/api',
+    options?: { showLoading?: boolean; rawResponse?: boolean; signal?: AbortSignal }
+  ): Promise<T> {
     const fullUrl = prefix ? `${prefix}${url}` : url
-    return this.request<T>({ method: 'PUT', url: fullUrl, data, signal: options?.signal, ...(options || {}) })
+    return this.request<T>({
+      method: 'PUT',
+      url: fullUrl,
+      data,
+      signal: options?.signal,
+      ...(options || {})
+    })
   }
 
-  public delete<T>(url: string, params?: object, prefix: string = '/api', options?: { showLoading?: boolean, signal?: AbortSignal }): Promise<T> {
+  public delete<T>(
+    url: string,
+    params?: object,
+    prefix: string = '/api',
+    options?: { showLoading?: boolean; signal?: AbortSignal }
+  ): Promise<T> {
     const fullUrl = prefix ? `${prefix}${url}` : url
-    return this.request<T>({ method: 'DELETE', url: fullUrl, params, signal: options?.signal, ...(options || {}) })
+    return this.request<T>({
+      method: 'DELETE',
+      url: fullUrl,
+      params,
+      signal: options?.signal,
+      ...(options || {})
+    })
   }
 }
 

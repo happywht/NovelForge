@@ -3,7 +3,8 @@ import { electronAPI } from '@electron-toolkit/preload'
 
 // Custom APIs for renderer
 const api = {
-  setApiKey: (id: number, apiKey: string) => ipcRenderer.invoke('secure:set-api-key', { id, apiKey }),
+  setApiKey: (id: number, apiKey: string) =>
+    ipcRenderer.invoke('secure:set-api-key', { id, apiKey }),
   getApiKey: (id: number) => ipcRenderer.invoke('secure:get-api-key', { id }),
   openIdeasHome: () => ipcRenderer.invoke('ideas:open-home')
 }

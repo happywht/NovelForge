@@ -1,16 +1,30 @@
 <template>
-  <el-aside class="sidebar card-navigation-sidebar" :style="{ width: leftSidebarWidth + 'px' }" @contextmenu.prevent="onSidebarContextMenu">
+  <el-aside
+    class="sidebar card-navigation-sidebar"
+    :style="{ width: leftSidebarWidth + 'px' }"
+    @contextmenu.prevent="onSidebarContextMenu"
+  >
     <div class="sidebar-header">
       <h3 class="sidebar-title">创作卡片</h3>
     </div>
 
     <!-- 上半区（类型列表 + 自由卡片库） -->
-    <div class="types-pane" :style="{ height: typesPaneHeight + 'px' }" @dragover.prevent @drop="onTypesPaneDrop">
+    <div
+      class="types-pane"
+      :style="{ height: typesPaneHeight + 'px' }"
+      @dragover.prevent
+      @drop="onTypesPaneDrop"
+    >
       <div class="pane-title">已有卡片类型</div>
       <el-scrollbar class="types-scroll">
         <ul class="types-list">
-          <li v-for="t in cardStore.cardTypes" :key="t.id" class="type-item" draggable="true"
-              @dragstart="onTypeDragStart(t)">
+          <li
+            v-for="t in cardStore.cardTypes"
+            :key="t.id"
+            class="type-item"
+            draggable="true"
+            @dragstart="onTypeDragStart(t)"
+          >
             <span class="type-name">{{ t.name }}</span>
           </li>
         </ul>
@@ -20,38 +34,56 @@
     <div class="inner-resizer" @mousedown="startResizingInner"></div>
 
     <!-- 下半区：项目卡片树 -->
-    <div class="cards-pane" :style="{ height: `calc(100% - ${typesPaneHeight + innerResizerThickness}px)` }" @dragover.prevent @drop="onCardsPaneDrop">
+    <div
+      class="cards-pane"
+      :style="{ height: `calc(100% - ${typesPaneHeight + innerResizerThickness}px)` }"
+      @dragover.prevent
+      @drop="onCardsPaneDrop"
+    >
       <div class="cards-title">
         <div class="cards-title-text">当前项目：{{ projectStore.currentProject?.name }}</div>
         <div class="cards-title-actions">
           <el-button size="small" type="primary" @click="openCreateRoot">新建卡片</el-button>
-          <el-button v-if="!isFreeProject" size="small" @click="openImportFreeCards">导入卡片</el-button>
+          <el-button v-if="!isFreeProject" size="small" @click="openImportFreeCards"
+            >导入卡片</el-button
+          >
         </div>
       </div>
       <el-tree
-        ref="treeRef"
         v-if="groupedTree.length > 0"
+        ref="treeRef"
         :data="groupedTree"
         node-key="id"
         :default-expanded-keys="expandedKeys"
         :expand-on-click-node="false"
-        @node-click="handleNodeClick"
-        @node-expand="onNodeExpand"
-        @node-collapse="onNodeCollapse"
         draggable
         :allow-drop="handleAllowDrop"
         :allow-drag="handleAllowDrag"
-        @node-drop="handleNodeDrop"
         class="card-tree"
+        @node-click="handleNodeClick"
+        @node-expand="onNodeExpand"
+        @node-collapse="onNodeCollapse"
+        @node-drop="handleNodeDrop"
       >
         <template #default="{ node, data }">
-          <el-dropdown class="full-row-dropdown" trigger="contextmenu" @command="(cmd:string) => handleContextCommand(cmd, data)">
-            <div class="custom-tree-node full-row" @dragover.prevent @drop="(e:any) => onExternalDropToNode(e, data)" @dragenter.prevent>
-              <el-icon class="card-icon"> 
+          <el-dropdown
+            class="full-row-dropdown"
+            trigger="contextmenu"
+            @command="(cmd: string) => handleContextCommand(cmd, data)"
+          >
+            <div
+              class="custom-tree-node full-row"
+              @dragover.prevent
+              @drop="(e: any) => onExternalDropToNode(e, data)"
+              @dragenter.prevent
+            >
+              <el-icon class="card-icon">
                 <component :is="getIconByCardType(data.card_type?.name || data.__groupType)" />
               </el-icon>
               <span class="label">{{ node.label || data.title }}</span>
-              <span v-if="data.children && data.children.length > 0" class="child-count">{{ data.children.length }}</span>
+              <span v-if="data.children && data.children.length > 0" class="child-count">{{
+                data.children.length
+              }}</span>
             </div>
             <template #dropdown>
               <el-dropdown-menu>
@@ -63,7 +95,9 @@
                   <el-dropdown-item command="delete" divided>删除卡片</el-dropdown-item>
                 </template>
                 <template v-else>
-                  <el-dropdown-item command="delete-group" divided>删除该分组下所有卡片</el-dropdown-item>
+                  <el-dropdown-item command="delete-group" divided
+                    >删除该分组下所有卡片</el-dropdown-item
+                  >
                 </template>
               </el-dropdown-menu>
             </template>
@@ -74,7 +108,17 @@
     </div>
 
     <!-- 空白区域右键菜单（手动触发） -->
-    <span ref="blankMenuRef" class="blank-menu-ref" :style="{ position: 'fixed', left: blankMenuX + 'px', top: blankMenuY + 'px', width: '1px', height: '1px' }"></span>
+    <span
+      ref="blankMenuRef"
+      class="blank-menu-ref"
+      :style="{
+        position: 'fixed',
+        left: blankMenuX + 'px',
+        top: blankMenuY + 'px',
+        width: '1px',
+        height: '1px'
+      }"
+    ></span>
     <el-dropdown v-model:visible="blankMenuVisible" trigger="manual">
       <span></span>
       <template #dropdown>
@@ -91,7 +135,11 @@
           <el-input v-model="newCardForm.title" placeholder="请输入卡片标题"></el-input>
         </el-form-item>
         <el-form-item label="卡片类型">
-          <el-select v-model="newCardForm.card_type_id" placeholder="请选择卡片类型" style="width: 100%">
+          <el-select
+            v-model="newCardForm.card_type_id"
+            placeholder="请选择卡片类型"
+            style="width: 100%"
+          >
             <el-option
               v-for="type in cardStore.cardTypes"
               :key="type.id"
@@ -119,7 +167,13 @@
       </template>
     </el-dialog>
 
-    <SchemaStudio v-model:visible="schemaStudio.visible" :mode="'card'" :target-id="schemaStudio.cardId" :context-title="schemaStudio.cardTitle" @saved="onCardSchemaSaved" />
+    <SchemaStudio
+      v-model:visible="schemaStudio.visible"
+      :mode="'card'"
+      :target-id="schemaStudio.cardId"
+      :context-title="schemaStudio.cardTitle"
+      @saved="onCardSchemaSaved"
+    />
   </el-aside>
 </template>
 
@@ -127,7 +181,7 @@
 import { ref, reactive, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { 
+import {
   CollectionTag,
   MagicStick,
   ChatLineRound,
@@ -137,7 +191,7 @@ import {
   Notebook,
   Document,
   User,
-  OfficeBuilding,
+  OfficeBuilding
 } from '@element-plus/icons-vue'
 import { useCardStore } from '@renderer/stores/useCardStore'
 import { useProjectStore } from '@renderer/stores/useProjectStore'
@@ -158,7 +212,8 @@ const projectStore = useProjectStore()
 const editorStore = useEditorStore()
 const assistantStore = useAssistantStore()
 const { cards, activeCard } = storeToRefs(cardStore)
-const { expandedKeys, groupedTree, onNodeExpand, onNodeCollapse, updateProjectStructureContext } = useCardTree()
+const { expandedKeys, groupedTree, onNodeExpand, onNodeCollapse, updateProjectStructureContext } =
+  useCardTree()
 
 const isFreeProject = computed(() => (projectStore.currentProject?.name || '') === '__free__')
 
@@ -186,14 +241,14 @@ const blankMenuRef = ref<HTMLElement | null>(null)
 
 const schemaStudio = ref({ visible: false, cardId: 0, cardTitle: '' })
 
-const { 
-  onTypeDragStart, 
-  onCardsPaneDrop, 
-  onTypesPaneDrop, 
-  handleAllowDrag, 
-  handleAllowDrop, 
-  handleNodeDrop, 
-  onExternalDropToNode 
+const {
+  onTypeDragStart,
+  onCardsPaneDrop,
+  onTypesPaneDrop,
+  handleAllowDrag,
+  handleAllowDrop,
+  handleNodeDrop,
+  onExternalDropToNode
 } = useCardDragDrop(newCardForm, handleCreateCard)
 
 function startResizingInner(event: MouseEvent) {
@@ -227,19 +282,25 @@ function openCreateChild(parentId: number) {
 }
 
 async function handleCreateCard() {
-  if (!newCardForm.title.trim()) { ElMessage.warning('请输入卡片标题'); return }
-  if (!newCardForm.card_type_id) { ElMessage.warning('请选择卡片类型'); return }
-  
+  if (!newCardForm.title.trim()) {
+    ElMessage.warning('请输入卡片标题')
+    return
+  }
+  if (!newCardForm.card_type_id) {
+    ElMessage.warning('请选择卡片类型')
+    return
+  }
+
   const payload = {
     title: newCardForm.title.trim(),
     card_type_id: newCardForm.card_type_id,
     parent_id: newCardForm.parent_id || null,
     project_id: projectStore.currentProject?.id
   }
-  
+
   const newCard = await cardStore.addCard(payload as any)
   if (newCard && projectStore.currentProject?.id) {
-    const cardType = cardStore.cardTypes.find(ct => ct.id === newCardForm.card_type_id)
+    const cardType = cardStore.cardTypes.find((ct) => ct.id === newCardForm.card_type_id)
     assistantStore.recordOperation(projectStore.currentProject.id, {
       type: 'create',
       cardId: (newCard as any).id,
@@ -247,7 +308,7 @@ async function handleCreateCard() {
       cardType: cardType?.name || 'Unknown'
     })
   }
-  
+
   isCreateCardDialogVisible.value = false
   Object.assign(newCardForm, { title: '', card_type_id: null, parent_id: '' as any })
 }
@@ -260,15 +321,21 @@ function handleNodeClick(data: any) {
   if (data.__isGroup) return
   cardStore.setActiveCard(data.id)
   emit('active-tab-change', 'editor')
-  
+
   try {
     const pid = projectStore.currentProject?.id as number
     const pname = projectStore.currentProject?.name || ''
-    const full = (cards.value || []).find((c:any) => c.id === data.id)
+    const full = (cards.value || []).find((c: any) => c.id === data.id)
     const title = (full?.title || data.title || '') as string
-    const content = (full?.content || (data as any).content || {})
+    const content = full?.content || (data as any).content || {}
     if (pid && data?.id) {
-      assistantStore.addAutoRef({ projectId: pid, projectName: pname, cardId: data.id, cardTitle: title, content })
+      assistantStore.addAutoRef({
+        projectId: pid,
+        projectName: pname,
+        cardId: data.id,
+        cardTitle: title,
+        content
+      })
     }
   } catch {}
 }
@@ -300,7 +367,9 @@ function handleContextCommand(command: string, data: any) {
 
 async function deleteNode(cardId: number, title: string) {
   try {
-    await ElMessageBox.confirm(`确认删除卡片「${title}」？此操作不可恢复`, '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm(`确认删除卡片「${title}」？此操作不可恢复`, '删除确认', {
+      type: 'warning'
+    })
     await cardStore.removeCard(cardId)
     ElMessage.success('已删除')
     updateProjectStructureContext(activeCard.value?.id)
@@ -310,12 +379,16 @@ async function deleteNode(cardId: number, title: string) {
 async function deleteGroupNodes(groupData: any) {
   try {
     const title = groupData?.title || groupData?.__groupType || '该分组'
-    await ElMessageBox.confirm(`确认删除${title}下的所有卡片？此操作不可恢复`, '删除确认', { type: 'warning' })
+    await ElMessageBox.confirm(`确认删除${title}下的所有卡片？此操作不可恢复`, '删除确认', {
+      type: 'warning'
+    })
     const directChildren: any[] = Array.isArray(groupData?.children) ? groupData.children : []
     const toDeleteOrdered: number[] = []
 
     function collectDescendantIds(parentId: number) {
-      const childIds = (cards.value || []).filter((c: any) => c.parent_id === parentId).map((c: any) => c.id)
+      const childIds = (cards.value || [])
+        .filter((c: any) => c.parent_id === parentId)
+        .map((c: any) => c.id)
       for (const cid of childIds) collectDescendantIds(cid)
       toDeleteOrdered.push(parentId)
     }
@@ -341,11 +414,11 @@ async function renameCard(cardId: number, oldTitle: string) {
       cancelButtonText: '取消',
       inputValue: oldTitle,
       inputPlaceholder: '请输入卡片标题',
-      inputValidator: (v:string) => v.trim().length > 0 || '标题不能为空'
+      inputValidator: (v: string) => v.trim().length > 0 || '标题不能为空'
     })
     const newTitle = String(value).trim()
     if (newTitle === oldTitle) return
-    const card = cards.value.find(c => (c as any).id === cardId)
+    const card = cards.value.find((c) => (c as any).id === cardId)
     const updatePayload: any = { title: newTitle }
     if (card && card.content) {
       updatePayload.content = { ...(card.content as any), title: newTitle }
@@ -360,10 +433,13 @@ function addAsReference(data: any) {
   try {
     const pid = projectStore.currentProject?.id as number
     const pname = projectStore.currentProject?.name || ''
-    const full = (cards.value || []).find((c:any) => c.id === data.id)
+    const full = (cards.value || []).find((c: any) => c.id === data.id)
     const title = (full?.title || data.title || '') as string
-    const content = (full?.content || (data as any).content || {})
-    assistantStore.addInjectedRefDirect({ projectId: pid, projectName: pname, cardId: data.id, cardTitle: title, content }, 'manual')
+    const content = full?.content || (data as any).content || {}
+    assistantStore.addInjectedRefDirect(
+      { projectId: pid, projectName: pname, cardId: data.id, cardTitle: title, content },
+      'manual'
+    )
     ElMessage.success('已添加为引用')
   } catch {}
 }
@@ -374,17 +450,28 @@ function onCardSchemaSaved() {
 
 function getIconByCardType(typeName?: string) {
   switch (typeName) {
-    case '作品标签': return CollectionTag
-    case '金手指': return MagicStick
-    case '一句话梗概': return ChatLineRound
-    case '故事大纲': return List
-    case '世界观设定': return Connection
-    case '核心蓝图': return Tickets
-    case '分卷大纲': return Notebook
-    case '章节大纲': return Document
-    case '角色卡': return User
-    case '场景卡': return OfficeBuilding
-    default: return Document
+    case '作品标签':
+      return CollectionTag
+    case '金手指':
+      return MagicStick
+    case '一句话梗概':
+      return ChatLineRound
+    case '故事大纲':
+      return List
+    case '世界观设定':
+      return Connection
+    case '核心蓝图':
+      return Tickets
+    case '分卷大纲':
+      return Notebook
+    case '章节大纲':
+      return Document
+    case '角色卡':
+      return User
+    case '场景卡':
+      return OfficeBuilding
+    default:
+      return Document
   }
 }
 </script>
@@ -441,7 +528,7 @@ function getIconByCardType(typeName?: string) {
 
 .type-item:hover {
   border-color: #409eff;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
 .type-name {

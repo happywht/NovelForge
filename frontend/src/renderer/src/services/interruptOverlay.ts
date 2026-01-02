@@ -26,12 +26,15 @@ export function showInterruptOverlay(text: string, onCancel: () => void) {
   `
   document.body.appendChild(overlayEl)
   const btn = overlayEl.querySelector('#nf-interrupt-btn') as HTMLButtonElement | null
-  if (btn) btn.onclick = () => { try { onCancel() } catch {} }
+  if (btn)
+    btn.onclick = () => {
+      try {
+        onCancel()
+      } catch {}
+    }
 }
 
 export function hideInterruptOverlay() {
   if (overlayEl && overlayEl.parentNode) overlayEl.parentNode.removeChild(overlayEl)
   overlayEl = null
 }
-
-

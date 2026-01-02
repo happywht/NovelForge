@@ -1,15 +1,15 @@
 <template>
   <el-form-item :label="label" :prop="prop">
-    <template #label v-if="$slots.label">
+    <template v-if="$slots.label" #label>
       <slot name="label"></slot>
     </template>
     <el-select
       :model-value="modelValue"
-      @update:modelValue="emit('update:modelValue', $event)"
       :placeholder="placeholder"
       :disabled="readonly"
       clearable
       style="width: 100%"
+      @update:model-value="emit('update:modelValue', $event)"
     >
       <el-option
         v-for="item in schema.enum"
