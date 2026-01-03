@@ -26,7 +26,7 @@
         </el-form-item>
 
         <el-form-item label="保存时自动提取">
-          <el-switch v-model="autoExtractDynamicOnSave" />
+          <el-switch v-model="autoExtractDynamic" @change="syncPrefs" />
         </el-form-item>
 
         <el-form-item>
@@ -59,7 +59,7 @@
         </el-form-item>
 
         <el-form-item label="保存时自动入图">
-          <el-switch v-model="autoExtractRelationsOnSave" />
+          <el-switch v-model="autoExtractRelations" @change="syncPrefs" />
         </el-form-item>
 
         <el-form-item>
@@ -73,13 +73,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted } from 'vue'
+import { storeToRefs } from 'pinia'
 import { User, Connection } from '@element-plus/icons-vue'
 import { getAIConfigOptions, type AIConfigOptions } from '@renderer/api/ai'
 import { useEditorStore } from '@renderer/stores/useEditorStore'
 import { ElMessage } from 'element-plus'
 
 const editorStore = useEditorStore()
+const { autoExtractDynamic, autoExtractRelations } = storeToRefs(editorStore)
 
 // 是否在保存章节正文时自动触发提取（角色动态信息 / 关系入图）
 const AUTO_EXTRACT_DYNAMIC_KEY = 'nf:chapter:auto_extract_dynamic_on_save'
@@ -90,8 +92,6 @@ const relationsLLM = ref<number | null>(null)
 const extractingDynamic = ref(false)
 const extractingRelations = ref(false)
 const previewBeforeUpdate = ref(true)
-const autoExtractDynamicOnSave = ref(false)
-const autoExtractRelationsOnSave = ref(false)
 const llmConfigs = ref<any[]>([])
 
 onMounted(async () => {
@@ -105,45 +105,11 @@ onMounted(async () => {
   } catch (e) {
     console.error('Failed to load LLM configs:', e)
   }
-
-  // 从本地存储读取“保存时自动提取”开关（动态信息）
-  try {
-    const raw = localStorage.getItem(AUTO_EXTRACT_DYNAMIC_KEY)
-    if (raw !== null) {
-      autoExtractDynamicOnSave.value = raw === '1'
-    }
-  } catch (e) {
-    console.error('Failed to load auto extract preference (dynamic):', e)
-  }
-
-  // 从本地存储读取“保存时自动入图”开关（关系入图）
-  try {
-    const raw2 = localStorage.getItem(AUTO_EXTRACT_RELATIONS_KEY)
-    if (raw2 !== null) {
-      autoExtractRelationsOnSave.value = raw2 === '1'
-    }
-  } catch (e) {
-    console.error('Failed to load auto extract preference (relations):', e)
-  }
 })
 
-// 将“保存时自动提取（动态信息）”状态写入本地存储，供编辑器读取
-watch(autoExtractDynamicOnSave, (val) => {
-  try {
-    localStorage.setItem(AUTO_EXTRACT_DYNAMIC_KEY, val ? '1' : '0')
-  } catch {
-    // 忽略存储错误
-  }
-})
-
-// 将“保存时自动入图（关系）”状态写入本地存储，供编辑器读取
-watch(autoExtractRelationsOnSave, (val) => {
-  try {
-    localStorage.setItem(AUTO_EXTRACT_RELATIONS_KEY, val ? '1' : '0')
-  } catch {
-    // 忽略存储错误
-  }
-})
+function syncPrefs() {
+  editorStore.setAutoExtractPrefs(autoExtractDynamic.value, autoExtractRelations.value)
+}
 
 async function handleExtractDynamicInfo() {
   if (!dynamicInfoLLM.value) {

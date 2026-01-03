@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from loguru import logger
 
 from app.schemas.entity import UpdateDynamicInfo, CharacterCard, Entity
-from app.db.models import Card
+from app.db.models import Card, CardType
 from app.services import agent_service, prompt_service
 
 # 动态信息每类别数量上限

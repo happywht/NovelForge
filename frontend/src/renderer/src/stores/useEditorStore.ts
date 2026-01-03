@@ -55,6 +55,10 @@ export const useEditorStore = defineStore('editor', () => {
   const currentChapterNumber = ref<number | null>(null)
   const currentChapterTitle = ref<string>('')
 
+  // 自动提取设置
+  const autoExtractDynamic = ref(localStorage.getItem('nf:chapter:auto_extract_dynamic_on_save') === '1')
+  const autoExtractRelations = ref(localStorage.getItem('nf:chapter:auto_extract_relations_on_save') === '1')
+
   // Actions
   function setActiveEditor(editor: { type: string; id: string; data?: any } | null) {
     activeEditor.value = editor
@@ -176,6 +180,13 @@ export const useEditorStore = defineStore('editor', () => {
     if (payload.title !== undefined) currentChapterTitle.value = payload.title ?? ''
   }
 
+  function setAutoExtractPrefs(dynamic: boolean, relations: boolean) {
+    autoExtractDynamic.value = dynamic
+    autoExtractRelations.value = relations
+    localStorage.setItem('nf:chapter:auto_extract_dynamic_on_save', dynamic ? '1' : '0')
+    localStorage.setItem('nf:chapter:auto_extract_relations_on_save', relations ? '1' : '0')
+  }
+
   function reset() {
     activeEditor.value = null
     leftSidebarWidth.value = 250
@@ -208,6 +219,8 @@ export const useEditorStore = defineStore('editor', () => {
     currentVolumeNumber,
     currentChapterNumber,
     currentChapterTitle,
+    autoExtractDynamic,
+    autoExtractRelations,
 
     // Actions
     setActiveEditor,
@@ -228,6 +241,7 @@ export const useEditorStore = defineStore('editor', () => {
     setTriggerExtractDynamicInfo,
     triggerExtractDynamicInfo,
     setCurrentContextInfo,
+    setAutoExtractPrefs,
     reset
   }
 })

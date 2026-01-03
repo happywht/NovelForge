@@ -125,29 +125,6 @@
 
           <!-- AI模型配置 -->
           <AIPerCardParams :card-id="props.card.id" :card-type-name="props.card.card_type?.name" />
-
-          <div class="toolbar-divider"></div>
-
-          <!-- 自动提取设置 -->
-          <div class="toolbar-group">
-            <span class="group-label">反向同步</span>
-            <el-tooltip content="保存时自动提取角色动态信息" placement="top">
-              <el-switch
-                v-model="autoExtractDynamic"
-                size="small"
-                active-text="动态"
-                @change="saveAutoExtractPrefs"
-              />
-            </el-tooltip>
-            <el-tooltip content="保存时自动提取实体关系" placement="top">
-              <el-switch
-                v-model="autoExtractRelations"
-                size="small"
-                active-text="关系"
-                @change="saveAutoExtractPrefs"
-              />
-            </el-tooltip>
-          </div>
         </div>
       </div>
     </div>
@@ -429,13 +406,7 @@ const currentExpandPrompt = ref('扩写')
 const fontSizePx = computed(() => `${fontSize.value}px`)
 const lineHeightStr = computed(() => String(lineHeight.value))
 
-const autoExtractDynamic = ref(localStorage.getItem('nf:chapter:auto_extract_dynamic_on_save') === '1')
-const autoExtractRelations = ref(localStorage.getItem('nf:chapter:auto_extract_relations_on_save') === '1')
-
-function saveAutoExtractPrefs() {
-  localStorage.setItem('nf:chapter:auto_extract_dynamic_on_save', autoExtractDynamic.value ? '1' : '0')
-  localStorage.setItem('nf:chapter:auto_extract_relations_on_save', autoExtractRelations.value ? '1' : '0')
-}
+const { autoExtractDynamic, autoExtractRelations } = storeToRefs(editorStore)
 
 const contextMenu = reactive({
   visible: false,

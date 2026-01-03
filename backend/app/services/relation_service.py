@@ -6,7 +6,7 @@ from loguru import logger
 
 from app.schemas.relation_extract import RelationExtraction, CN_TO_EN_KIND
 from app.schemas.entity import Entity
-from app.db.models import Card
+from app.db.models import Card, CardType
 from app.services import agent_service, prompt_service
 from app.services.kg_provider import get_provider
 from app.schemas.memory import ParticipantTyped
