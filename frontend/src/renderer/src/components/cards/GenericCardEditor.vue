@@ -155,6 +155,7 @@ import SchemaStudio from '../shared/SchemaStudio.vue'
 import AIPerCardParams from '../common/AIPerCardParams.vue'
 // 移除 AssistantSidebar 相关导入与逻辑
 import { resolveTemplate } from '@renderer/services/contextResolver'
+import { useWorkflowRunner } from '@renderer/composables/useWorkflowRunner'
 
 const props = defineProps<{
   card: CardRead
@@ -209,6 +210,8 @@ function handleContentEditorDirtyChange(dirty: boolean) {
   contentEditorDirty.value = dirty
 }
 
+const { runWorkflowByName } = useWorkflowRunner()
+
 async function handleWorkflowCommand(command: string) {
   const workflowNameMap: Record<string, string> = {
     dsl7: '智能章节续写与审计',
@@ -236,35 +239,18 @@ async function handleWorkflowCommand(command: string) {
     return
   }
 
-  const loading = ElMessage({
-    message: `正在启动 AI 协作：${targetName}...`,
-    type: 'info',
-    duration: 0
-  })
+  const scope = {
+    card_id: props.card.id,
+    project_id: projectStore.currentProject?.id,
+    volume_number: (props.card.content as any)?.volume_number,
+    chapter_number: (props.card.content as any)?.chapter_number
+  }
 
   try {
-    const { listWorkflows, runWorkflow } = await import('@renderer/api/workflows')
-    const workflows = await listWorkflows()
-    const target = workflows.find((w) => w.name === targetName)
-    if (!target) {
-      loading.close()
-      ElMessage.error(`未找到工作流: ${targetName}`)
-      return
-    }
-
-    const scope = {
-      card_id: props.card.id,
-      project_id: projectStore.currentProject?.id,
-      volume_number: (props.card.content as any)?.volume_number,
-      chapter_number: (props.card.content as any)?.chapter_number
-    }
-
-    await runWorkflow(target.id, { scope_json: scope, params_json: {} })
-    loading.close()
+    await runWorkflowByName(targetName, scope)
     ElMessage.success(`${targetName} 已启动，请在右侧“建议”面板查看进度`)
-  } catch (err: any) {
-    loading.close()
-    ElMessage.error(`启动失败: ${err.message}`)
+  } catch (err) {
+    // Error handled in composable
   }
 }
 
@@ -291,15 +277,6 @@ async function handleBatchAnalyze() {
       duration: 0
     })
 
-    const { listWorkflows, runWorkflow } = await import('@renderer/api/workflows')
-    const workflows = await listWorkflows()
-    const wf = workflows.find((w) => w.name === '智能章节审计与同步')
-
-    if (!wf?.id) {
-      loading.close()
-      throw new Error('未找到“智能章节审计与同步”工作流')
-    }
-
     let successCount = 0
     let failCount = 0
 
@@ -308,18 +285,13 @@ async function handleBatchAnalyze() {
       ;(loading as any).message = `正在分析第 ${i + 1}/${chapterCards.length} 章: ${card.title}...`
 
       try {
-        console.log(`[BatchAnalyze] Running workflow for card: ${card.title} (${card.id})`)
-        await runWorkflow(wf.id, {
-          scope_json: {
-            project_id: project.id,
-            card_id: card.id,
-            self_id: card.id,
-            volume_number: (card.content as any)?.volume_number,
-            chapter_number: (card.content as any)?.chapter_number
-          },
-          params_json: {}
+        await runWorkflowByName('智能章节审计与同步', {
+          project_id: project.id,
+          card_id: card.id,
+          self_id: card.id,
+          volume_number: (card.content as any)?.volume_number,
+          chapter_number: (card.content as any)?.chapter_number
         })
-        console.log(`[BatchAnalyze] Success for card: ${card.title}`)
         successCount++
       } catch (err) {
         console.error(`Failed to analyze card ${card.id}:`, err)
@@ -328,7 +300,7 @@ async function handleBatchAnalyze() {
     }
 
     loading.close()
-    ElMessage.success(`批量分析完成！成功: ${successCount}, 失败: ${failCount}`)
+    ElMessage.success(`批量分析任务已全部提交！成功: ${successCount}, 失败: ${failCount}`)
     await cardStore.fetchCards(project.id)
   } catch (e) {
     if (e !== 'cancel') {

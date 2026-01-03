@@ -517,17 +517,21 @@ def init_workflows(db: Session):
             {"id": "assemble_ctx", "type": "Context.Assemble", "params": {"participants": "{$.content.entity_list}", "max_chapter_id": "{$.content.chapter_number}"}, "position": {"x": 460, "y": 80}},
             {"id": "audit_content", "type": "Audit.Consistency", "params": {"sourcePath": "$.content.content"}, "position": {"x": 880, "y": 80}},
             {"id": "generate_outline", "type": "Outline.Generate", "params": {"sourcePath": "$.content.content"}, "position": {"x": 1300, "y": 80}},
-            {"id": "update_kg", "type": "KG.UpdateFromContent", "params": {"sourcePath": "$.content.content", "participants": "{$.content.entity_list}"}, "position": {"x": 1300, "y": 260}}
+            {"id": "vector_ingest", "type": "Vector.Ingest", "params": {"sourcePath": "$.content.content", "metadata": {"type": "chapter", "chapter_id": "{$.content.chapter_number}"}}, "position": {"x": 1300, "y": 260}},
+            {"id": "foreshadow_extract", "type": "Foreshadow.Extract", "params": {"sourcePath": "$.content.content", "autoRegister": True}, "position": {"x": 1300, "y": 440}},
+            {"id": "update_kg", "type": "KG.UpdateFromContent", "params": {"sourcePath": "$.content.content", "participants": "{$.content.entity_list}"}, "position": {"x": 1720, "y": 80}}
         ],
         "edges": [
             {"id": "e-read-assemble", "source": "read_chapter", "target": "assemble_ctx", "sourceHandle": "r", "targetHandle": "l"},
             {"id": "e-assemble-audit", "source": "assemble_ctx", "target": "audit_content", "sourceHandle": "r", "targetHandle": "l"},
             {"id": "e-audit-outline", "source": "audit_content", "target": "generate_outline", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e-audit-vector", "source": "audit_content", "target": "vector_ingest", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e-audit-foreshadow", "source": "audit_content", "target": "foreshadow_extract", "sourceHandle": "r", "targetHandle": "l"},
             {"id": "e-outline-update", "source": "generate_outline", "target": "update_kg", "sourceHandle": "r", "targetHandle": "l"}
         ]
     }
 
-    c, u, s = _create_or_update_workflow(db, name6, "章节正文：自动装配上下文、进行一致性审计并同步事实到知识图谱", dsl6, "章节正文", overwrite)
+    c, u, s = _create_or_update_workflow(db, name6, "章节正文：自动装配上下文、进行一致性审计、同步事实到知识图谱、存入向量库并提取伏笔", dsl6, "章节正文", overwrite)
     total_created += c
     total_updated += u
     total_skipped += s
@@ -539,22 +543,27 @@ def init_workflows(db: Session):
         "name": name7,
         "nodes": [
             {"id": "read_chapter", "type": "Card.Read", "params": {"target": "$self", "type_name": "章节正文"}, "position": {"x": 40, "y": 80}},
-            {"id": "assemble_ctx", "type": "Context.Assemble", "params": {"participants": "{$.content.entity_list}", "max_chapter_id": "{$.content.chapter_number}"}, "position": {"x": 460, "y": 80}},
-            {"id": "generate_content", "type": "LLM.Generate", "params": {"prompt": "内容生成", "targetPath": "$.last_ai_response"}, "position": {"x": 880, "y": 80}},
+            {"id": "assemble_ctx", "type": "Context.Assemble", "params": {"participants": "{$.content.entity_list}", "max_chapter_id": "{$.content.chapter_number}", "current_draft_tail": "{$.content.content}"}, "position": {"x": 460, "y": 80}},
+            {"id": "assemble_style", "type": "Style.Assemble", "params": {"sourcePath": "$.content.content"}, "position": {"x": 460, "y": 260}},
+            {"id": "generate_content", "type": "LLM.Generate", "params": {"prompt": "内容生成", "targetPath": "$.last_ai_response", "extra_context": "{$.style_context}"}, "position": {"x": 880, "y": 80}},
             {"id": "append_content", "type": "Card.ModifyContent", "params": {"setPath": "content", "setValue": "{$.content.content}\n\n{$.last_ai_response}"}, "position": {"x": 1300, "y": 80}},
             {"id": "audit_content", "type": "Audit.Consistency", "params": {"sourcePath": "$.content.content"}, "position": {"x": 1720, "y": 80}},
-            {"id": "update_kg", "type": "KG.UpdateFromContent", "params": {"sourcePath": "$.content.content", "participants": "{$.content.entity_list}"}, "position": {"x": 1720, "y": 260}}
+            {"id": "foreshadow_check", "type": "Foreshadow.Check", "params": {"sourcePath": "$.content.content"}, "position": {"x": 1720, "y": 260}},
+            {"id": "update_kg", "type": "KG.UpdateFromContent", "params": {"sourcePath": "$.content.content", "participants": "{$.content.entity_list}"}, "position": {"x": 2140, "y": 80}}
         ],
         "edges": [
             {"id": "e1", "source": "read_chapter", "target": "assemble_ctx", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e1_style", "source": "read_chapter", "target": "assemble_style", "sourceHandle": "r", "targetHandle": "l"},
             {"id": "e2", "source": "assemble_ctx", "target": "generate_content", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e2_style", "source": "assemble_style", "target": "generate_content", "sourceHandle": "r", "targetHandle": "l"},
             {"id": "e3", "source": "generate_content", "target": "append_content", "sourceHandle": "r", "targetHandle": "l"},
             {"id": "e4", "source": "append_content", "target": "audit_content", "sourceHandle": "r", "targetHandle": "l"},
-            {"id": "e5", "source": "audit_content", "target": "update_kg", "sourceHandle": "r", "targetHandle": "l"}
+            {"id": "e5", "source": "audit_content", "target": "update_kg", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e6", "source": "audit_content", "target": "foreshadow_check", "sourceHandle": "r", "targetHandle": "l"}
         ]
     }
 
-    c, u, s = _create_or_update_workflow(db, name7, "章节正文：自动续写内容、审计一致性并同步到知识图谱", dsl7, "章节正文", overwrite)
+    c, u, s = _create_or_update_workflow(db, name7, "章节正文：自动续写内容、审计一致性、检查伏笔回收并同步到知识图谱", dsl7, "章节正文", overwrite)
     total_created += c
     total_updated += u
     total_skipped += s

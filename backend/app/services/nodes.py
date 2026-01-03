@@ -1446,3 +1446,373 @@ async def node_world_aggregate(session: Session, state: dict, params: dict) -> d
     return {"success": True, "created_card_ids": created_cards}
 
 
+@register_node("Vector.Ingest")
+def node_vector_ingest(session: Session, state: dict, params: dict) -> dict:
+    """
+    Vector.Ingest: 将文本存入向量数据库
+    params:
+      - sourcePath: 文本内容路径 (默认 "$.content.content")
+      - metadata: dict (可选元数据，如 type, chapter_id)
+    """
+    from app.services.vector_service import VectorService
+    
+    project_id = state.get("scope", {}).get("project_id")
+    if not project_id:
+        raise ValueError("Vector.Ingest 缺少 project_id")
+
+    source_path = params.get("sourcePath", "$.content.content")
+    content = _get_from_state(source_path, state)
+    if not content or not isinstance(content, str):
+        return {"success": False, "error": "Content is empty or not a string"}
+
+    # 简单的文本切分 (按段落)
+    chunks = [c.strip() for c in content.split('\n') if len(c.strip()) > 20]
+    if not chunks:
+        return {"success": False, "error": "No valid chunks found"}
+
+    metadata_tpl = params.get("metadata", {})
+    
+    # 渲染元数据
+    rendered_meta = {}
+    for k, v in metadata_tpl.items():
+        rendered_meta[k] = _render_value(v, state)
+
+    # 补充默认元数据
+    card_id = state.get("scope", {}).get("card_id")
+    if card_id:
+        rendered_meta["card_id"] = card_id
+    
+    ids = [f"{project_id}_{card_id}_{i}" for i in range(len(chunks))]
+    metadatas = [rendered_meta] * len(chunks)
+
+    svc = VectorService()
+    success = svc.add_texts(project_id, chunks, metadatas, ids)
+    
+    return {"success": success, "chunk_count": len(chunks)}
+
+
+@register_node("Vector.Search")
+def node_vector_search(session: Session, state: dict, params: dict) -> dict:
+    """
+    Vector.Search: 语义检索
+    params:
+      - query: str (检索词)
+      - top_k: int (默认 5)
+      - filter: dict (可选过滤条件)
+      - targetPath: str (结果写入路径，默认 "$.vector_results")
+    """
+    from app.services.vector_service import VectorService
+
+    project_id = state.get("scope", {}).get("project_id")
+    if not project_id:
+        raise ValueError("Vector.Search 缺少 project_id")
+
+    query = params.get("query")
+    query = _render_value(query, state)
+    if not query:
+        return {"success": False, "error": "Query is empty"}
+
+    top_k = params.get("top_k", 5)
+    filter_dict = params.get("filter")
+
+    svc = VectorService()
+    results = svc.search(project_id, query, top_k, filter_dict)
+
+    target_path = params.get("targetPath", "$.vector_results")
+    
+    # 写入 state
+    # 如果 targetPath 是 $.xxx，直接写入 state[xxx]
+    if target_path.startswith("$."):
+        key = target_path[2:]
+        state[key] = results
+    else:
+        state[target_path] = results
+
+    return {"success": True, "count": len(results), "results": results}
+
+
+@register_node("Foreshadow.Extract")
+async def node_foreshadow_extract(session: Session, state: dict, params: dict) -> dict:
+    """
+    Foreshadow.Extract: 自动提取伏笔
+    params:
+      - sourcePath: str (默认 "$.content.content")
+      - autoRegister: bool (是否自动存入数据库，默认 True)
+    """
+    from app.services.foreshadow_service import ForeshadowService
+    
+    project_id = state.get("scope", {}).get("project_id")
+    if not project_id:
+        raise ValueError("Foreshadow.Extract 缺少 project_id")
+        
+    source_path = params.get("sourcePath", "$.content.content")
+    content = _get_from_state(source_path, state)
+    if not content or not isinstance(content, str):
+        return {"success": False, "error": "Content is empty"}
+
+    svc = ForeshadowService(session)
+    # 异步调用 LLM
+    suggestions = await svc.suggest(content)
+    
+    # 整理结果
+    entries = []
+    card_id = state.get("scope", {}).get("card_id")
+    
+    for g in suggestions.get("goals", []):
+        entries.append({"title": g, "type": "goal", "chapter_id": card_id, "note": "自动提取的目标"})
+    for i in suggestions.get("items", []):
+        entries.append({"title": i, "type": "item", "chapter_id": card_id, "note": "自动提取的物品"})
+    for p in suggestions.get("persons", []):
+        entries.append({"title": p, "type": "person", "chapter_id": card_id, "note": "自动提取的人物"})
+
+    if params.get("autoRegister", True) and entries:
+        svc.register(project_id, entries)
+        
+    state["foreshadow_suggestions"] = suggestions
+    return {"success": True, "count": len(entries), "entries": entries}
+
+
+@register_node("Foreshadow.Check")
+async def node_foreshadow_check(session: Session, state: dict, params: dict) -> dict:
+    """
+    Foreshadow.Check: 检查伏笔回收
+    params:
+      - sourcePath: str (默认 "$.content.content")
+    """
+    from app.services.foreshadow_service import ForeshadowService
+    
+    project_id = state.get("scope", {}).get("project_id")
+    if not project_id:
+        raise ValueError("Foreshadow.Check 缺少 project_id")
+        
+    source_path = params.get("sourcePath", "$.content.content")
+    content = _get_from_state(source_path, state)
+    if not content or not isinstance(content, str):
+        return {"success": False, "error": "Content is empty"}
+
+    svc = ForeshadowService(session)
+    resolved_ids = await svc.check_resolution(project_id, content)
+    
+    resolved_items = []
+    if resolved_ids:
+        for rid in resolved_ids:
+            item = svc.resolve(project_id, rid)
+            if item:
+                resolved_items.append(item.title)
+    
+    state["resolved_foreshadows"] = resolved_items
+    return {"success": True, "resolved_count": len(resolved_items), "resolved_items": resolved_items}
+
+
+
+
+
+@register_node("Style.Assemble")
+def node_style_assemble(session: Session, state: dict, params: dict) -> dict:
+    """
+    Style.Assemble: 动态组装文风参考
+    params:
+      - sourcePath: str (参考内容的来源路径，默认 "$.content.content")
+      - top_k: int (检索数量，默认 3)
+      - targetPath: str (结果写入路径，默认 "$.style_context")
+    """
+    from app.services.style_service import StyleService
+    
+    project_id = state.get("scope", {}).get("project_id")
+    if not project_id:
+        raise ValueError("Style.Assemble 缺少 project_id")
+        
+    source_path = params.get("sourcePath", "$.content.content")
+    content_snippet = _get_from_state(source_path, state)
+    
+    # 如果当前内容为空（如刚开始写），可以使用上一章的结尾，或者留空
+    if not content_snippet or not isinstance(content_snippet, str):
+        content_snippet = ""
+        
+    top_k = params.get("top_k", 3)
+    
+    svc = StyleService()
+    styles = svc.retrieve_relevant_styles(project_id, content_snippet, top_k)
+    
+    style_text = ""
+    if styles:
+        style_text = "请模仿以下项目既有文风进行写作：\n" + "\n---\n".join(styles)
+        
+    target_path = params.get("targetPath", "$.style_context")
+    if target_path.startswith("$."):
+        key = target_path[2:]
+        state[key] = style_text
+    else:
+        state[target_path] = style_text
+        
+    return {"success": True, "count": len(styles), "style_text_len": len(style_text)}
+
+@register_node("KG.UpdateFromContent")
+async def node_kg_update_from_content(session: Session, state: dict, params: dict) -> dict:
+    """
+    KG.UpdateFromContent: 从内容中提取事实并更新知识图谱
+    params:
+      - sourcePath: str (默认 "$.content.content")
+      - participants: list[str] (参与者列表，用于聚焦提取)
+    """
+    from app.services.relation_service import RelationService
+    from app.services.kg_provider import get_provider
+    
+    project_id = state.get("scope", {}).get("project_id")
+    if not project_id:
+        raise ValueError("KG.UpdateFromContent 缺少 project_id")
+        
+    source_path = params.get("sourcePath", "$.content.content")
+    content = _get_from_state(source_path, state)
+    if not content or not isinstance(content, str):
+        return {"success": False, "error": "Content is empty"}
+        
+    participants = params.get("participants")
+    if isinstance(participants, str):
+        participants = _render_value(participants, state)
+        if isinstance(participants, str):
+            # 尝试解析 JSON 或逗号分隔
+            try:
+                import json
+                participants = json.loads(participants)
+            except:
+                participants = [p.strip() for p in participants.split(",") if p.strip()]
+                
+    # 1. 提取关系
+    svc = RelationService(session)
+    triples = svc.extract_from_text(content, participants)
+    
+    # 2. 写入图谱
+    kg = get_provider()
+    
+    kg_triples = []
+    for t in triples:
+        s = t.get("subject")
+        p = t.get("predicate")
+        o = t.get("object")
+        attrs = t.get("attributes", {})
+        
+        if s and p and o:
+            kg_triples.append((s, p, o, attrs))
+            
+    if kg_triples:
+        kg.ingest_triples_with_attributes(project_id, kg_triples)
+        
+    return {"success": True, "count": len(kg_triples)}
+
+
+@register_node("World.Aggregate")
+async def node_world_aggregate(session: Session, state: dict, params: dict) -> dict:
+    """
+    World.Aggregate: 世界观深度归纳
+    params:
+      - targetFolder: str (目标文件夹名称，默认 "世界观设定")
+    """
+    from app.services.kg_provider import get_provider
+    from app.services.llm_factory import LLMFactory
+    from app.services.card_service import CardService
+    from app.schemas.card import CardCreate, CardUpdate
+    from app.models.card import Card, CardType
+    from sqlmodel import select
+    
+    project_id = state.get("scope", {}).get("project_id")
+    if not project_id:
+        raise ValueError("World.Aggregate 缺少 project_id")
+        
+    # 1. 获取全量图谱事实
+    kg = get_provider()
+    graph_data = kg.get_full_graph(project_id)
+    
+    # 简化事实列表，仅保留 fact 字段
+    facts = []
+    for edge in graph_data.get("edges", []):
+        props = edge.get("properties", {})
+        if props.get("fact"):
+            facts.append(props["fact"])
+            
+    if not facts:
+        return {"success": False, "error": "No facts found in Knowledge Graph"}
+        
+    # 2. 调用 LLM 进行归纳
+    # 由于事实可能很多，这里可能需要分批或摘要，暂且假设 LLM 上下文足够
+    facts_text = "\n".join(facts[:500]) # 限制数量以防溢出
+    
+    prompt = f"""
+    请分析以下小说中的事实片段，归纳出该小说的世界观设定。
+    请将设定分为以下几类：
+    1. 魔法/力量体系
+    2. 地理/势力分布
+    3. 历史/神话传说
+    4. 社会/文化习俗
+    
+    事实片段：
+    {facts_text}
+    
+    请以 JSON 格式返回，Key 为分类名称，Value 为详细的 Markdown 描述。
+    示例：
+    {{
+        "魔法体系": "...",
+        "地理分布": "..."
+    }}
+    """
+    
+    llm = LLMFactory.get_project_llm(project_id)
+    response = await llm.achat(prompt)
+    
+    import json
+    try:
+        # 尝试提取 JSON
+        start = response.find("{")
+        end = response.rfind("}") + 1
+        if start != -1 and end != -1:
+            json_str = response[start:end]
+            settings_map = json.loads(json_str)
+        else:
+            settings_map = {"未分类设定": response}
+    except:
+        settings_map = {"未分类设定": response}
+        
+    # 3. 创建/更新设定卡片
+    card_svc = CardService(session)
+    target_folder_name = params.get("targetFolder", "世界观设定")
+    
+    # 查找文件夹类型
+    folder_type = session.exec(select(CardType).where(CardType.name == "文件夹")).first()
+    setting_type = session.exec(select(CardType).where(CardType.name == "世界观设定")).first()
+    
+    if not folder_type or not setting_type:
+        return {"success": False, "error": "Card types missing"}
+        
+    # 查找或创建文件夹
+    folder = session.exec(select(Card).where(Card.project_id == project_id, Card.title == target_folder_name, Card.card_type_id == folder_type.id)).first()
+    if not folder:
+        folder = card_svc.create(CardCreate(
+            title=target_folder_name,
+            project_id=project_id,
+            card_type_id=folder_type.id,
+            content={}
+        ))
+        
+    created_count = 0
+    for title, content in settings_map.items():
+        # 查找同名卡片
+        existing = session.exec(select(Card).where(
+            Card.project_id == project_id,
+            Card.parent_id == folder.id,
+            Card.title == title,
+            Card.card_type_id == setting_type.id
+        )).first()
+        
+        if existing:
+            card_svc.update(existing.id, CardUpdate(content={"content": content}))
+        else:
+            card_svc.create(CardCreate(
+                title=title,
+                project_id=project_id,
+                parent_id=folder.id,
+                card_type_id=setting_type.id,
+                content={"content": content}
+            ))
+        created_count += 1
+        
+    return {"success": True, "created_count": created_count, "settings": list(settings_map.keys())}

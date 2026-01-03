@@ -130,6 +130,138 @@ def assemble_context(session: Session, params: ContextAssembleParams) -> Assembl
             facts_structured = {
                 "fact_summaries": sub_struct.get("fact_summaries") or [],
                 "relation_summaries": filtered_relation_items,
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional, Tuple
+from sqlmodel import Session, select
+
+from app.db.models import Card, CardType
+from app.services.memory_service import MemoryService
+from app.schemas.context import FactsStructured
+from app.schemas.relation_extract import CN_TO_EN_KIND
+from app.services.kg_provider import get_provider
+
+
+
+@dataclass
+class ContextAssembleParams:
+    project_id: Optional[int] = None
+    volume_number: Optional[int] = None
+    chapter_number: Optional[int] = None
+    participants: Optional[List[str]] = None
+    current_draft_tail: Optional[str] = None
+    recent_chapters_window: Optional[int] = None
+    chapter_id: Optional[int] = None
+    radius: Optional[int] = None
+    top_k: Optional[int] = None
+    pov_character: Optional[str] = None
+
+
+@dataclass
+class AssembledContext:
+    facts_subgraph: str
+    budget_stats: Dict[str, Any]
+    facts_structured: Optional[Dict[str, Any]] = None
+    writing_guide: Optional[str] = None
+
+    def to_system_prompt_block(self) -> str:
+        parts: List[str] = []
+        if self.facts_subgraph:
+            parts.append(f"[事实子图]\n{self.facts_subgraph}")
+        if self.writing_guide:
+            parts.append(f"[写作指南]\n{self.writing_guide}")
+        return "\n\n".join(parts)
+
+
+def _truncate(text: str, limit: int) -> str:
+    if len(text) <= limit:
+        return text
+    return text[: max(0, limit - 200)] + "\n...[已截断]"
+
+
+def _compose_facts_subgraph_stub() -> str:
+    return "关键事实：暂无（尚未收集）。"
+
+
+
+def assemble_context(session: Session, params: ContextAssembleParams) -> AssembledContext:
+    facts_quota = 5000
+
+    eff_participants: List[str] = list(params.participants or [])
+    participant_set = set(eff_participants)
+
+    # 启发式动态调整：参与者越多，TopK 越大，半径越小
+    p_count = len(eff_participants)
+    default_radius = 2
+    if p_count > 5:
+        default_radius = 1
+    elif p_count == 0:
+        default_radius = 0
+        
+    eff_radius = params.radius if params.radius is not None else default_radius
+    
+    # TopK 启发式：每个参与者预留 15 个事实，最小 20，最大 150
+    default_top_k = max(20, min(150, p_count * 15))
+    eff_top_k = params.top_k if params.top_k is not None else default_top_k
+
+    facts_text = _compose_facts_subgraph_stub()
+    facts_structured: Optional[Dict[str, Any]] = None
+    try:
+        provider = get_provider()
+        # 放宽：边类型允许任意（排除 HAS_ALIAS），以兼容旧图/新图
+        edge_whitelist = None
+        sub_struct = provider.query_subgraph(
+            project_id=params.project_id or -1,
+            participants=eff_participants,
+            radius=eff_radius,
+            edge_type_whitelist=edge_whitelist,
+            top_k=eff_top_k,
+            max_chapter_id=params.chapter_id,
+            pov_character=params.pov_character,
+        )
+        raw_relation_items = [it for it in (sub_struct.get("relation_summaries") or []) if isinstance(it, dict)]
+        filtered_relation_items = [
+            it for it in raw_relation_items
+            if (str(it.get("a")) in participant_set and str(it.get("b")) in participant_set)
+        ]
+        if filtered_relation_items:
+            lines: List[str] = ["关键事实："]
+            for it in filtered_relation_items:
+                a = str(it.get("a")); b = str(it.get("b")); kind_cn = str(it.get("kind") or "其他")
+                pred_en = CN_TO_EN_KIND.get(kind_cn, kind_cn)
+                lines.append(f"- {a} {pred_en} {b}")
+            facts_text = "\n".join(lines)
+        else:
+            raw = sub_struct
+            txt = "\n".join([f"- {f}" for f in (raw.get("fact_summaries") or [])])
+            if txt:
+                facts_text = "关键事实：\n" + txt
+        try:
+            from app.schemas.context import FactsStructured as _FactsStructured
+            fs_model = _FactsStructured(
+                fact_summaries=list(sub_struct.get("fact_summaries") or []),
+                relation_summaries=[
+                    {
+                        "a": it.get("a"),
+                        "b": it.get("b"),
+                        "kind": it.get("kind"),
+                        "description": it.get("description"),
+                        "a_to_b_addressing": it.get("a_to_b_addressing"),
+                        "b_to_a_addressing": it.get("b_to_a_addressing"),
+                        "recent_dialogues": it.get("recent_dialogues") or [],
+                        "recent_event_summaries": it.get("recent_event_summaries") or [],
+                        "stance": it.get("stance"),
+                    }
+                    for it in filtered_relation_items
+                ],
+            )
+            facts_structured = fs_model.model_dump()
+        except Exception:
+            facts_structured = {
+                "fact_summaries": sub_struct.get("fact_summaries") or [],
+                "relation_summaries": filtered_relation_items,
             }
     except Exception:
         pass
@@ -145,8 +277,26 @@ def assemble_context(session: Session, params: ContextAssembleParams) -> Assembl
         if guide_card:
             writing_guide = str(guide_card.content) if guide_card.content else None
 
+    # ---------------- 向量检索增强 ----------------
+    vector_context = ""
+    if params.project_id and params.current_draft_tail:
+        try:
+            from app.services.vector_service import VectorService
+            vec_svc = VectorService()
+            # 使用当前草稿尾部作为查询
+            query = params.current_draft_tail[-200:] 
+            vec_results = vec_svc.search(params.project_id, query, top_k=3)
+            if vec_results:
+                vector_context = "相关原文片段：\n" + "\n".join([f"- {r['text']}" for r in vec_results])
+        except Exception as e:
+            pass
+            
+    final_facts = facts
+    if vector_context:
+        final_facts = f"{facts}\n\n{vector_context}"
+
     return AssembledContext(
-        facts_subgraph=facts,
+        facts_subgraph=final_facts,
         budget_stats={},
         facts_structured=facts_structured,
         writing_guide=writing_guide,

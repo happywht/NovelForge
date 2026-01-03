@@ -12,44 +12,69 @@ class ForeshadowService:
     def __init__(self, session: Session):
         self.session = session
 
-    def suggest(self, text: str) -> Dict[str, Any]:
+    async def suggest(self, text: str, llm_config_id: int = 1) -> Dict[str, Any]:
         """
-        极简启发式：
-        - 捕捉“将要/准备/打算/誓要/必须”等后接短语作为待完成目标
-        - 捕捉以『剑/刀/戒/符/印/丹/阵/甲/鼎/珠/镜』为后缀的名词作为可疑道具
-        - 粗略抽取2-4字的人名候选（排除常见功能词）
+        使用 LLM 提取文本中的潜在伏笔
         """
-        if not isinstance(text, str):
-            text = str(text or "")
-        goals: List[str] = []
-        items: List[str] = []
-        persons: List[str] = []
+        if not text or len(text) < 50:
+            return {"goals": [], "items": [], "persons": []}
 
-        # 目标
-        for m in re.findall(r"(将要|准备|打算|誓要|必须)([^。？！\n]{2,20})", text):
-            frag = (m[0] + m[1]).strip()
-            if frag and frag not in goals:
-                goals.append(frag)
+        from app.services.agent_service import run_llm_agent
+        from pydantic import BaseModel
 
-        # 道具
-        for m in re.findall(r"([\u4e00-\u9fa5]{1,8})(剑|刀|戒|符|印|丹|阵|甲|鼎|珠|镜)", text):
-            frag = (m[0] + m[1]).strip()
-            if frag and frag not in items:
-                items.append(frag)
+        class ForeshadowExtraction(BaseModel):
+            goals: List[str]
+            items: List[str]
+            persons: List[str]
 
-        # 人名（粗略）
-        stopwords = {"什么", "但是", "因为", "然后", "虽然", "可是", "不会", "看看", "我们", "你们", "他们", "以及"}
-        for m in re.findall(r"([\u4e00-\u9fa5]{2,4})", text):
-            if m and 2 <= len(m) <= 4 and m not in stopwords:
-                if m not in persons:
-                    persons.append(m)
-        persons = persons[:10]
+        user_prompt = f"请分析以下小说章节内容，提取其中埋下的伏笔线索：\n1. 角色立下的目标或誓言 (goals)\n2. 出现的特殊道具或关键物品 (items)\n3. 提及的重要未登场或神秘人物 (persons)\n\n内容：\n{text[:2000]}"
+        system_prompt = "你是一个敏锐的小说评论家，擅长发现故事中的伏笔和悬念。"
 
-        return {
-            "goals": goals[:8],
-            "items": items[:8],
-            "persons": persons,
-        }
+        try:
+            result = await run_llm_agent(
+                session=self.session,
+                llm_config_id=llm_config_id,
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                output_type=ForeshadowExtraction
+            )
+            return result.model_dump()
+        except Exception as e:
+            # Fallback to empty if LLM fails
+            return {"goals": [], "items": [], "persons": []}
+
+    async def check_resolution(self, project_id: int, text: str, llm_config_id: int = 1) -> List[int]:
+        """
+        检查当前文本是否回收了已有的伏笔
+        返回已回收的 foreshadow_item_id 列表
+        """
+        open_items = self.list(project_id, status='open')
+        if not open_items:
+            return []
+
+        from app.services.agent_service import run_llm_agent
+        from pydantic import BaseModel
+
+        # 构造上下文
+        items_desc = "\n".join([f"ID {item.id}: {item.title} ({item.note or ''})" for item in open_items])
+        
+        class ResolutionCheck(BaseModel):
+            resolved_ids: List[int]
+
+        user_prompt = f"以下是该小说中尚未回收的伏笔列表：\n{items_desc}\n\n请阅读最新的章节内容，判断是否有伏笔被回收或解决。如果有，请列出其ID。\n\n最新章节：\n{text[:2000]}"
+        system_prompt = "你是一个细致的小说编辑，负责检查剧情线索的闭环。"
+
+        try:
+            result = await run_llm_agent(
+                session=self.session,
+                llm_config_id=llm_config_id,
+                user_prompt=user_prompt,
+                system_prompt=system_prompt,
+                output_type=ResolutionCheck
+            )
+            return result.resolved_ids
+        except Exception:
+            return []
 
     # --- CRUD via DB ---
     def list(self, project_id: int, status: Optional[str] = None) -> List[ForeshadowItemModel]:

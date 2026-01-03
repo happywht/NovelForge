@@ -230,6 +230,8 @@ import {
   OfficeBuilding
 } from '@element-plus/icons-vue'
 import { useCardStore } from '@renderer/stores/useCardStore'
+import { useCardPackage } from '@renderer/composables/useCardPackage'
+import { useWorkflowRunner } from '@renderer/composables/useWorkflowRunner'
 import { useProjectStore } from '@renderer/stores/useProjectStore'
 import { useEditorStore } from '@renderer/stores/useEditorStore'
 import { useAssistantStore } from '@renderer/stores/useAssistantStore'
@@ -248,6 +250,9 @@ const cardStore = useCardStore()
 const projectStore = useProjectStore()
 const editorStore = useEditorStore()
 const assistantStore = useAssistantStore()
+const { handleExportPackage, handleImportPackage } = useCardPackage()
+const { runWorkflowByName } = useWorkflowRunner()
+
 const { cards, activeCard } = storeToRefs(cardStore)
 const { expandedKeys, groupedTree, onNodeExpand, onNodeCollapse, updateProjectStructureContext } =
   useCardTree()
@@ -581,26 +586,6 @@ function addAsReference(data: any) {
   } catch {}
 }
 
-async function handleExportPackage(data: any) {
-  if (!data?.id) return
-  try {
-    const { exportCardPackage } = await import('@renderer/api/package')
-    const res = await exportCardPackage(data.id)
-    const blob = new Blob([JSON.stringify(res, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const link = document.createElement('a')
-    link.href = url
-    link.download = `${data.title || 'package'}.nfpkg.json`
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
-    URL.revokeObjectURL(url)
-    ElMessage.success('导出成功')
-  } catch (err: any) {
-    ElMessage.error(`导出失败: ${err.message}`)
-  }
-}
-
 async function handleAggregateWorld() {
   const project = projectStore.currentProject
   if (!project?.id) return
@@ -612,67 +597,14 @@ async function handleAggregateWorld() {
       { type: 'info', confirmButtonText: '开始归纳', cancelButtonText: '取消' }
     )
 
-    const loading = ElMessage({
-      message: '正在深度归纳世界观设定...',
-      type: 'info',
-      duration: 0
-    })
-
-    const { listWorkflows, runWorkflow } = await import('@renderer/api/workflows')
-    const workflows = await listWorkflows()
-    const wf = workflows.find((w) => w.name === '世界观深度归纳')
-
-    if (!wf?.id) {
-      loading.close()
-      throw new Error('未找到“世界观深度归纳”工作流')
-    }
-
-    await runWorkflow(wf.id, {
-      scope_json: { project_id: project.id },
-      params_json: {}
-    })
-
-    loading.close()
-    ElMessage.success('世界观归纳完成！')
-    await cardStore.fetchCards(project.id)
+    await runWorkflowByName('世界观深度归纳', { project_id: project.id })
+    ElMessage.success('世界观归纳任务已提交！')
   } catch (e) {
     if (e !== 'cancel') {
       ElMessage.error('世界观归纳过程中发生错误')
       console.error('World aggregate failed:', e)
     }
   }
-}
-
-
-async function handleImportPackage() {
-  const input = document.createElement('input')
-  input.type = 'file'
-  input.accept = '.json'
-  input.onchange = async (e: any) => {
-    const file = e.target.files[0]
-    if (!file) return
-    
-    const reader = new FileReader()
-    reader.onload = async (ev) => {
-      try {
-        const json = JSON.parse(ev.target?.result as string)
-        const { importCardPackage } = await import('@renderer/api/package')
-        const projectId = projectStore.currentProject?.id
-        if (!projectId) return
-        
-        await importCardPackage(projectId, {
-          package_data: json,
-          target_parent_id: null
-        })
-        ElMessage.success('导入成功')
-        cardStore.fetchCards(projectId)
-      } catch (err: any) {
-        ElMessage.error(`导入失败: ${err.message}`)
-      }
-    }
-    reader.readAsText(file)
-  }
-  input.click()
 }
 
 function onCardSchemaSaved() {
