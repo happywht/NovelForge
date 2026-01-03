@@ -217,6 +217,11 @@ async function handleWorkflowCommand(command: string) {
     'batch-analyze': '一键入库 (批量分析)'
   }
 
+  if (command === 'batch-analyze') {
+    await handleBatchAnalyze()
+    return
+  }
+
   const targetName = workflowNameMap[command]
   if (!targetName) {
     // 如果不是预设的 DSL 命令，则通过事件分发（兼容旧逻辑）
@@ -231,11 +236,18 @@ async function handleWorkflowCommand(command: string) {
     return
   }
 
+  const loading = ElMessage({
+    message: `正在启动 AI 协作：${targetName}...`,
+    type: 'info',
+    duration: 0
+  })
+
   try {
     const { listWorkflows, runWorkflow } = await import('@renderer/api/workflows')
     const workflows = await listWorkflows()
     const target = workflows.find((w) => w.name === targetName)
     if (!target) {
+      loading.close()
       ElMessage.error(`未找到工作流: ${targetName}`)
       return
     }
@@ -248,11 +260,84 @@ async function handleWorkflowCommand(command: string) {
     }
 
     await runWorkflow(target.id, { scope_json: scope, params_json: {} })
+    loading.close()
     ElMessage.success(`${targetName} 已启动，请在右侧“建议”面板查看进度`)
   } catch (err: any) {
+    loading.close()
     ElMessage.error(`启动失败: ${err.message}`)
   }
 }
+
+async function handleBatchAnalyze() {
+  const project = projectStore.currentProject
+  if (!project?.id) return
+
+  try {
+    await ElMessageBox.confirm(
+      '“一键入库”将对本项目中所有“章节正文”卡片执行智能审计与同步，以构建初始知识图谱。这可能需要较长时间，是否继续？',
+      '批量分析确认',
+      { type: 'info', confirmButtonText: '开始分析', cancelButtonText: '取消' }
+    )
+
+    const chapterCards = cards.value.filter((c) => c.card_type?.name === '章节正文')
+    if (chapterCards.length === 0) {
+      ElMessage.warning('未找到任何“章节正文”卡片')
+      return
+    }
+
+    const loading = ElMessage({
+      message: `正在准备批量分析 ${chapterCards.length} 个章节...`,
+      type: 'info',
+      duration: 0
+    })
+
+    const { listWorkflows, runWorkflow } = await import('@renderer/api/workflows')
+    const workflows = await listWorkflows()
+    const wf = workflows.find((w) => w.name === '智能章节审计与同步')
+
+    if (!wf?.id) {
+      loading.close()
+      throw new Error('未找到“智能章节审计与同步”工作流')
+    }
+
+    let successCount = 0
+    let failCount = 0
+
+    for (let i = 0; i < chapterCards.length; i++) {
+      const card = chapterCards[i]
+      ;(loading as any).message = `正在分析第 ${i + 1}/${chapterCards.length} 章: ${card.title}...`
+
+      try {
+        console.log(`[BatchAnalyze] Running workflow for card: ${card.title} (${card.id})`)
+        await runWorkflow(wf.id, {
+          scope_json: {
+            project_id: project.id,
+            card_id: card.id,
+            self_id: card.id,
+            volume_number: (card.content as any)?.volume_number,
+            chapter_number: (card.content as any)?.chapter_number
+          },
+          params_json: {}
+        })
+        console.log(`[BatchAnalyze] Success for card: ${card.title}`)
+        successCount++
+      } catch (err) {
+        console.error(`Failed to analyze card ${card.id}:`, err)
+        failCount++
+      }
+    }
+
+    loading.close()
+    ElMessage.success(`批量分析完成！成功: ${successCount}, 失败: ${failCount}`)
+    await cardStore.fetchCards(project.id)
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error('批量分析过程中发生错误')
+      console.error('Batch analyze failed:', e)
+    }
+  }
+}
+
 
 function openAssistant() {
   const editingContent = wrapperName.value ? innerData.value : localData.value
