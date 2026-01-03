@@ -23,47 +23,58 @@ export function useCardTree() {
   const { expandedKeys } = storeToRefs(editorStore)
 
   function buildGroupedNodes(nodes: any[]): any[] {
-    return nodes.map((n) => {
-      const node: TreeNode = { ...n }
-      // 分组节点自身不再参与分组逻辑，直接递归其子节点
+    if (!nodes || nodes.length === 0) return [];
+
+    const result: any[] = [];
+    for (const n of nodes) {
+      const node: TreeNode = { ...n };
+
       if ((n as any).__isGroup) {
         if (Array.isArray(n.children) && n.children.length > 0) {
-          node.children = buildGroupedNodes(n.children as any)
+          node.children = buildGroupedNodes(n.children);
         }
-        return node
+        result.push(node);
+        continue;
       }
-      if (Array.isArray(n.children) && n.children.length > 0) {
-        // 统计子节点类型数量
-        const byType: Record<string, any[]> = {}
-        n.children.forEach((c: any) => {
-          const typeName = c.card_type?.name || '未知类型'
-          if (!byType[typeName]) byType[typeName] = []
-          byType[typeName].push(c)
-        })
-        const types = Object.keys(byType)
 
-        // 决定哪些类型需要分组
-        const finalChildren: any[] = []
-        types.forEach((t) => {
-          const list = byType[t]
-          if (list.length > 2) {
-            // 创建虚拟分组节点
+      if (Array.isArray(n.children) && n.children.length > 0) {
+        const byType = new Map<string, any[]>();
+        for (const c of n.children) {
+          const typeName = c.card_type?.name || '未知类型';
+          let list = byType.get(typeName);
+          if (!list) {
+            list = [];
+            byType.set(typeName, list);
+          }
+          list.push(c);
+        }
+
+        const finalChildren: any[] = [];
+        for (const [t, list] of byType.entries()) {
+          if (list.length > 3) { // 稍微提高分组阈值以减少节点数
             finalChildren.push({
               id: `group:${n.id}:${t}`,
               title: `${t} (${list.length})`,
               __isGroup: true,
               __groupType: t,
               children: buildGroupedNodes(list)
-            })
+            });
           } else {
-            // 保持原样
-            finalChildren.push(...buildGroupedNodes(list))
+            // 直接展开，但仍需递归处理其子节点
+            for (const item of list) {
+              const processed = { ...item };
+              if (item.children && item.children.length > 0) {
+                processed.children = buildGroupedNodes(item.children);
+              }
+              finalChildren.push(processed);
+            }
           }
-        })
-        node.children = finalChildren
+        }
+        node.children = finalChildren;
       }
-      return node
-    })
+      result.push(node);
+    }
+    return result;
   }
 
   const groupedTree = computed(() => buildGroupedNodes(cardTree.value))

@@ -205,10 +205,6 @@ defineExpose({
           />
         </el-tab-pane>
 
-        <el-tab-pane label="历史" name="history">
-          <HistoryPanel :card-id="activeCard?.id" @restored="handleHistoryRestored" />
-        </el-tab-pane>
-
         <el-tab-pane name="suggestions">
           <template #label>
             <el-badge
@@ -227,6 +223,10 @@ defineExpose({
               chapter_number: chapterChapterNumber
             }"
           />
+        </el-tab-pane>
+
+        <el-tab-pane label="历史" name="history">
+          <HistoryPanel :card-id="activeCard?.id" @restored="handleHistoryRestored" />
         </el-tab-pane>
       </el-tabs>
     </template>

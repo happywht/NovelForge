@@ -209,15 +209,49 @@ function handleContentEditorDirtyChange(dirty: boolean) {
   contentEditorDirty.value = dirty
 }
 
-function handleWorkflowCommand(command: string) {
-  const evt = new CustomEvent('nf:run-workflow', {
-    detail: {
-      command,
-      cardId: props.card.id,
-      cardTitle: props.card.title
+async function handleWorkflowCommand(command: string) {
+  const workflowNameMap: Record<string, string> = {
+    dsl7: '智能章节续写与审计',
+    dsl6: '智能章节审计与同步',
+    dsl8: '角色设定智能补全',
+    'batch-analyze': '一键入库 (批量分析)'
+  }
+
+  const targetName = workflowNameMap[command]
+  if (!targetName) {
+    // 如果不是预设的 DSL 命令，则通过事件分发（兼容旧逻辑）
+    const evt = new CustomEvent('nf:run-workflow', {
+      detail: {
+        command,
+        cardId: props.card.id,
+        cardTitle: props.card.title
+      }
+    })
+    window.dispatchEvent(evt)
+    return
+  }
+
+  try {
+    const { listWorkflows, runWorkflow } = await import('@renderer/api/workflows')
+    const workflows = await listWorkflows()
+    const target = workflows.find((w) => w.name === targetName)
+    if (!target) {
+      ElMessage.error(`未找到工作流: ${targetName}`)
+      return
     }
-  })
-  window.dispatchEvent(evt)
+
+    const scope = {
+      card_id: props.card.id,
+      project_id: projectStore.currentProject?.id,
+      volume_number: (props.card.content as any)?.volume_number,
+      chapter_number: (props.card.content as any)?.chapter_number
+    }
+
+    await runWorkflow(target.id, { scope_json: scope, params_json: {} })
+    ElMessage.success(`${targetName} 已启动，请在右侧“建议”面板查看进度`)
+  } catch (err: any) {
+    ElMessage.error(`启动失败: ${err.message}`)
+  }
 }
 
 function openAssistant() {

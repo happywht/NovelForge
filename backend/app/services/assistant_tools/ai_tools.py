@@ -49,21 +49,22 @@ def _get_deps() -> AssistantDeps:
 def search_cards(
     card_type: Optional[str] = None,
     title_keyword: Optional[str] = None,
-    limit: int = 10,
+    limit: int = 20,
 ) -> Dict[str, Any]:
     """
-    搜索项目中的卡片
+    搜索项目中的卡片列表。
+    如果你需要查找特定类型的卡片（如“角色卡”），请务必指定 card_type。
+    如果你需要查找特定标题的卡片，请指定 title_keyword。
     
     Args:
-        card_type: 卡片类型名称（可选）
-        title_keyword: 标题关键词（可选）
-        limit: 返回结果数量上限
+        card_type: 卡片类型名称（如：角色卡、场景卡、章节正文等）。建议先调用 list_card_types 获取可用类型。
+        title_keyword: 标题中的关键词。
+        limit: 返回结果数量上限，默认 20。
     
     Returns:
         success: True 表示成功，False 表示失败
-        error: 错误信息
-        cards: 卡片列表
-        count: 卡片数量
+        cards: 包含 id, title, type 的卡片对象列表
+        count: 实际返回的卡片数量
     """
 
     deps = _get_deps()
@@ -95,6 +96,27 @@ def search_cards(
     
     logger.info(f"✅ [Assistant.search_cards] 找到 {len(cards)} 个卡片")
     return result
+
+
+@tool
+def list_card_types() -> Dict[str, Any]:
+    """
+    获取本项目中所有可用的卡片类型列表。
+    在调用 search_cards 或 create_card 之前，建议先调用此工具以了解可用的类型名称。
+    
+    Returns:
+        success: True 表示成功
+        card_types: 包含 id, name, description 的类型列表
+    """
+    deps = _get_deps()
+    types = deps.session.query(CardType).all()
+    return {
+        "success": True,
+        "card_types": [
+            {"id": t.id, "name": t.name, "description": t.description}
+            for t in types
+        ]
+    }
 
 
 @tool
