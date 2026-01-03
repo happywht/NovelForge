@@ -178,6 +178,8 @@ const formatTime = (ts: number): string => {
   padding: 8px;
   border-radius: 4px;
   font-size: 12px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .role-item {
@@ -205,6 +207,9 @@ const formatTime = (ts: number): string => {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--el-border-color-lighter);
 }
 
 .empty-state {

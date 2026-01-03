@@ -49,62 +49,68 @@
           >
         </div>
       </div>
-      <el-tree
-        v-if="groupedTree.length > 0"
-        ref="treeRef"
-        :data="groupedTree"
-        node-key="id"
-        :default-expanded-keys="expandedKeys"
-        :expand-on-click-node="false"
-        draggable
-        :allow-drop="handleAllowDrop"
-        :allow-drag="handleAllowDrag"
-        class="card-tree"
-        @node-click="handleNodeClick"
-        @node-expand="onNodeExpand"
-        @node-collapse="onNodeCollapse"
-        @node-drop="handleNodeDrop"
-      >
-        <template #default="{ node, data }">
-          <el-dropdown
-            class="full-row-dropdown"
-            trigger="contextmenu"
-            @command="(cmd: string) => handleContextCommand(cmd, data)"
-          >
-            <div
-              class="custom-tree-node full-row"
-              @dragover.prevent
-              @drop="(e: any) => onExternalDropToNode(e, data)"
-              @dragenter.prevent
+      <div ref="treeContainer" class="tree-container">
+        <el-tree-v2
+          v-if="groupedTree.length > 0"
+          ref="treeRef"
+          :data="groupedTree"
+          :props="treeProps"
+          :height="treeHeight"
+          :item-size="32"
+          v-model:expanded-keys="expandedKeys"
+          class="card-tree"
+          @node-click="handleNodeClick"
+          @node-expand="onNodeExpand"
+          @node-collapse="onNodeCollapse"
+        >
+          <template #default="{ node }">
+            <el-dropdown
+              class="full-row-dropdown"
+              trigger="contextmenu"
+              @command="(cmd: string) => handleContextCommand(cmd, node.data)"
             >
-              <el-icon class="card-icon">
-                <component :is="getIconByCardType(data.card_type?.name || data.__groupType)" />
-              </el-icon>
-              <span class="label">{{ node.label || data.title }}</span>
-              <span v-if="data.children && data.children.length > 0" class="child-count">{{
-                data.children.length
-              }}</span>
-            </div>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <template v-if="!data.__isGroup">
-                  <el-dropdown-item command="create-child">新建子卡片</el-dropdown-item>
-                  <el-dropdown-item command="rename">重命名</el-dropdown-item>
-                  <el-dropdown-item command="edit-structure">结构编辑</el-dropdown-item>
-                  <el-dropdown-item command="add-as-reference">添加为引用</el-dropdown-item>
-                  <el-dropdown-item command="delete" divided>删除卡片</el-dropdown-item>
-                </template>
-                <template v-else>
-                  <el-dropdown-item command="delete-group" divided
-                    >删除该分组下所有卡片</el-dropdown-item
-                  >
-                </template>
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
-        </template>
-      </el-tree>
-      <el-empty v-else description="暂无卡片" :image-size="80"></el-empty>
+              <div
+                class="custom-tree-node full-row"
+                @dragover.prevent
+                @drop="(e: any) => onExternalDropToNode(e, node.data)"
+                @dragenter.prevent
+              >
+                <el-icon class="card-icon">
+                  <component
+                    :is="getIconByCardType(node.data.card_type?.name || node.data.__groupType)"
+                  />
+                </el-icon>
+                <span class="label">{{ node.label || node.data.title }}</span>
+                <span
+                  v-if="node.data.children && node.data.children.length > 0"
+                  class="child-count"
+                  >{{ node.data.children.length }}</span
+                >
+              </div>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <template v-if="!node.data.__isGroup">
+                    <el-dropdown-item command="create-child">新建子卡片</el-dropdown-item>
+                    <el-dropdown-item command="rename">重命名</el-dropdown-item>
+                    <el-dropdown-item command="move-up">上移</el-dropdown-item>
+                    <el-dropdown-item command="move-down">下移</el-dropdown-item>
+                    <el-dropdown-item command="move-to">移动到...</el-dropdown-item>
+                    <el-dropdown-item command="edit-structure">结构编辑</el-dropdown-item>
+                    <el-dropdown-item command="add-as-reference">添加为引用</el-dropdown-item>
+                    <el-dropdown-item command="delete" divided>删除卡片</el-dropdown-item>
+                  </template>
+                  <template v-else>
+                    <el-dropdown-item command="delete-group" divided
+                      >删除该分组下所有卡片</el-dropdown-item
+                    >
+                  </template>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+          </template>
+        </el-tree-v2>
+        <el-empty v-else description="暂无卡片" :image-size="80"></el-empty>
+      </div>
     </div>
 
     <!-- 空白区域右键菜单（手动触发） -->
@@ -174,11 +180,33 @@
       :context-title="schemaStudio.cardTitle"
       @saved="onCardSchemaSaved"
     />
+
+    <!-- 移动卡片对话框 -->
+    <el-dialog v-model="isMoveCardDialogVisible" title="移动卡片" width="400px">
+      <el-form label-position="top">
+        <el-form-item label="选择目标父级卡片">
+          <el-tree-select
+            v-model="moveCardForm.target_parent_id"
+            :data="cardStore.cardTree"
+            :props="treeSelectProps"
+            check-strictly
+            :render-after-expand="false"
+            placeholder="选择目标父级 (留空则移至根目录)"
+            clearable
+            style="width: 100%"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="isMoveCardDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="handleMoveTo">确定</el-button>
+      </template>
+    </el-dialog>
   </el-aside>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import {
@@ -221,11 +249,35 @@ const isFreeProject = computed(() => (projectStore.currentProject?.name || '') =
 const typesPaneHeight = ref(180)
 const innerResizerThickness = 6
 
-const treeSelectProps = {
+const treeProps = {
   value: 'id',
   label: 'title',
   children: 'children'
 } as const
+
+const treeSelectProps = treeProps
+
+const treeContainer = ref<HTMLElement | null>(null)
+const treeHeight = ref(400)
+let resizeObserver: ResizeObserver | null = null
+
+onMounted(() => {
+  if (treeContainer.value) {
+    treeHeight.value = treeContainer.value.clientHeight
+    resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        treeHeight.value = entry.contentRect.height
+      }
+    })
+    resizeObserver.observe(treeContainer.value)
+  }
+})
+
+onUnmounted(() => {
+  if (resizeObserver) {
+    resizeObserver.disconnect()
+  }
+})
 
 const isCreateCardDialogVisible = ref(false)
 const newCardForm = reactive({
@@ -240,6 +292,12 @@ const blankMenuY = ref(0)
 const blankMenuRef = ref<HTMLElement | null>(null)
 
 const schemaStudio = ref({ visible: false, cardId: 0, cardTitle: '' })
+
+const isMoveCardDialogVisible = ref(false)
+const moveCardForm = reactive({
+  card_id: 0,
+  target_parent_id: null as number | null
+})
 
 const {
   onTypeDragStart,
@@ -362,7 +420,69 @@ function handleContextCommand(command: string, data: any) {
     renameCard(data.id, data.title || '')
   } else if (command === 'add-as-reference') {
     addAsReference(data)
+  } else if (command === 'move-up') {
+    moveNode(data, 'up')
+  } else if (command === 'move-down') {
+    moveNode(data, 'down')
+  } else if (command === 'move-to') {
+    openMoveTo(data)
   }
+}
+
+function openMoveTo(data: any) {
+  if (!data?.id || data.__isGroup) return
+  moveCardForm.card_id = data.id
+  moveCardForm.target_parent_id = data.parent_id
+  isMoveCardDialogVisible.value = true
+}
+
+async function handleMoveTo() {
+  try {
+    const { card_id, target_parent_id } = moveCardForm
+    if (!card_id) return
+
+    await cardStore.modifyCard(card_id, { parent_id: target_parent_id || null })
+    ElMessage.success('已移动')
+    isMoveCardDialogVisible.value = false
+    updateProjectStructureContext(activeCard.value?.id)
+  } catch (err: any) {
+    ElMessage.error(`移动失败: ${err.message}`)
+  }
+}
+
+async function moveNode(data: any, direction: 'up' | 'down') {
+  if (!data?.id || data.__isGroup) return
+  try {
+    // 找到父级下的所有子节点
+    const parentId = data.parent_id
+    const siblings = cards.value
+      .filter((c: any) => c.parent_id === parentId)
+      .sort((a: any, b: any) => (a.display_order || 0) - (b.display_order || 0))
+
+    const currentIndex = siblings.findIndex((c: any) => c.id === data.id)
+    if (currentIndex === -1) return
+
+    if (direction === 'up' && currentIndex > 0) {
+      const prev = siblings[currentIndex - 1]
+      await swapOrder(data, prev)
+    } else if (direction === 'down' && currentIndex < siblings.length - 1) {
+      const next = siblings[currentIndex + 1]
+      await swapOrder(data, next)
+    }
+  } catch (err: any) {
+    ElMessage.error(`移动失败: ${err.message}`)
+  }
+}
+
+async function swapOrder(node1: any, node2: any) {
+  const order1 = node1.display_order || 0
+  const order2 = node2.display_order || 0
+
+  // 简单交换 display_order
+  await cardStore.modifyCard(node1.id, { display_order: order2 })
+  await cardStore.modifyCard(node2.id, { display_order: order1 })
+
+  ElMessage.success('已移动')
 }
 
 async function deleteNode(cardId: number, title: string) {
@@ -568,8 +688,12 @@ function getIconByCardType(typeName?: string) {
   color: #909399;
 }
 
-.card-tree {
+.tree-container {
   flex: 1;
+  overflow: hidden;
+}
+
+.card-tree {
   background: transparent;
 }
 

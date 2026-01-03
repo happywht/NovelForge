@@ -20,31 +20,41 @@ import { BASE_URL } from '@renderer/api/request'
 // 为了避免直接在 CardRead 上添加 children 属性，这里定义本地扩展类型
 type CardNode = CardRead & { children: CardNode[] }
 const buildCardTree = (cards: CardRead[]): CardNode[] => {
-  const cardMap = new Map<number, CardNode>()
-  // 将后端返回的扁平列表转换为节点列表，并附加 children 数组
-  const nodes: CardNode[] = cards.map((c) => ({ ...(c as CardRead), children: [] as CardNode[] }))
-  nodes.forEach((node) => {
-    cardMap.set(node.id, node)
-  })
+  if (!cards || cards.length === 0) return [];
 
-  const tree: CardNode[] = []
-  nodes.forEach((node) => {
-    if (node.parent_id && cardMap.has(node.parent_id)) {
-      cardMap.get(node.parent_id)!.children.push(node)
-    } else {
-      tree.push(node)
-    }
-  })
+  const nodeMap = new Map<number, CardNode>();
+  const tree: CardNode[] = [];
 
-  // 按 display_order 对每一层的节点排序
-  const sortNodes = (nodes: CardNode[]) => {
-    nodes.sort((a, b) => a.display_order - b.display_order)
-    nodes.forEach((n) => sortNodes(n.children))
+  // First pass: Create all nodes and map them
+  for (const card of cards) {
+    nodeMap.set(card.id, { ...card, children: [] });
   }
-  sortNodes(tree)
 
-  return tree
-}
+  // Second pass: Build the tree structure
+  for (const card of cards) {
+    const node = nodeMap.get(card.id)!;
+    if (card.parent_id && nodeMap.has(card.parent_id)) {
+      nodeMap.get(card.parent_id)!.children.push(node);
+    } else {
+      tree.push(node);
+    }
+  }
+
+  // Third pass: Sort nodes recursively
+  const sortNodes = (nodes: CardNode[]) => {
+    if (nodes.length > 1) {
+      nodes.sort((a, b) => (a.display_order || 0) - (b.display_order || 0));
+    }
+    for (const n of nodes) {
+      if (n.children.length > 0) {
+        sortNodes(n.children);
+      }
+    }
+  };
+
+  sortNodes(tree);
+  return tree;
+};
 
 export const useCardStore = defineStore('card', () => {
   const projectStore = useProjectStore()
@@ -179,9 +189,9 @@ export const useCardStore = defineStore('card', () => {
       const runIds: number[] =
         typeof runHeader === 'string' && runHeader.trim()
           ? runHeader
-              .split(',')
-              .map((s: string) => Number(s.trim()))
-              .filter((n: number) => Number.isFinite(n))
+            .split(',')
+            .map((s: string) => Number(s.trim()))
+            .filter((n: number) => Number.isFinite(n))
           : []
       console.log('[Workflow] 工作流启动回执 runIds =', runIds)
 
@@ -235,8 +245,8 @@ export const useCardStore = defineStore('card', () => {
                 })()
                 const affected: number[] = Array.isArray(payload?.affected_card_ids)
                   ? payload.affected_card_ids
-                      .filter((n: any) => Number.isFinite(Number(n)))
-                      .map((n: any) => Number(n))
+                    .filter((n: any) => Number.isFinite(Number(n)))
+                    .map((n: any) => Number(n))
                   : []
                 if (affected.length > 0) {
                   // 精准刷新：按受影响卡片拉取详情并合并到本地

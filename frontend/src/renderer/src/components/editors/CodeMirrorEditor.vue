@@ -116,23 +116,6 @@
             <el-icon><CircleClose /></el-icon> 停止
           </el-button>
 
-          <div class="toolbar-divider"></div>
-
-          <el-dropdown trigger="click" @command="handleAIWorkflow">
-            <el-button type="warning" size="small" :loading="aiLoading">
-              <el-icon><MagicStick /></el-icon> ✨ AI 协作
-              <el-icon class="el-icon--right"><arrow-down /></el-icon>
-            </el-button>
-            <template #dropdown>
-              <el-dropdown-menu>
-                <el-dropdown-item command="续写">自动续写本章</el-dropdown-item>
-                <el-dropdown-item command="审计">检查逻辑漏洞</el-dropdown-item>
-                <el-dropdown-item v-if="props.card.card_type?.name === '角色卡'" command="补全"
-                  >补全人物设定</el-dropdown-item
-                >
-              </el-dropdown-menu>
-            </template>
-          </el-dropdown>
 
           <!-- 流式状态显示 -->
           <div v-if="aiLoading && streamingStatus" class="streaming-status">
@@ -497,40 +480,6 @@ function resolveSampling() {
   return { temperature: src.temperature, max_tokens: src.max_tokens, timeout: src.timeout }
 }
 
-async function handleAIWorkflow(command: string) {
-  const workflowNameMap: Record<string, string> = {
-    续写: '智能章节续写与审计',
-    审计: '智能章节审计与同步',
-    补全: '角色设定智能补全'
-  }
-
-  const targetName = workflowNameMap[command]
-  if (!targetName) return
-
-  aiLoading.value = true
-  try {
-    const workflows = await listWorkflows()
-    const target = workflows.find((w) => w.name === targetName)
-    if (!target) {
-      ElMessage.error(`未找到工作流: ${targetName}`)
-      return
-    }
-
-    const scope = {
-      card_id: props.card.id,
-      project_id: props.contextParams?.project_id,
-      volume_number: localCard.content.volume_number,
-      chapter_number: localCard.content.chapter_number
-    }
-
-    await runWorkflow(target.id, { scope_json: scope, params_json: {} })
-    ElMessage.success(`${targetName} 已启动`)
-  } catch (err: any) {
-    ElMessage.error(`启动失败: ${err.message}`)
-  } finally {
-    aiLoading.value = false
-  }
-}
 
 function formatFactsFromContext(ctx: any): string {
   try {
