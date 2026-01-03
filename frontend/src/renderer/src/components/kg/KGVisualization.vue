@@ -40,7 +40,10 @@ import { ZoomIn, ZoomOut, FullScreen, Refresh, Aim, Close } from '@element-plus/
 
 const props = defineProps<{
   projectId: number | null
+  povCharacter?: string
 }>()
+
+const loading = ref(false)
 
 const wrapperRef = ref<HTMLElement | null>(null)
 const containerRef = ref<HTMLElement | null>(null)
@@ -113,8 +116,11 @@ const initGraph = () => {
 
 const fetchData = async () => {
   if (!props.projectId || !graph) return
+  loading.value = true
   try {
-    const data = await getProjectGraph(props.projectId)
+    // 这里的 API 以后可以扩展支持 pov_character
+    const res = await getProjectGraph(props.projectId, props.povCharacter)
+    const data = res
     if (data && data.nodes && data.nodes.length > 0) {
       handleResize()
       
@@ -223,6 +229,13 @@ onUnmounted(() => {
 
 watch(
   () => props.projectId,
+  () => {
+    fetchData()
+  }
+)
+
+watch(
+  () => props.povCharacter,
   () => {
     fetchData()
   }

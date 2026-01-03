@@ -148,10 +148,38 @@ class DynamicInfoService:
         cards = self.session.exec(stmt).all()
         card_map = {c.title: c for c in cards if c.card_type and c.card_type.name == '角色卡'}
 
+        # 获取角色卡类型 ID
+        char_type = self.session.exec(select(CardType).where(CardType.name == '角色卡')).first()
+        char_type_id = char_type.id if char_type else None
+
         for info_group in data.info_list:
             card = updated_cards.get(info_group.name) or card_map.get(info_group.name)
+            
+            # 如果卡片不存在且我们有角色卡类型，则新建
             if not card:
-                continue
+                if char_type_id and project_id:
+                    logger.info(f"Creating new character card for: {info_group.name}")
+                    try:
+                        # 决定显示顺序（追加到末尾）
+                        stmt_count = select(Card).where(Card.project_id == project_id, Card.parent_id == None)
+                        display_order = len(self.session.exec(stmt_count).all())
+                        
+                        card = Card(
+                            title=info_group.name,
+                            project_id=project_id,
+                            card_type_id=char_type_id,
+                            parent_id=None,
+                            display_order=display_order,
+                            content={"name": info_group.name, "entity_type": "character", "description": "由 AI 自动提取创建"}
+                        )
+                        self.session.add(card)
+                        self.session.flush() # 获取 ID
+                        updated_cards[card.title] = card
+                    except Exception as e:
+                        logger.error(f"Failed to create card for {info_group.name}: {e}")
+                        continue
+                else:
+                    continue
 
             try:
                 model = CharacterCard.model_validate(card.content or {})

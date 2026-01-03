@@ -139,12 +139,48 @@ class RelationService:
             if not allowed or (type_a, type_b) in allowed: return kind_cn
             return '关于'
 
+        # 获取卡片类型映射
+        card_types = self.session.exec(select(CardType).where(CardType.name.in_(['角色卡', '场景卡', '组织卡']))).all()
+        type_name_to_id = {ct.name: ct.id for ct in card_types}
+        
+        # 实体类型到卡片类型名称的映射
+        entity_to_card_type = {
+            'character': '角色卡',
+            'scene': '场景卡',
+            'organization': '组织卡'
+        }
+
         for r in (data.relations or []):
             pred = CN_TO_EN_KIND.get(r.kind or '', '')
             if not pred: continue
             
-            type_a = participant_type_map.get(r.a) or _guess_entity_type(self.session, project_id, r.a)
-            type_b = participant_type_map.get(r.b) or _guess_entity_type(self.session, project_id, r.b)
+            type_a = participant_type_map.get(r.a) or _guess_entity_type(self.session, project_id, r.a) or 'character'
+            type_b = participant_type_map.get(r.b) or _guess_entity_type(self.session, project_id, r.b) or 'character'
+
+            # 确保卡片存在
+            for name, etype in [(r.a, type_a), (r.b, type_b)]:
+                st = select(Card).where(Card.project_id == project_id, Card.title == name)
+                card = self.session.exec(st).first()
+                if not card:
+                    ct_name = entity_to_card_type.get(etype, '角色卡')
+                    ct_id = type_name_to_id.get(ct_name)
+                    if ct_id:
+                        logger.info(f"Creating new {ct_name} for: {name}")
+                        try:
+                            stmt_count = select(Card).where(Card.project_id == project_id, Card.parent_id == None)
+                            display_order = len(self.session.exec(stmt_count).all())
+                            new_card = Card(
+                                title=name,
+                                project_id=project_id,
+                                card_type_id=ct_id,
+                                parent_id=None,
+                                display_order=display_order,
+                                content={"name": name, "entity_type": etype, "description": "由 AI 自动提取创建"}
+                            )
+                            self.session.add(new_card)
+                            self.session.flush()
+                        except Exception as e:
+                            logger.error(f"Failed to create card for {name}: {e}")
 
             kind_cn_fixed = _coerce_kind_by_types(r.kind, type_a, type_b)
             pred = CN_TO_EN_KIND.get(kind_cn_fixed, pred)
@@ -181,6 +217,8 @@ class RelationService:
                 "recent_dialogues": attributes.get("recent_dialogues", []),
                 "recent_event_summaries": [s.get('summary') for s in attributes.get("recent_event_summaries", [])]
             }
+        
+        self.session.commit()
 
         if triples_with_attrs:
             try:

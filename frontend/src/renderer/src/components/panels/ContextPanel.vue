@@ -6,6 +6,23 @@
         <h3 class="panel-title">上下文感知</h3>
       </div>
       <div class="header-right">
+        <div v-if="viewMode === 'graph'" class="pov-selector">
+          <span class="label">POV 视角:</span>
+          <el-select
+            v-model="povCharacter"
+            placeholder="选择视角角色"
+            size="small"
+            clearable
+            style="width: 140px"
+          >
+            <el-option
+              v-for="p in characterParticipants"
+              :key="p"
+              :label="p"
+              :value="p"
+            />
+          </el-select>
+        </div>
         <el-radio-group v-model="viewMode" size="small" class="view-toggle">
           <el-radio-button value="list"
             ><el-icon><Memo /></el-icon
@@ -43,7 +60,7 @@
 
     <div class="panel-content custom-scrollbar" :class="{ 'is-graph': viewMode === 'graph' }">
       <template v-if="viewMode === 'graph'">
-        <KGVisualization v-if="projectId" :project-id="projectId" />
+        <KGVisualization v-if="projectId" :project-id="projectId" :pov-character="povCharacter" />
         <el-empty v-else description="未选择项目" />
       </template>
       <div v-else-if="assembled" class="assembled-container">
@@ -196,6 +213,8 @@ const assembling = ref(false)
 const assembled = ref<AssembleContextResponse | null>(null)
 const showRaw = ref(false)
 const viewMode = ref<'list' | 'graph'>('list')
+const povCharacter = ref<string | undefined>(undefined)
+const characterParticipants = ref<string[]>([])
 
 type Group = { label: string; values: string[] }
 const participantGroups = ref<Group[]>([])
@@ -282,8 +301,11 @@ async function buildAllGroups() {
         values: Array.from(buckets.get(label) || []).sort((a, b) => a.localeCompare(b))
       }))
       .filter((g) => g.values.length > 0)
+    
+    characterParticipants.value = Array.from(buckets.get('角色') || []).sort((a, b) => a.localeCompare(b))
   } catch {
     participantGroups.value = []
+    characterParticipants.value = []
   }
 }
 
