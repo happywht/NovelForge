@@ -32,3 +32,13 @@ export const updateProject = (id: number, data: ProjectUpdate): Promise<void> =>
 export const deleteProject = (id: number): Promise<void> => {
   return request.delete(`/projects/${id}`)
 }
+
+export const reverseImport = (id: number, data: { text: string; regex_pattern?: string }): Promise<any> => {
+  return request.post(`/projects/${id}/reverse-import`, data)
+}
+
+export const reversePreview = (id: number, data: { text: string; regex_pattern?: string }): Promise<any> => {
+  return request.post(`/projects/${id}/reverse-preview`, data)
+}
+
+

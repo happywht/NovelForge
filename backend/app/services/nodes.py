@@ -1271,3 +1271,178 @@ def node_card_template_apply(session: Session, state: dict, params: dict) -> dic
     
     return {"success": True, "card_id": card_id, "template_id": template_id}
 
+
+@register_node("Outline.Generate")
+async def node_outline_generate(session: Session, state: dict, params: dict) -> dict:
+    """
+    Outline.Generate: 为章节生成梗概并同步到大纲卡片
+    params:
+      - sourcePath: 章节内容路径 (默认 "$.content.content")
+      - targetCardType: 大纲卡片类型 (默认 "章节大纲")
+    """
+    source_path = params.get("sourcePath", "$.content.content")
+    content = _get_from_state(source_path, state)
+    if isinstance(content, dict):
+        content = content.get("content") or content.get("text") or str(content)
+    
+    if not content or len(str(content).strip()) < 10:
+        return {"success": False, "error": "Content too short or empty"}
+
+    project_id = state.get("scope", {}).get("project_id")
+    card_id = state.get("scope", {}).get("card_id")
+    if not project_id or not card_id:
+        raise ValueError("Outline.Generate 缺少 project_id 或 card_id")
+
+    # 1. 获取 LLM 配置
+    configs = llm_config_service.get_llm_configs(session)
+    llm_config_id = configs[0].id if configs else 1
+
+    # 2. 调用 LLM 生成梗概
+    class OutlineResult(BaseModel):
+        summary: str
+
+    user_prompt = f"请为以下小说章节内容生成一段简洁的梗概（200-500字），重点描述核心情节和转折：\n\n{content}"
+    system_prompt = "你是一个专业的小说编辑，擅长提炼章节大纲。"
+
+    result = await agent_service.run_llm_agent(
+        session=session,
+        llm_config_id=llm_config_id,
+        user_prompt=user_prompt,
+        system_prompt=system_prompt,
+        output_type=OutlineResult
+    )
+
+    summary = result.summary
+
+    # 3. 查找或创建大纲卡片
+    from app.services.card_service import CardService
+    from app.schemas.card import CardCreate, CardUpdate
+    card_svc = CardService(session)
+    
+    current_card = card_svc.get_by_id(card_id)
+    if not current_card:
+        return {"success": False, "error": "Current card not found"}
+
+    target_type_name = params.get("targetCardType", "章节大纲")
+    ct = session.exec(select(CardType).where(CardType.name == target_type_name)).first()
+    if not ct:
+        return {"success": False, "error": f"Card type {target_type_name} not found"}
+
+    # 查找同父级下同名的大纲卡片
+    stmt = select(Card).where(
+        Card.project_id == project_id,
+        Card.parent_id == current_card.parent_id,
+        Card.card_type_id == ct.id,
+        Card.title == current_card.title
+    )
+    outline_card = session.exec(stmt).first()
+
+    if outline_card:
+        card_svc.update(outline_card.id, CardUpdate(content={"content": summary}))
+    else:
+        card_svc.create(CardCreate(
+            title=current_card.title,
+            project_id=project_id,
+            parent_id=current_card.parent_id,
+            card_type_id=ct.id,
+            content={"content": summary},
+            display_order=current_card.display_order
+        ))
+
+    return {"success": True, "summary": summary}
+
+
+@register_node("World.Aggregate")
+async def node_world_aggregate(session: Session, state: dict, params: dict) -> dict:
+    """
+    World.Aggregate: 聚合项目中的实体信息，生成/更新世界观设定卡片
+    params:
+      - targetFolder: 存放设定卡片的文件夹名称 (默认 "世界观设定")
+    """
+    project_id = state.get("scope", {}).get("project_id")
+    if not project_id:
+        raise ValueError("World.Aggregate 缺少 project_id")
+
+    from app.services.memory_service import MemoryService
+    memory_svc = MemoryService(session)
+    
+    # 1. 获取所有实体和关系
+    # 这里简化处理：获取最近提取的实体或从 KG 中聚合
+    # 实际上我们可以调用 memory_svc 相关的聚合方法
+    entities = memory_svc.get_all_entities(project_id)
+    if not entities:
+        return {"success": False, "error": "No entities found in Knowledge Graph"}
+
+    entity_desc = "\n".join([f"- {e.name} ({e.type}): {e.description or ''}" for e in entities[:50]])
+
+    # 2. 调用 LLM 聚合世界观
+    class WorldSetting(BaseModel):
+        title: str
+        content: str
+
+    class WorldAggregateResult(BaseModel):
+        settings: List[WorldSetting]
+
+    user_prompt = f"以下是从小说中提取的实体信息，请根据这些信息归纳并撰写系统的世界观设定（如地理环境、力量体系、势力分布等）：\n\n{entity_desc}"
+    system_prompt = "你是一个资深的世界观架构师，擅长从零散信息中构建宏大且严谨的设定系统。"
+
+    configs = llm_config_service.get_llm_configs(session)
+    llm_config_id = configs[0].id if configs else 1
+
+    result = await agent_service.run_llm_agent(
+        session=session,
+        llm_config_id=llm_config_id,
+        user_prompt=user_prompt,
+        system_prompt=system_prompt,
+        output_type=WorldAggregateResult
+    )
+
+    # 3. 创建/更新设定卡片
+    from app.services.card_service import CardService
+    from app.schemas.card import CardCreate, CardUpdate
+    card_svc = CardService(session)
+
+    # 查找或创建“世界观设定”文件夹
+    folder_name = params.get("targetFolder", "世界观设定")
+    folder_type = session.exec(select(CardType).where(CardType.name == "文件夹")).first()
+    setting_type = session.exec(select(CardType).where(CardType.name == "世界观设定")).first()
+    
+    if not folder_type or not setting_type:
+        return {"success": False, "error": "Required card types (文件夹/世界观设定) not found"}
+
+    stmt = select(Card).where(Card.project_id == project_id, Card.title == folder_name, Card.card_type_id == folder_type.id)
+    folder = session.exec(stmt).first()
+    if not folder:
+        folder = card_svc.create(CardCreate(
+            title=folder_name,
+            project_id=project_id,
+            card_type_id=folder_type.id,
+            content={}
+        ))
+
+    created_cards = []
+    for setting in result.settings:
+        # 查找同名设定卡片
+        stmt = select(Card).where(
+            Card.project_id == project_id,
+            Card.parent_id == folder.id,
+            Card.title == setting.title,
+            Card.card_type_id == setting_type.id
+        )
+        existing = session.exec(stmt).first()
+        if existing:
+            card_svc.update(existing.id, CardUpdate(content={"content": setting.content}))
+            created_cards.append(existing.id)
+        else:
+            new_c = card_svc.create(CardCreate(
+                title=setting.title,
+                project_id=project_id,
+                parent_id=folder.id,
+                card_type_id=setting_type.id,
+                content={"content": setting.content}
+            ))
+            created_cards.append(new_c.id)
+
+    return {"success": True, "created_card_ids": created_cards}
+
+

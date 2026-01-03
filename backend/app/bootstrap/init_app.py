@@ -516,12 +516,14 @@ def init_workflows(db: Session):
             {"id": "read_chapter", "type": "Card.Read", "params": {"target": "$self", "type_name": "章节正文"}, "position": {"x": 40, "y": 80}},
             {"id": "assemble_ctx", "type": "Context.Assemble", "params": {"participants": "{$.content.entity_list}", "max_chapter_id": "{$.content.chapter_number}"}, "position": {"x": 460, "y": 80}},
             {"id": "audit_content", "type": "Audit.Consistency", "params": {"sourcePath": "$.content.content"}, "position": {"x": 880, "y": 80}},
-            {"id": "update_kg", "type": "KG.UpdateFromContent", "params": {"sourcePath": "$.content.content", "participants": "{$.content.entity_list}"}, "position": {"x": 880, "y": 260}}
+            {"id": "generate_outline", "type": "Outline.Generate", "params": {"sourcePath": "$.content.content"}, "position": {"x": 1300, "y": 80}},
+            {"id": "update_kg", "type": "KG.UpdateFromContent", "params": {"sourcePath": "$.content.content", "participants": "{$.content.entity_list}"}, "position": {"x": 1300, "y": 260}}
         ],
         "edges": [
             {"id": "e-read-assemble", "source": "read_chapter", "target": "assemble_ctx", "sourceHandle": "r", "targetHandle": "l"},
             {"id": "e-assemble-audit", "source": "assemble_ctx", "target": "audit_content", "sourceHandle": "r", "targetHandle": "l"},
-            {"id": "e-audit-update", "source": "audit_content", "target": "update_kg", "sourceHandle": "r", "targetHandle": "l"}
+            {"id": "e-audit-outline", "source": "audit_content", "target": "generate_outline", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e-outline-update", "source": "generate_outline", "target": "update_kg", "sourceHandle": "r", "targetHandle": "l"}
         ]
     }
 
@@ -576,6 +578,21 @@ def init_workflows(db: Session):
     }
 
     c, u, s = _create_or_update_workflow(db, name8, "角色卡：根据现有知识图谱事实自动补全角色设定（性格、动机等）", dsl8, "角色卡", overwrite)
+    total_created += c
+    total_updated += u
+    total_skipped += s
+
+    # ---------------- 项目 · 世界观深度归纳 ----------------
+    name9 = "世界观深度归纳"
+    dsl9 = {
+        "dsl_version": 1,
+        "name": name9,
+        "nodes": [
+            {"id": "aggregate_world", "type": "World.Aggregate", "params": {"targetFolder": "世界观设定"}, "position": {"x": 40, "y": 80}}
+        ],
+        "edges": []
+    }
+    c, u, s = _create_or_update_workflow(db, name9, "项目：聚合知识图谱中的所有事实，自动归纳并撰写系统的世界观设定卡片", dsl9, "项目", overwrite)
     total_created += c
     total_updated += u
     total_skipped += s

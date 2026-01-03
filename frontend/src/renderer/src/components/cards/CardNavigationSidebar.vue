@@ -44,12 +44,13 @@
         <div class="cards-title-text">当前项目：{{ projectStore.currentProject?.name }}</div>
         <div class="cards-title-actions">
           <el-button size="small" type="primary" @click="openCreateRoot">新建卡片</el-button>
-          <el-button v-if="!isFreeProject" size="small" @click="openImportFreeCards"
-            >导入卡片</el-button
-          >
+          <el-button v-if="!isFreeProject" size="small" @click="openImportFreeCards">导入卡片</el-button>
+          <el-button v-if="!isFreeProject" size="small" @click="handleImportPackage">导入模组</el-button>
+          <el-button v-if="!isFreeProject" size="small" type="warning" @click="reverseImportVisible = true">反向工程</el-button>
         </div>
       </div>
       <div ref="treeContainer" class="tree-container">
+
         <el-tree-v2
           v-if="groupedTree.length > 0"
           ref="treeRef"
@@ -97,11 +98,15 @@
                     <el-dropdown-item command="move-to">移动到...</el-dropdown-item>
                     <el-dropdown-item command="edit-structure">结构编辑</el-dropdown-item>
                     <el-dropdown-item command="add-as-reference">添加为引用</el-dropdown-item>
+                    <el-dropdown-item command="export-package" divided>导出为模组</el-dropdown-item>
                     <el-dropdown-item command="delete" divided>删除卡片</el-dropdown-item>
                   </template>
                   <template v-else>
                     <el-dropdown-item command="delete-group" divided
                       >删除该分组下所有卡片</el-dropdown-item
+                    >
+                    <el-dropdown-item v-if="node.data.__groupType === '世界观设定'" command="aggregate-world"
+                      >深度归纳世界观</el-dropdown-item
                     >
                   </template>
                 </el-dropdown-menu>
@@ -202,8 +207,11 @@
         <el-button type="primary" @click="handleMoveTo">确定</el-button>
       </template>
     </el-dialog>
+
+    <ReverseImportDialog v-model:visible="reverseImportVisible" />
   </el-aside>
 </template>
+
 
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted, onUnmounted } from 'vue'
@@ -228,6 +236,7 @@ import { useAssistantStore } from '@renderer/stores/useAssistantStore'
 import { useCardTree } from '@renderer/composables/useCardTree'
 import { useCardDragDrop } from '@renderer/composables/useCardDragDrop'
 import SchemaStudio from '@renderer/components/shared/SchemaStudio.vue'
+import ReverseImportDialog from '@renderer/components/cards/ReverseImportDialog.vue'
 
 const props = defineProps<{
   leftSidebarWidth: number
@@ -244,6 +253,9 @@ const { expandedKeys, groupedTree, onNodeExpand, onNodeCollapse, updateProjectSt
   useCardTree()
 
 const isFreeProject = computed(() => (projectStore.currentProject?.name || '') === '__free__')
+
+const reverseImportVisible = ref(false)
+
 
 // 内部垂直分割：类型/卡片高度
 const typesPaneHeight = ref(180)
@@ -426,8 +438,13 @@ function handleContextCommand(command: string, data: any) {
     moveNode(data, 'down')
   } else if (command === 'move-to') {
     openMoveTo(data)
+  } else if (command === 'export-package') {
+    handleExportPackage(data)
+  } else if (command === 'aggregate-world') {
+    handleAggregateWorld()
   }
 }
+
 
 function openMoveTo(data: any) {
   if (!data?.id || data.__isGroup) return
@@ -562,6 +579,100 @@ function addAsReference(data: any) {
     )
     ElMessage.success('已添加为引用')
   } catch {}
+}
+
+async function handleExportPackage(data: any) {
+  if (!data?.id) return
+  try {
+    const { exportCardPackage } = await import('@renderer/api/package')
+    const res = await exportCardPackage(data.id)
+    const blob = new Blob([JSON.stringify(res, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${data.title || 'package'}.nfpkg.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    ElMessage.success('导出成功')
+  } catch (err: any) {
+    ElMessage.error(`导出失败: ${err.message}`)
+  }
+}
+
+async function handleAggregateWorld() {
+  const project = projectStore.currentProject
+  if (!project?.id) return
+
+  try {
+    await ElMessageBox.confirm(
+      '“深度归纳世界观”将分析本项目中已提取的所有实体事实，自动生成或更新系统的世界观设定卡片。是否继续？',
+      '世界观归纳确认',
+      { type: 'info', confirmButtonText: '开始归纳', cancelButtonText: '取消' }
+    )
+
+    const loading = ElMessage({
+      message: '正在深度归纳世界观设定...',
+      type: 'info',
+      duration: 0
+    })
+
+    const { listWorkflows, runWorkflow } = await import('@renderer/api/workflows')
+    const workflows = await listWorkflows()
+    const wf = workflows.find((w) => w.name === '世界观深度归纳')
+
+    if (!wf?.id) {
+      loading.close()
+      throw new Error('未找到“世界观深度归纳”工作流')
+    }
+
+    await runWorkflow(wf.id, {
+      scope_json: { project_id: project.id },
+      params_json: {}
+    })
+
+    loading.close()
+    ElMessage.success('世界观归纳完成！')
+    await cardStore.fetchCards(project.id)
+  } catch (e) {
+    if (e !== 'cancel') {
+      ElMessage.error('世界观归纳过程中发生错误')
+      console.error('World aggregate failed:', e)
+    }
+  }
+}
+
+
+async function handleImportPackage() {
+  const input = document.createElement('input')
+  input.type = 'file'
+  input.accept = '.json'
+  input.onchange = async (e: any) => {
+    const file = e.target.files[0]
+    if (!file) return
+    
+    const reader = new FileReader()
+    reader.onload = async (ev) => {
+      try {
+        const json = JSON.parse(ev.target?.result as string)
+        const { importCardPackage } = await import('@renderer/api/package')
+        const projectId = projectStore.currentProject?.id
+        if (!projectId) return
+        
+        await importCardPackage(projectId, {
+          package_data: json,
+          target_parent_id: null
+        })
+        ElMessage.success('导入成功')
+        cardStore.fetchCards(projectId)
+      } catch (err: any) {
+        ElMessage.error(`导入失败: ${err.message}`)
+      }
+    }
+    reader.readAsText(file)
+  }
+  input.click()
 }
 
 function onCardSchemaSaved() {

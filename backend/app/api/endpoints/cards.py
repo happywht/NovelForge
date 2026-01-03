@@ -16,6 +16,9 @@ from app.schemas.card import CardCopyOrMoveRequest
 from app.services.workflow_triggers import trigger_on_card_save
 from fastapi import Response
 from app.services import history_service
+from app.services.card_package_service import CardPackageService
+from pydantic import BaseModel
+from typing import Optional
 
 router = APIRouter()
 
@@ -382,3 +385,26 @@ def apply_card_ai_params_to_type(card_id: int, db: Session = Depends(get_session
     db.commit()
     db.refresh(c.card_type)
     return {"ai_params": c.card_type.ai_params} 
+
+class CardPackageImportRequest(BaseModel):
+    target_parent_id: Optional[int] = None
+    package_data: Dict[str, Any]
+
+@router.post("/cards/{card_id}/export")
+def export_card_package(card_id: int, db: Session = Depends(get_session)):
+    """导出卡片包（包含子卡片）"""
+    service = CardPackageService(db)
+    try:
+        return service.export_package(card_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+@router.post("/projects/{project_id}/import-package")
+def import_card_package(project_id: int, payload: CardPackageImportRequest, db: Session = Depends(get_session)):
+    """导入卡片包"""
+    service = CardPackageService(db)
+    try:
+        root_id = service.import_package(project_id, payload.target_parent_id, payload.package_data)
+        return {"success": True, "root_card_id": root_id}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
