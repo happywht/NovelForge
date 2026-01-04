@@ -162,6 +162,7 @@
       @expand="expandContextMenu"
       @polish="handleContextMenuPolish"
       @expand-text="handleContextMenuExpand"
+      @continue="executeAIContinuation"
       @close="closeContextMenu"
     />
   </div>
@@ -736,6 +737,14 @@ function initEditor() {
       key: 'Mod-s',
       run: () => {
         handleSave()
+        return true
+      },
+      preventDefault: true
+    },
+    {
+      key: 'Mod-Shift-c',
+      run: () => {
+        executeAIContinuation()
         return true
       },
       preventDefault: true

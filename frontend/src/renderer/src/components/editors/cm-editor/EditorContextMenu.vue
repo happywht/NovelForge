@@ -1,8 +1,11 @@
 <template>
   <Teleport to="body">
     <div v-if="visible" class="context-menu-popup" :style="{ left: x + 'px', top: y + 'px' }">
-      <div v-if="!expanded" class="context-menu-compact">
-        <el-button type="primary" size="small" @click="$emit('expand')"> 快速编辑 </el-button>
+      <div v-if="!expanded" class="context-menu-compact" style="display: flex; gap: 8px;">
+        <el-button type="primary" size="small" @click="$emit('continue')">
+          <el-icon><MagicStick /></el-icon> 续写
+        </el-button>
+        <el-button size="small" @click="$emit('expand')"> 更多... </el-button>
       </div>
       <div v-else class="context-menu-expanded">
         <el-input

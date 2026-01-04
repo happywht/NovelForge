@@ -4,6 +4,7 @@ import { generateContinuationStreaming } from '@renderer/api/ai'
 import type { ContinuationRequest } from '@renderer/api/ai'
 import { extractDynamicInfoOnly, extractRelationsOnly } from '@renderer/api/memory'
 import { resolveTemplate } from '@renderer/services/contextResolver'
+import { useGlobalStatusStore } from '@renderer/stores/useGlobalStatusStore'
 
 export interface EditorContext {
   getText: () => string
@@ -30,6 +31,7 @@ export function useEditorAI(ctx: EditorContext) {
   const streamHandle = ref<any>(null)
   const streamingStatus = ref('')
   const streamedCharCount = ref(0)
+  const globalStatus = useGlobalStatusStore()
 
   function interruptStream() {
     if (streamHandle.value) {
@@ -37,6 +39,7 @@ export function useEditorAI(ctx: EditorContext) {
       streamHandle.value = null
       aiLoading.value = false
       streamingStatus.value = '已停止'
+      globalStatus.stopLoading()
       ElMessage.info('已停止生成')
     }
   }
@@ -52,6 +55,7 @@ export function useEditorAI(ctx: EditorContext) {
     aiLoading.value = true
     streamingStatus.value = '正在连接...'
     streamedCharCount.value = 0
+    globalStatus.startLoading(`${taskName}中...`)
     ctx.clearHighlight()
 
     let accumulated = ''
@@ -81,7 +85,10 @@ export function useEditorAI(ctx: EditorContext) {
           // 计算速度
           const elapsed = (Date.now() - startTime) / 1000
           const speed = elapsed > 0 ? (accumulated.length / elapsed).toFixed(1) : '0'
-          streamingStatus.value = `正在生成... ${accumulated.length}字 (${speed}字/秒)`
+          const statusText = `正在生成... ${accumulated.length}字 (${speed}字/秒)`
+          streamingStatus.value = statusText
+          globalStatus.setLoadingMessage(statusText)
+          globalStatus.setProgress(Math.min(95, (accumulated.length / 500) * 100)) // 假进度
 
           // 增量更新编辑器
           ctx.dispatch({
@@ -99,6 +106,7 @@ export function useEditorAI(ctx: EditorContext) {
           aiLoading.value = false
           streamHandle.value = null
           streamingStatus.value = '生成完成'
+          globalStatus.stopLoading()
           ElMessage.success(`${taskName}完成，共 ${accumulated.length} 字`)
           setTimeout(() => {
             ctx.clearHighlight()
@@ -109,12 +117,14 @@ export function useEditorAI(ctx: EditorContext) {
           aiLoading.value = false
           streamHandle.value = null
           streamingStatus.value = '生成失败'
+          globalStatus.stopLoading()
           ElMessage.error(`${taskName}失败: ${err.message || '未知错误'}`)
         }
       )
     } catch (e: any) {
       aiLoading.value = false
       streamingStatus.value = '启动失败'
+      globalStatus.stopLoading()
       ElMessage.error(`启动${taskName}失败: ${e.message}`)
     }
   }
@@ -153,7 +163,7 @@ export function useEditorAI(ctx: EditorContext) {
     let factsText = ''
     try {
       factsText = ctx.formatFactsFromContext(ctx.getPrefetched())
-    } catch {}
+    } catch { }
 
     const contextParts: string[] = []
     if (resolvedContextTemplate) contextParts.push(`【引用上下文】\n${resolvedContextTemplate}`)
@@ -190,12 +200,12 @@ export function useEditorAI(ctx: EditorContext) {
       if (sampling.temperature != null) (requestData as any).temperature = sampling.temperature
       if (sampling.max_tokens != null) (requestData as any).max_tokens = sampling.max_tokens
       if (sampling.timeout != null) (requestData as any).timeout = sampling.timeout
-    } catch {}
+    } catch { }
 
     try {
       const participants = ctx.extractParticipantsForCurrentChapter()
       if (participants.length) (requestData as any).participants = participants
-    } catch {}
+    } catch { }
 
     executeAIGeneration(requestData, true, promptName, selectedText.from, selectedText.to)
   }
@@ -203,6 +213,7 @@ export function useEditorAI(ctx: EditorContext) {
   async function extractDynamicInfoWithLlm(llmConfigId: number, cardId: number, text: string) {
     try {
       aiLoading.value = true
+      globalStatus.startLoading('正在提取动态信息...')
       const data = await extractDynamicInfoOnly({
         card_id: cardId,
         text: text,
@@ -214,6 +225,7 @@ export function useEditorAI(ctx: EditorContext) {
       throw e
     } finally {
       aiLoading.value = false
+      globalStatus.stopLoading()
     }
   }
 
@@ -226,6 +238,7 @@ export function useEditorAI(ctx: EditorContext) {
   ) {
     try {
       aiLoading.value = true
+      globalStatus.startLoading('正在提取人物关系...')
       const data = await extractRelationsOnly({
         text,
         participants,
@@ -239,6 +252,7 @@ export function useEditorAI(ctx: EditorContext) {
       throw e
     } finally {
       aiLoading.value = false
+      globalStatus.stopLoading()
     }
   }
 

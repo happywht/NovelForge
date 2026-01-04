@@ -5,6 +5,7 @@ import Dashboard from './views/Dashboard.vue'
 import Editor from './views/Editor.vue'
 import Header from './components/common/Header.vue'
 import SettingsDialog from './components/common/SettingsDialog.vue'
+import GlobalLoadingBar from './components/common/GlobalLoadingBar.vue'
 import { useAppStore } from './stores/useAppStore'
 import { useProjectStore } from './stores/useProjectStore'
 import type { components } from '@renderer/types/generated'
@@ -72,6 +73,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-layout">
+    <GlobalLoadingBar />
     <Header v-if="!isNoHeader" />
     <main class="main-content">
       <Dashboard v-if="currentView === 'dashboard'" @project-selected="handleProjectSelected" />

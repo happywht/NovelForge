@@ -151,8 +151,9 @@ def create_card_for_project(project_id: int, card: CardCreate, db: Session = Dep
         run_ids = trigger_on_card_save(db, created)
         if response is not None and run_ids:
             response.headers["X-Workflows-Started"] = ",".join(str(r) for r in run_ids)
-    except Exception:
-        logger.exception("OnSave workflow trigger failed")
+            logger.info(f"[Card.Create] Triggered {len(run_ids)} workflows: {run_ids}")
+    except Exception as e:
+        logger.error(f"[Card.Create] OnSave workflow trigger failed: {e}")
     return created
 
 @router.get("/projects/{project_id}/cards", response_model=List[CardRead])
@@ -178,8 +179,9 @@ def update_card(card_id: int, card: CardUpdate, db: Session = Depends(get_sessio
         run_ids = trigger_on_card_save(db, db_card)
         if response is not None and run_ids:
             response.headers["X-Workflows-Started"] = ",".join(str(r) for r in run_ids)
-    except Exception:
-        logger.exception("OnSave workflow trigger failed")
+            logger.info(f"[Card.Update] Triggered {len(run_ids)} workflows: {run_ids}")
+    except Exception as e:
+        logger.error(f"[Card.Update] OnSave workflow trigger failed: {e}")
     return db_card
 
 

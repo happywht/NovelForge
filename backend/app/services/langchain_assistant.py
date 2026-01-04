@@ -255,7 +255,12 @@ async def _invoke_assistant_tool(tool_name: str, args: Dict[str, Any]) -> Dict[s
             tool_name,
             json.dumps(args or {}, ensure_ascii=False, default=str),
         )
-        result = tool.invoke(args or {})
+        
+        # 检查工具是否为异步工具
+        if getattr(tool, "coroutine", None):
+            result = await tool.ainvoke(args or {})
+        else:
+            result = tool.invoke(args or {})
 
         # 结果中可能包含较大 JSON，这里只截断前 500 个字符，避免刷屏
         try:
