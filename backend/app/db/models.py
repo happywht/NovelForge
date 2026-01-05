@@ -224,3 +224,24 @@ class CardTemplate(SQLModel, table=True):
     content: Any = Field(default={}, sa_column=Column(JSON))
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     is_built_in: bool = Field(default=False)
+
+
+# 角色对话系统
+class ChatSession(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    project_id: int = Field(foreign_key="project.id")
+    character_card_id: int = Field(foreign_key="card.id")
+    title: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+    messages: List["ChatMessage"] = Relationship(back_populates="session", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+
+class ChatMessage(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    session_id: int = Field(foreign_key="chatsession.id")
+    session: ChatSession = Relationship(back_populates="messages")
+    role: str = Field(index=True)  # user, assistant, system
+    content: str
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)

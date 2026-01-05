@@ -3,6 +3,7 @@ import { ref, computed, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { ElMessage } from 'element-plus'
 import AssistantPanel from './AssistantPanel.vue'
+import CharacterChatPanel from './CharacterChatPanel.vue'
 import ContextPanel from '@renderer/components/panels/ContextPanel.vue'
 import ChapterToolsPanel from '@renderer/components/panels/ChapterToolsPanel.vue'
 import OutlinePanel from '@renderer/components/panels/OutlinePanel.vue'
@@ -164,6 +165,12 @@ defineExpose({
     <!-- 章节正文卡片：显示4个Tab -->
     <template v-if="isChapterContent">
       <el-tabs v-model="activeRightTab" type="card" class="right-tabs">
+        <el-tab-pane label="角色" name="character">
+          <CharacterChatPanel 
+            v-if="projectStore.currentProject?.id"
+            :project-id="projectStore.currentProject.id" 
+          />
+        </el-tab-pane>
         <el-tab-pane label="助手" name="assistant">
           <AssistantPanel
             :resolved-context="assistantResolvedContext"

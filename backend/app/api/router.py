@@ -8,6 +8,7 @@ from app.api.endpoints import knowledge as knowledge_ep
 from app.api.endpoints import workflows as workflows_ep
 from app.api.endpoints import assistant as assistant_ep
 from app.api.endpoints import kg as kg_ep
+from app.api.endpoints import chat as chat_ep
 
 api_router = APIRouter()
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
@@ -23,4 +24,5 @@ api_router.include_router(memory_ep.router, prefix="/memory", tags=["memory"])
 api_router.include_router(foreshadow_ep.router, prefix="/foreshadow", tags=["foreshadow"]) 
 api_router.include_router(knowledge_ep.router, prefix="/knowledge", tags=["knowledge"]) 
 api_router.include_router(kg_ep.router, prefix="/kg", tags=["kg"])
-api_router.include_router(workflows_ep.router, tags=["workflows"]) 
+api_router.include_router(workflows_ep.router, tags=["workflows"])
+api_router.include_router(chat_ep.router, prefix="/chat", tags=["chat"]) 
