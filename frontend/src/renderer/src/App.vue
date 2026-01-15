@@ -8,6 +8,7 @@ import SettingsDialog from './components/common/SettingsDialog.vue'
 import GlobalLoadingBar from './components/common/GlobalLoadingBar.vue'
 import { useAppStore } from './stores/useAppStore'
 import { useProjectStore } from './stores/useProjectStore'
+import { useUpdateStore } from './stores/useUpdateStore'
 import type { components } from '@renderer/types/generated'
 import { schemaService } from './api/schema'
 
@@ -18,6 +19,7 @@ type Project = components['schemas']['ProjectRead']
 
 const appStore = useAppStore()
 const projectStore = useProjectStore()
+const updateStore = useUpdateStore()
 
 const { currentView, settingsDialogVisible } = storeToRefs(appStore)
 const { currentProject } = storeToRefs(projectStore)
@@ -59,11 +61,21 @@ async function syncViewFromHash() {
 }
 
 // 初始化主题和加载全局资源
-onMounted(() => {
+onMounted(async () => {
   appStore.initTheme()
   schemaService.loadSchemas() // Load all schemas on app startup
   syncViewFromHash()
   window.addEventListener('hashchange', syncViewFromHash)
+  
+  // 自动检测更新（如果开启）
+  if (updateStore.autoCheckEnabled) {
+    try {
+      await updateStore.autoCheck()
+    } catch (error) {
+      // 静默失败，不打扰用户
+      console.warn('自动检测更新失败:', error)
+    }
+  }
 })
 
 onBeforeUnmount(() => {

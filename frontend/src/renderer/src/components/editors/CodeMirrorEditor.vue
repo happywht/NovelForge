@@ -474,6 +474,7 @@ function updateHighlight(from: number, to: number) {
   view.dispatch({ effects: setHighlightEffect.of({ from, to }) })
 }
 
+
 function resolveLlmConfigId(): number | undefined {
   return (perCardParams.value || editingParams.value)?.llm_config_id
 }
@@ -544,12 +545,16 @@ function extractParticipantsWithTypeForCurrentChapter() {
   return result.slice(0, 10)
 }
 
-async function handleSave() {
+async function handleSave(newTitle?: string) {
   console.log('[CodeMirrorEditor] handleSave called')
   if (props.chapter) {
     console.log('[CodeMirrorEditor] handleSave: props.chapter is true, emitting save')
     emit('save')
     return
+  }
+  const effectiveTitle = (typeof newTitle === 'string' && newTitle.trim()) ? newTitle.trim() : localCard.title
+  if (effectiveTitle && effectiveTitle !== localCard.title) {
+      localCard.title = effectiveTitle
   }
   const trimmedTitle = localCard.title.trim()
   localCard.content = {

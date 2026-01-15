@@ -9,7 +9,12 @@
       <el-table-column prop="display_name" label="显示名称" width="150" />
       <el-table-column prop="provider" label="提供商" width="120" />
       <el-table-column prop="model_name" label="模型名称" width="200" />
-      <el-table-column prop="api_base" label="API Base" width="240" />
+      <el-table-column label="API Base" width="240">
+        <template #default="{ row }">
+          <span v-if="row.provider === 'openai_compatible'">{{ row.api_base }}</span>
+          <span v-else style="color: #909399; font-style: italic;">默认 ({{ row.provider }})</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="token_limit" label="Token上限" width="90" />
       <el-table-column prop="call_limit" label="调用上限" width="90" />
       <el-table-column width="200">
@@ -50,8 +55,9 @@
     </el-table>
 
     <!-- 编辑对话框 -->
-    <el-dialog v-model="editDialogVisible" title="编辑LLM配置" width="500px">
+    <el-dialog v-model="editDialogVisible" :title="editConfig ? '编辑LLM配置' : '新增LLM配置'" width="500px">
       <LLMConfigForm
+        v-if="editDialogVisible"
         :initial-data="editConfig"
         @save="handleSave"
         @cancel="editDialogVisible = false"

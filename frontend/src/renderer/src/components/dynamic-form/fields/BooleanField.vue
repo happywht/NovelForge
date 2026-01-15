@@ -1,36 +1,41 @@
 <template>
   <el-form-item :label="label" :prop="prop">
-    <template v-if="$slots.label" #label>
-      <slot name="label"></slot>
-    </template>
     <el-switch
-      :model-value="modelValue"
+      v-model="internalValue"
       :disabled="readonly"
-      @update:model-value="$emit('update:modelValue', $event)"
+      @change="handleChange"
     />
-    <div v-if="schema.description" class="field-desc">{{ schema.description }}</div>
   </el-form-item>
 </template>
 
 <script setup lang="ts">
-import type { JSONSchema } from '@renderer/api/schema'
+import { ref, watch } from 'vue'
 
-defineProps<{
+const props = defineProps<{
+  modelValue: boolean | undefined
   label: string
   prop: string
-  schema: JSONSchema
-  modelValue: boolean
   readonly?: boolean
 }>()
 
-defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue'])
+
+const internalValue = ref<boolean>(props.modelValue ?? false)
+
+watch(
+  () => props.modelValue,
+  (val) => {
+    internalValue.value = val ?? false
+  }
+)
+
+function handleChange(val: boolean) {
+  emit('update:modelValue', val)
+}
 </script>
 
 <style scoped>
-.field-desc {
-  font-size: 12px;
-  color: var(--el-text-color-secondary);
-  margin-top: 4px;
-  line-height: 1.4;
+.el-switch {
+  --el-switch-on-color: var(--el-color-primary);
 }
 </style>

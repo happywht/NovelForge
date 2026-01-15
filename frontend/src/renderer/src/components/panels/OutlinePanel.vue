@@ -60,9 +60,7 @@
           >
             <div class="sec-title">🌿 支线剧情</div>
             <ul class="list">
-              <li v-for="(b, i) in outline.branch_line" :key="i">
-                {{ b.name || `支线${i + 1}` }}：{{ b.overview || '暂无概述' }}
-              </li>
+              <li v-for="(b, i) in outline.branch_line" :key="i">{{ b.name || `支线${Number(i)+1}` }}：{{ b.overview || '暂无概述' }}</li>
             </ul>
           </div>
           <div
@@ -72,12 +70,8 @@
             <div class="sec-title">📖 阶段性故事线</div>
             <div v-for="(st, i) in outline.stage_lines" :key="i" class="stage">
               <div class="stage-head">
-                <span class="name">{{ st.stage_name || `阶段${i + 1}` }}</span>
-                <span
-                  v-if="Array.isArray(st.reference_chapter) && st.reference_chapter.length === 2"
-                  class="badge"
-                  >第{{ st.reference_chapter[0] }}-{{ st.reference_chapter[1] }}章</span
-                >
+                <span class="name">{{ st.stage_name || `阶段${Number(i)+1}` }}</span>
+                <span v-if="Array.isArray(st.reference_chapter) && st.reference_chapter.length === 2" class="badge">第{{ st.reference_chapter[0] }}-{{ st.reference_chapter[1] }}章</span>
               </div>
               <p class="text">{{ st.overview || '暂无概述' }}</p>
               <p v-if="st.analysis" class="analysis"><b>创作分析：</b>{{ st.analysis }}</p>
@@ -160,12 +154,15 @@ function findVolumeOutline(card: CardRead | null): void {
   }
 }
 
-// 当activeCard变化时自动查找大纲
+// 当 activeCard 或卡片仓库内容发生变化时自动查找大纲
 watch(
-  () => props.activeCard,
-  (card) => {
+  [() => props.activeCard, cards],
+  ([card]) => {
     if (card && !props.outline) {
-      findVolumeOutline(card)
+      findVolumeOutline(card as CardRead)
+    } else if (!card) {
+      internalOutline.value = null
+      internalCurrentStage.value = null
     }
   },
   { immediate: true }

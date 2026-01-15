@@ -330,5 +330,38 @@ export function matchSchemaForValue(anyOfSchemas: any[], value: any, rootSchema?
  */
 export function resolveActualSchema(schema: any, parentSchema?: any, rootSchema?: any): any {
   const localDefs = parentSchema?.$defs || {}
-  return resolveSchemaRef(schema, localDefs, rootSchema)
+  // 先解析当前节点自身（处理直接的 anyOf / $ref）
+  const base = resolveSchemaRef(schema, localDefs, rootSchema)
+
+  // 对于非对象或空值，直接返回解析结果
+  if (!base || typeof base !== 'object') return base
+
+  // 创建浅拷贝，避免意外修改原始 Schema
+  const resolved: any = { ...base }
+
+  // 递归解析 properties 中的子字段（保持与根级 $defs 一致）
+  if (resolved.properties && typeof resolved.properties === 'object') {
+    const nextProps: Record<string, any> = {}
+    for (const [key, val] of Object.entries(resolved.properties)) {
+      nextProps[key] = resolveSchemaRef(val as any, localDefs, rootSchema)
+    }
+    resolved.properties = nextProps
+  }
+
+  // 递归解析数组 items（特别是 items.$ref → #/$defs/ModelName 的场景）
+  if (resolved.items) {
+    resolved.items = resolveSchemaRef(resolved.items, localDefs, rootSchema)
+  }
+
+  // 递归解析元组 prefixItems
+  if (Array.isArray(resolved.prefixItems)) {
+    resolved.prefixItems = resolved.prefixItems.map((it: any) => resolveSchemaRef(it, localDefs, rootSchema))
+  }
+
+  // 递归解析 anyOf 中的子 schema
+  if (Array.isArray(resolved.anyOf)) {
+    resolved.anyOf = resolved.anyOf.map((it: any) => resolveSchemaRef(it, localDefs, rootSchema))
+  }
+
+  return resolved
 }

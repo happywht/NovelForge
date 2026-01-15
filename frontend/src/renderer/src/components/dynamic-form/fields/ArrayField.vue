@@ -26,7 +26,16 @@
           :readonly="readonly"
           @update:model-value="updateItem(index, $event)"
         />
-        <!-- 对于复杂类型，使用ModelDrivenForm -->
+        <!-- 对于元组类型（array + prefixItems/anyOf），使用 TupleField 渲染每个元素 -->
+        <TupleField
+          v-else-if="isTupleTypeForIndex(index)"
+          :label="`项目 ${index + 1}`"
+          :prop="String(index)"
+          :schema="getItemSchemaForIndex(index)"
+          :model-value="item"
+          @update:modelValue="updateItem(index, $event)"
+        />
+        <!-- 对于复杂对象类型，使用 ModelDrivenForm -->
         <ModelDrivenForm
           v-else
           :schema="getItemSchemaForIndex(index)"
@@ -78,6 +87,7 @@ const ModelDrivenForm = defineAsyncComponent(() => import('../ModelDrivenForm.vu
 const StringField = defineAsyncComponent(() => import('./StringField.vue'))
 const NumberField = defineAsyncComponent(() => import('./NumberField.vue'))
 const BooleanField = defineAsyncComponent(() => import('./BooleanField.vue'))
+const TupleField = defineAsyncComponent(() => import('./TupleField.vue'))
 
 const props = defineProps<{
   modelValue: any[] | undefined
@@ -104,24 +114,6 @@ function getItemSchemaForIndex(index: number): JSONSchema {
   const value = (props.modelValue || [])[index]
   if ((base as any).anyOf) {
     return matchSchemaForValue((base as any).anyOf, value, props.rootSchema) as JSONSchema
-  }
-  return base
-}
-
-function isSimpleTypeForIndex(index: number) {
-  const actualSchema = getItemSchemaForIndex(index)
-  return (
-    actualSchema.type === 'string' ||
-    actualSchema.type === 'number' ||
-    actualSchema.type === 'integer' ||
-    actualSchema.type === 'boolean'
-  )
-}
-
-function getSimpleFieldComponentForIndex(index: number) {
-  const actualSchema = getItemSchemaForIndex(index)
-  switch (actualSchema.type) {
-    case 'string':
       return StringField
     case 'number':
     case 'integer':

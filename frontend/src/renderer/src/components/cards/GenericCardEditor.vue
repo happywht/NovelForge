@@ -367,12 +367,11 @@ async function loadAIOptions() {
 
 const projectName = '当前项目'
 const lastSavedAt = ref<string | undefined>(undefined)
+
+// 顶部标题与表单 Title 字段保持同步
+// 1) 初始化为 card.title，切换卡片时重置
 const titleProxy = ref(props.card.title)
 
-/**
- * // 顶部标题与表单 Title 字段保持同步
- * // 1) 初始化为 card.title，切换卡片时重置
- */
 watch(
   () => props.card.title,
   (v) => {
@@ -380,23 +379,22 @@ watch(
   }
 )
 
-/**
- * // 2) 顶部标题变更 -> 写回表单数据中的 title (若存在)
- */
-watch(titleProxy, (v) => {
-  if (!localData.value) {
-    localData.value = { title: v }
-    return
-  }
-  if ((localData.value as any).title === v) return
-  localData.value = { ...(localData.value || {}), title: v }
-})
-
-/**
- * // 3) 表单中的 title 字段变更 -> 回写到标题栏
- */
+// 2) 顶部标题变更 -> 写回表单数据中的 title（若存在）
 watch(
-  () => localData.value && (localData.value as any).title,
+  titleProxy,
+  (v) => {
+    if (!localData.value) {
+      localData.value = { title: v }
+      return
+    }
+    if ((localData.value as any).title === v) return
+    localData.value = { ...(localData.value || {}), title: v }
+  }
+)
+
+// 3) 表单中的 title 字段变更 -> 回写到标题栏
+watch(
+  () => (localData.value && (localData.value as any).title),
   (v) => {
     if (typeof v === 'string' && v !== titleProxy.value) {
       titleProxy.value = v
@@ -405,15 +403,17 @@ watch(
 )
 
 const isDirty = computed(() => {
-  // 如果使用了自定义内容编辑器，使用其 dirty 状态
+  const ctxDirty = localAiContextTemplate.value !== originalAiContextTemplate.value
+  const titleDirty = titleProxy.value !== props.card.title
+
+  // 使用自定义内容编辑器（如章节正文）：
+  // 只要正文内容、上下文模板或标题有任一改动，都视为未保存
   if (activeContentEditor.value) {
-    return contentEditorDirty.value
+    return contentEditorDirty.value || ctxDirty || titleDirty
   }
-  // 默认表单编辑器使用数据比较
-  return (
-    !isEqual(localData.value, originalData.value) ||
-    localAiContextTemplate.value !== originalAiContextTemplate.value
-  )
+
+  // 默认表单编辑器：比较内容 + 上下文模板 + 标题
+  return !isEqual(localData.value, originalData.value) || ctxDirty || titleDirty
 })
 
 watch(
@@ -760,14 +760,20 @@ async function handleSave() {
   if (activeContentEditor.value && contentEditorRef.value) {
     try {
       isSaving.value = true
-      console.log('[GenericCardEditor] Calling contentEditorRef.handleSave()...')
-      const savedContent = await contentEditorRef.value.handleSave()
+      // 在保存正文前先截取当前模板与旧值，避免保存正文时触发的 card 更新把本地模板重置为旧值
+      const templateBeforeSave = localAiContextTemplate.value
+      const prevTemplateOnCard = props.card.ai_context_template || ''
 
-      // 保存上下文模板（如果有修改）
-      if (localAiContextTemplate.value !== props.card.ai_context_template) {
-        await cardStore.modifyCard(props.card.id, {
-          ai_context_template: localAiContextTemplate.value
-        })
+      // 将当前标题传递给内容编辑器，由内容编辑器统一负责保存 title 与正文内容
+      const savedContent = await contentEditorRef.value.handleSave(titleProxy.value)
+
+      // 如有上下文模板变更，单独保存 ai_context_template（不覆盖正文内容）
+      if (templateBeforeSave !== prevTemplateOnCard) {
+        try {
+          await cardStore.modifyCard(props.card.id, {
+            ai_context_template: templateBeforeSave,
+          } as any)
+        } catch {}
       }
 
       // 保存历史版本
@@ -778,7 +784,7 @@ async function handleSave() {
             projectId: projectStore.currentProject.id,
             title: titleProxy.value,
             content: savedContent,
-            ai_context_template: localAiContextTemplate.value
+            ai_context_template: templateBeforeSave,
           })
         }
       } catch (e) {
@@ -786,7 +792,7 @@ async function handleSave() {
       }
 
       contentEditorDirty.value = false
-      originalAiContextTemplate.value = localAiContextTemplate.value
+      originalAiContextTemplate.value = templateBeforeSave
       lastSavedAt.value = new Date().toLocaleTimeString()
       ElMessage.success('保存成功')
     } catch (e) {

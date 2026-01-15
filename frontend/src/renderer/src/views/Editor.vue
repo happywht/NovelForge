@@ -122,6 +122,13 @@ watch(
   { immediate: true }
 )
 
+// 当卡片仓库内容发生变化时，若当前仍在章节正文卡片上，则重新装配上下文
+watch(cards, async () => {
+  if (isChapterContent.value && activeCard.value) {
+    await assembleChapterContext()
+  }
+})
+
 async function assembleChapterContext() {
   if (!isChapterContent.value || !projectStore.currentProject?.id) return
 
@@ -144,6 +151,7 @@ async function handleJumpToCard(payload: { projectId: number; cardId: number }) 
   cardStore.setActiveCard(payload.cardId)
   activeTab.value = 'editor'
 }
+
 
 async function handleHistoryRestored(content: string) {
   if (activeCard.value) {
