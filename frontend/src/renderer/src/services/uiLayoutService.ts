@@ -8,7 +8,7 @@ export interface SectionConfig {
 
 interface LayoutSources {
   schemaMeta?: Record<string, any>
-  backendLayout?: SectionConfig[] | undefined
+  backendLayout?: SectionConfig[] | any | undefined
   frontendDefault?: SectionConfig[] | undefined
 }
 
@@ -17,8 +17,16 @@ export function mergeSections(sources: LayoutSources): SectionConfig[] | undefin
   if (sources.schemaMeta && Array.isArray(sources.schemaMeta.sections)) {
     return normalizeSections(sources.schemaMeta.sections)
   }
-  if (sources.backendLayout && sources.backendLayout.length)
-    return normalizeSections(sources.backendLayout)
+  if (sources.backendLayout) {
+    if (Array.isArray(sources.backendLayout)) {
+      if (sources.backendLayout.length) return normalizeSections(sources.backendLayout)
+    } else if (
+      typeof sources.backendLayout === 'object' &&
+      Array.isArray((sources.backendLayout as any).sections)
+    ) {
+      return normalizeSections((sources.backendLayout as any).sections)
+    }
+  }
   if (sources.frontendDefault && sources.frontendDefault.length)
     return normalizeSections(sources.frontendDefault)
   return undefined

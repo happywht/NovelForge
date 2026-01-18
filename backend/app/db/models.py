@@ -13,7 +13,6 @@ class Project(SQLModel, table=True):
     cards: List["Card"] = Relationship(back_populates="project", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
 
 
-
 class LLMConfig(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     provider: str = Field(index=True)
@@ -63,7 +62,6 @@ class Prompt(SQLModel, table=True):
     built_in: bool = Field(default=False)
 
 
-
 class CardType(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str = Field(index=True)
@@ -82,6 +80,7 @@ class CardType(SQLModel, table=True):
     default_ai_context_template: Optional[str] = Field(default=None)
     # UI 布局（可选），供前端 SectionedForm 使用
     ui_layout: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    
     cards: List["Card"] = Relationship(back_populates="card_type")
     templates: List["CardTemplate"] = Relationship(back_populates="card_type")
 

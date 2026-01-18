@@ -15,7 +15,7 @@ def create_prompt(
     prompt: PromptCreate,
 ):
     """
-    创建一个新的提示词模板。
+    Create a new prompt template.
     """
     new_prompt = prompt_service.create_prompt(session=session, prompt_create=prompt)
     return ApiResponse(data=new_prompt)
@@ -28,7 +28,7 @@ def read_prompts(
     limit: int = 100,
 ):
     """
-    获取所有提示词模板的列表。
+    Get a list of all prompt templates.
     """
     prompts = prompt_service.get_prompts(session=session, skip=skip, limit=limit)
     return ApiResponse(data=prompts)
@@ -40,7 +40,7 @@ def read_prompt(
     prompt_id: int,
 ):
     """
-    根据ID获取单个提示词模板的详细信息。
+    Get details of a single prompt template by ID.
     """
     db_prompt = prompt_service.get_prompt(session=session, prompt_id=prompt_id)
     if not db_prompt:
@@ -55,7 +55,7 @@ def update_prompt(
     prompt: PromptUpdate,
 ):
     """
-    更新一个已存在的提示词模板。
+    Update an existing prompt template.
     """
     updated_prompt = prompt_service.update_prompt(session=session, prompt_id=prompt_id, prompt_update=prompt)
     if not updated_prompt:
@@ -69,7 +69,7 @@ def delete_prompt(
     prompt_id: int,
 ):
     """
-    删除一个提示词模板。
+    Delete a prompt template.
     """
     db_prompt = prompt_service.get_prompt(session=session, prompt_id=prompt_id)
     if not db_prompt:
@@ -78,4 +78,47 @@ def delete_prompt(
         raise HTTPException(status_code=400, detail="系统内置提示词不可删除")
     if not prompt_service.delete_prompt(session=session, prompt_id=prompt_id):
         raise HTTPException(status_code=404, detail="提示词未找到")
-    return ApiResponse(message="提示词删除成功") 
+    return ApiResponse(message="提示词删除成功")
+
+from pydantic import BaseModel
+
+class PromptTestRequest(BaseModel):
+    llm_config_id: int
+    system_prompt: str
+    user_prompt: str
+
+@router.post("/test", response_model=ApiResponse, summary="测试提示词")
+async def test_prompt(
+    *,
+    session: Session = Depends(get_session),
+    body: PromptTestRequest,
+):
+    """
+    Test a prompt with the specified LLM configuration.
+    """
+    from app.services.llm_factory import LLMFactory
+    from app.services import llm_config_service
+    from langchain_core.messages import SystemMessage, HumanMessage
+
+    config = llm_config_service.get_llm_config(session=session, config_id=body.llm_config_id)
+    if not config:
+        raise HTTPException(status_code=404, detail="LLM 配置未找到")
+
+    try:
+        llm = LLMFactory.build_chat_model(
+            provider=config.provider,
+            model_name=config.model_name,
+            api_key=config.api_key,
+            api_base=config.api_base,
+            temperature=0.7,
+        )
+        
+        messages = [
+            SystemMessage(content=body.system_prompt),
+            HumanMessage(content=body.user_prompt)
+        ]
+        
+        response = await llm.ainvoke(messages)
+        return ApiResponse(data={"result": response.content})
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"测试失败: {str(e)}")
