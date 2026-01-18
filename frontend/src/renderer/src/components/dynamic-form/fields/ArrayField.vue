@@ -114,6 +114,19 @@ function getItemSchemaForIndex(index: number): JSONSchema {
   const value = (props.modelValue || [])[index]
   if ((base as any).anyOf) {
     return matchSchemaForValue((base as any).anyOf, value, props.rootSchema) as JSONSchema
+  }
+  return base
+}
+
+function isSimpleTypeForIndex(index: number): boolean {
+  const schema = getItemSchemaForIndex(index)
+  return ['string', 'number', 'integer', 'boolean'].includes(schema.type as string)
+}
+
+function getSimpleFieldComponentForIndex(index: number): any {
+  const schema = getItemSchemaForIndex(index)
+  switch (schema.type) {
+    case 'string':
       return StringField
     case 'number':
     case 'integer':
@@ -123,6 +136,11 @@ function getItemSchemaForIndex(index: number): JSONSchema {
     default:
       return StringField
   }
+}
+
+function isTupleTypeForIndex(index: number): boolean {
+  const schema = getItemSchemaForIndex(index)
+  return schema.type === 'array'
 }
 
 function updateItem(index: number, newItem: any) {

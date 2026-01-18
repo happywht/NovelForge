@@ -145,3 +145,21 @@ export async function updateCardAIParams(id: number, ai_params: any | null): Pro
 export async function applyCardAIParamsToType(id: number): Promise<any> {
   return await request.post(`/cards/${id}/ai-params/apply-to-type`, {})
 }
+
+// --- 系统数据 API ---
+export async function backupDatabase(): Promise<Blob> {
+  // 注意：这里需要返回 Blob，request 封装可能默认处理 JSON
+  // 如果 request 不支持 blob，可能需要直接用 fetch 或 axios
+  // 假设 request.get 支持 responseType: 'blob'
+  return await request.get('/system/backup', undefined, '/api', { responseType: 'blob' } as any)
+}
+
+export async function restoreDatabase(file: File): Promise<{ message: string }> {
+  const formData = new FormData()
+  formData.append('file', file)
+  return await request.post('/system/restore', formData, '/api', {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    }
+  } as any)
+}

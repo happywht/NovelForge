@@ -6,6 +6,8 @@ import PromptWorkshop from '../setting/PromptWorkshop.vue'
 import CardTypeManager from '../setting/CardTypeManager.vue'
 import KnowledgeManager from '../setting/KnowledgeManager.vue'
 import AssistantSettings from '../setting/AssistantSettings.vue'
+import AppearanceSettings from '../setting/AppearanceSettings.vue'
+import DataManagement from '../setting/DataManagement.vue'
 import { useUpdateStore } from '@renderer/stores/useUpdateStore'
 
 const props = defineProps<{ modelValue: boolean }>()
@@ -73,6 +75,12 @@ watch(
         </el-tab-pane>
         <el-tab-pane label="灵感助手" name="assistant">
           <AssistantSettings />
+        </el-tab-pane>
+        <el-tab-pane label="外观设置" name="appearance">
+          <AppearanceSettings />
+        </el-tab-pane>
+        <el-tab-pane label="数据管理" name="data">
+          <DataManagement />
         </el-tab-pane>
         <el-tab-pane name="about">
           <template #label>

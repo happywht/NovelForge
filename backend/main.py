@@ -1,9 +1,14 @@
 from app.core.config import settings
 
 
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Session, select
+import shutil
+import logging
+
+logger = logging.getLogger(__name__)
 
 from app.api.router import api_router
 from app.db.session import engine
@@ -81,6 +86,36 @@ app.include_router(api_router, prefix="/api")
 @app.get("/")
 def read_root():
     return {"message": "Welcome to NovelCreationEditor API"}
+
+
+@app.get("/api/system/backup")
+def backup_database():
+    """Download the current database file."""
+    db_path = settings.db_file
+    if not db_path.exists():
+        raise HTTPException(status_code=404, detail="Database file not found")
+    return FileResponse(path=db_path, filename="aiauthor.db", media_type='application/x-sqlite3')
+
+
+@app.post("/api/system/restore")
+async def restore_database(file: UploadFile = File(...)):
+    """Restore database from uploaded file. Overwrites existing database."""
+    db_path = settings.db_file
+    # Backup current db before overwrite (safety)
+    backup_path = db_path.with_suffix(".bak")
+    if db_path.exists():
+        shutil.copy(db_path, backup_path)
+    
+    try:
+        with open(db_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+    except Exception as e:
+        # Restore from backup if failed
+        if backup_path.exists():
+            shutil.copy(backup_path, db_path)
+        raise HTTPException(status_code=500, detail=f"Restore failed: {str(e)}")
+    
+    return {"message": "Database restored successfully. Please restart the application."}
 
 if __name__ == "__main__":
     import uvicorn
