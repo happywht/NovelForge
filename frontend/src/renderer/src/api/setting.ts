@@ -85,6 +85,16 @@ export async function deletePrompt(id: number): Promise<void> {
   await request.delete(`/prompts/${id}`)
 }
 
+export interface PromptTestRequest {
+  llm_config_id: number
+  system_prompt: string
+  user_prompt: string
+}
+export async function runPromptTest(body: PromptTestRequest): Promise<string> {
+  const resp = await request.post<{ result: string }>('/prompts/test', body)
+  return resp.result
+}
+
 // --- 卡片类型 API ---
 export type CardTypeRead = components['schemas']['CardTypeRead']
 export type CardTypeCreate = components['schemas']['CardTypeCreate']
