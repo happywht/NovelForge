@@ -47,7 +47,6 @@ const ObjectField = defineAsyncComponent(() => import('./fields/ObjectField.vue'
 const ArrayField = defineAsyncComponent(() => import('./fields/ArrayField.vue'))
 const EnumField = defineAsyncComponent(() => import('./fields/EnumField.vue'))
 const TupleField = defineAsyncComponent(() => import('./fields/TupleField.vue'))
-const BooleanField = defineAsyncComponent(() => import('./fields/BooleanField.vue'))
 // 用于不支持类型的默认回退组件
 const FallbackField = defineAsyncComponent(() => import('./fields/FallbackField.vue'))
 

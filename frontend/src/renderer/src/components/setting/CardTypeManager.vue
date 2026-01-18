@@ -183,6 +183,40 @@
         </el-table>
       </div>
     </el-drawer>
+    <!-- 模板选择对话框 -->
+    <el-dialog
+      v-model="templateDialogVisible"
+      title="选择卡片模板"
+      width="600px"
+      append-to-body
+    >
+      <div class="template-list">
+        <div 
+          class="template-item" 
+          :class="{ active: selectedTemplateIndex === -1 }"
+          @click="selectedTemplateIndex = -1"
+        >
+          <div class="template-name">空白模板 (Empty)</div>
+          <div class="template-desc">从零开始创建一个全新的卡片类型。</div>
+        </div>
+        <div 
+          v-for="(preset, index) in presets" 
+          :key="index"
+          class="template-item"
+          :class="{ active: selectedTemplateIndex === index }"
+          @click="selectedTemplateIndex = index"
+        >
+          <div class="template-name">{{ preset.name }}</div>
+          <div class="template-desc">{{ preset.description }}</div>
+        </div>
+      </div>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="templateDialogVisible = false">取消</el-button>
+          <el-button type="primary" @click="confirmTemplate">确定</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -212,6 +246,7 @@ import {
   type WorkflowTriggerRead,
   type WorkflowTriggerCreate
 } from '@renderer/api/workflows'
+import { CARD_PRESETS } from '@renderer/constants/card_presets'
 
 // 后端 CardType 类型
 type CardTypeRead = CTR
@@ -267,21 +302,72 @@ const defaultAIParams = { temperature: 0.7, max_tokens: 1024, timeout: 60 }
 const llmConfigs = ref<any[]>([])
 const prompts = ref<any[]>([])
 
+// 模板选择相关
+const templateDialogVisible = ref(false)
+const presets = CARD_PRESETS
+const selectedTemplateIndex = ref(-1)
+
 function openEditor(row?: CardTypeRead) {
+  if (!row) {
+    // 新增模式：先打开模板选择
+    selectedTemplateIndex.value = -1
+    templateDialogVisible.value = true
+    return
+  }
+  
+  // 编辑模式：直接打开编辑器
+  initEditor(row)
+}
+
+function confirmTemplate() {
+  templateDialogVisible.value = false
+  const preset = selectedTemplateIndex.value >= 0 ? presets[selectedTemplateIndex.value] : null
+  
+  const newType = {
+    name: preset ? preset.name.split(' ')[0] : '',
+    description: preset?.description || '',
+    is_ai_enabled: false,
+    is_singleton: false,
+    default_ai_context_template: '',
+    json_schema: preset?.json_schema ? JSON.parse(preset.json_schema) : undefined,
+    ui_layout: preset?.ui_layout ? JSON.parse(preset.ui_layout) : undefined
+  }
+  
+  initEditor(undefined, newType)
+}
+
+function initEditor(row?: CardTypeRead, templateData?: any) {
   drawer.value = { visible: true, editing: !!row, id: row?.id || 0 }
-  form.value = row
-    ? { ...row }
-    : {
-        name: '',
-        description: '',
-        is_ai_enabled: true,
-        is_singleton: false,
-        default_ai_context_template: ''
-      }
-  uiLayoutText.value = row?.ui_layout ? JSON.stringify(row.ui_layout, null, 2) : ''
-  aiParams.value = (row as any)?.ai_params
-    ? { ...defaultAIParams, ...(row as any).ai_params }
-    : { ...defaultAIParams }
+  
+  if (row) {
+    form.value = { ...row }
+    uiLayoutText.value = row.ui_layout ? JSON.stringify(row.ui_layout, null, 2) : ''
+    aiParams.value = (row as any)?.ai_params
+      ? { ...defaultAIParams, ...(row as any).ai_params }
+      : { ...defaultAIParams }
+  } else {
+    form.value = {
+      name: '',
+      description: '',
+      is_ai_enabled: true,
+      is_singleton: false,
+      default_ai_context_template: '',
+      ...templateData
+    }
+    // 如果有模板数据，需要特殊处理 json_schema，因为 form 不直接绑定它，而是通过 saveType 提交
+    // 但这里我们需要把 ui_layout 展示出来
+    uiLayoutText.value = templateData?.ui_layout ? JSON.stringify(templateData.ui_layout, null, 2) : ''
+    aiParams.value = { ...defaultAIParams }
+    
+    // 注意：json_schema 在这里没有直接绑定到 form 上展示（因为没有 Schema 编辑器），
+    // 而是需要保存时提交。
+    // 为了支持模板的 Schema，我们需要暂存它，或者在保存时如果 form.id 为空且使用了模板，则带上 Schema。
+    // 更好的方式是：如果使用了模板，我们应该把 Schema 存到 form 的临时字段里，saveType 时取用。
+    if (templateData?.json_schema) {
+      (form.value as any)._pending_schema = templateData.json_schema
+    }
+  }
+
   // 首次打开加载可选项
   if (llmConfigs.value.length === 0) {
     listLLMConfigs()
@@ -389,8 +475,15 @@ async function saveType(): Promise<void> {
     ElMessage.error('UI 布局不是有效的 JSON')
     return
   }
+  
   const payload: Partial<CardTypeCreate & CardTypeUpdate> = { ...form.value, ui_layout } as any
   ;(payload as any).ai_params = form.value.is_ai_enabled ? aiParams.value : null
+  
+  // 如果有暂存的 schema (来自模板)，则带上
+  if ((form.value as any)._pending_schema) {
+    (payload as any).json_schema = (form.value as any)._pending_schema
+  }
+
   try {
     if (drawer.value.editing) {
       const id = drawer.value.id
@@ -487,5 +580,41 @@ watch(
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
+}
+
+/* 模板选择样式 */
+.template-list {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+}
+.template-item {
+  border: 1px solid var(--el-border-color);
+  border-radius: 4px;
+  padding: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.template-item:hover {
+  border-color: var(--el-color-primary);
+  background-color: var(--el-color-primary-light-9);
+}
+.template-item.active {
+  border-color: var(--el-color-primary);
+  background-color: var(--el-color-primary-light-8);
+  box-shadow: 0 0 0 1px var(--el-color-primary);
+}
+.template-name {
+  font-weight: bold;
+  margin-bottom: 4px;
+  color: var(--el-text-color-primary);
+}
+.template-desc {
+  font-size: 12px;
+  color: var(--el-text-color-secondary);
+  line-height: 1.4;
 }
 </style>
