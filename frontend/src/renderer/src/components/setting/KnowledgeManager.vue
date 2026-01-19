@@ -2,11 +2,24 @@
   <div class="knowledge-manager">
     <div class="header">
       <h4>知识库</h4>
-      <el-button type="primary" size="small" @click="openEditor()">新建知识</el-button>
+      <div class="actions">
+        <el-button size="small" @click="handleImportClick">导入</el-button>
+        <el-button size="small" @click="handleExportAll">导出全部</el-button>
+        <el-button type="primary" size="small" @click="openEditor()">新建知识</el-button>
+      </div>
     </div>
+    
+    <!-- 隐藏的文件输入框 -->
+    <input
+      ref="fileInput"
+      type="file"
+      accept=".json,.md,.txt"
+      style="display: none"
+      @change="onFileSelected"
+    />
 
     <el-table v-loading="loading" :data="items" height="60vh" size="small">
-      <el-table-column prop="name" label="名称" width="90" />
+      <el-table-column prop="name" label="名称" width="150" />
       <el-table-column prop="description" label="描述" min-width="150" />
       <el-table-column label="内置" width="80">
         <template #default="{ row }">
@@ -15,8 +28,9 @@
           }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="180" align="right">
+      <el-table-column label="操作" width="220" align="right">
         <template #default="{ row }">
+          <el-button size="small" @click="handleExportOne(row)">导出</el-button>
           <el-button size="small" @click="openEditor(row)">编辑</el-button>
           <el-popconfirm title="删除该知识？" @confirm="remove(row)">
             <template #reference>
@@ -27,7 +41,7 @@
       </el-table-column>
     </el-table>
 
-    <!-- 将抽屉改为模态对话框，避免抽屉内嵌抽屉 -->
+    <!-- ... dialog ... -->
     <el-dialog
       v-model="editor.visible"
       :title="editor.editing ? '编辑知识' : '新建知识'"
@@ -66,6 +80,7 @@ import {
 
 const loading = ref(false)
 const items = ref<Knowledge[]>([])
+const fileInput = ref<HTMLInputElement>()
 
 const editor = ref<{ visible: boolean; editing: boolean; form: Partial<Knowledge> }>({
   visible: false,
@@ -132,6 +147,90 @@ async function remove(row: Knowledge) {
   } catch (e: any) {
     ElMessage.error(e?.message || '删除失败')
   }
+}
+
+// ---- Import / Export ----
+
+function handleImportClick() {
+  fileInput.value?.click()
+}
+
+async function onFileSelected(e: Event) {
+  const files = (e.target as HTMLInputElement).files
+  if (!files || files.length === 0) return
+  
+  const file = files[0]
+  const reader = new FileReader()
+  reader.onload = async (ev) => {
+    try {
+      const text = ev.target?.result as string
+      if (file.name.endsWith('.json')) {
+        // 尝试解析 JSON
+        const data = JSON.parse(text)
+        if (Array.isArray(data)) {
+          // 批量导入
+          let count = 0
+          for (const item of data) {
+            if (item.name && item.content) {
+              await createKnowledge({
+                name: item.name,
+                description: item.description || '',
+                content: item.content
+              })
+              count++
+            }
+          }
+          ElMessage.success(`成功导入 ${count} 条知识`)
+        } else if (data.name && data.content) {
+          // 单条导入
+          await createKnowledge({
+            name: data.name,
+            description: data.description || '',
+            content: data.content
+          })
+          ElMessage.success('导入成功')
+        }
+      } else {
+        // 视为纯文本/Markdown，文件名作为标题
+        const name = file.name.replace(/\.(md|txt)$/i, '')
+        await createKnowledge({
+          name: name,
+          description: 'Imported from file',
+          content: text
+        })
+        ElMessage.success('导入成功')
+      }
+      fetchList()
+    } catch (err) {
+      ElMessage.error('导入失败：文件格式错误')
+    } finally {
+      // 重置 input
+      if (fileInput.value) fileInput.value.value = ''
+    }
+  }
+  reader.readAsText(file)
+}
+
+function handleExportOne(row: Knowledge) {
+  const data = JSON.stringify(row, null, 2)
+  downloadFile(data, `${row.name}.json`, 'application/json')
+}
+
+function handleExportAll() {
+  const data = JSON.stringify(items.value, null, 2)
+  downloadFile(data, 'knowledge_base_export.json', 'application/json')
+}
+
+function downloadFile(content: string, filename: string, type: string) {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 fetchList()

@@ -291,7 +291,7 @@ async function handleBatchAnalyze() {
           self_id: card.id,
           volume_number: (card.content as any)?.volume_number,
           chapter_number: (card.content as any)?.chapter_number
-        })
+        }, { showLoading: false })
         successCount++
       } catch (err) {
         console.error(`Failed to analyze card ${card.id}:`, err)

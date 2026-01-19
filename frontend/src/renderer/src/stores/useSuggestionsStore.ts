@@ -94,12 +94,25 @@ export const useSuggestionsStore = defineStore('suggestions', () => {
     suggestions.value = []
   }
 
+  async function approveAll(projectId: number, context?: { participants?: string[], volume_number?: number, chapter_number?: number }): Promise<void> {
+    loading.value = true
+    try {
+      const items = [...suggestions.value]
+      for (const item of items) {
+        await approveSuggestion(item, projectId, context)
+      }
+    } finally {
+      loading.value = false
+    }
+  }
+
   return {
     suggestions,
     loading,
     addDynamicInfoSuggestion,
     addRelationSuggestion,
     approveSuggestion,
+    approveAll,
     removeSuggestion,
     clearAll
   }

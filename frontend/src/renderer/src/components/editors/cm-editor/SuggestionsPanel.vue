@@ -2,7 +2,10 @@
   <div class="suggestions-panel">
     <div class="panel-header">
       <span class="title">AI 建议 ({{ suggestions.length }})</span>
-      <el-button v-if="suggestions.length > 0" type="primary" link @click="clearAll">全部忽略</el-button>
+      <div class="header-actions" v-if="suggestions.length > 0">
+        <el-button type="success" link @click="handleApproveAll" :loading="loading">全部采纳</el-button>
+        <el-button type="info" link @click="clearAll">全部忽略</el-button>
+      </div>
     </div>
 
     <div v-if="suggestions.length === 0" class="empty-state">
@@ -32,7 +35,11 @@
           <p class="description">{{ item.description }}</p>
           
           <!-- 动态信息预览 -->
-          <div v-if="item.type === 'dynamic_info'" class="details">
+          <div 
+            v-if="item.type === 'dynamic_info'" 
+            class="details"
+            :class="{ expanded: isExpanded(item.id) }"
+          >
             <div v-for="role in item.data.info_list" :key="role.name" class="role-item">
               <div class="role-name">{{ role.name }}</div>
               <ul class="info-list">
@@ -45,12 +52,21 @@
           </div>
 
           <!-- 关系预览 -->
-          <div v-if="item.type === 'relation'" class="details">
+          <div 
+            v-if="item.type === 'relation'" 
+            class="details"
+            :class="{ expanded: isExpanded(item.id) }"
+          >
             <ul class="relation-list">
               <li v-for="(rel, idx) in item.data.relations" :key="idx">
                 {{ rel.a }} <el-icon><Right /></el-icon> {{ rel.b }} ({{ rel.kind }})
               </li>
             </ul>
+          </div>
+          
+          <div class="expand-toggle" @click="toggleExpand(item.id)">
+            <el-icon><component :is="isExpanded(item.id) ? ArrowUp : ArrowDown" /></el-icon>
+            <span>{{ isExpanded(item.id) ? '收起' : '展开详情' }}</span>
           </div>
         </div>
 
@@ -69,10 +85,11 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useSuggestionsStore, type Suggestion } from '@renderer/stores/useSuggestionsStore'
 import { useProjectStore } from '@renderer/stores/useProjectStore'
-import { Right } from '@element-plus/icons-vue'
+import { Right, ArrowDown, ArrowUp } from '@element-plus/icons-vue'
 import dayjs from 'dayjs'
 
 const props = defineProps<{
@@ -86,12 +103,29 @@ const props = defineProps<{
 const suggestionsStore = useSuggestionsStore()
 const projectStore = useProjectStore()
 const { suggestions, loading } = storeToRefs(suggestionsStore)
-const { approveSuggestion, removeSuggestion, clearAll } = suggestionsStore
+const { approveSuggestion, approveAll, removeSuggestion, clearAll } = suggestionsStore
+
+const expandedItems = ref<Set<string>>(new Set())
+
+const isExpanded = (id: string) => expandedItems.value.has(id)
+const toggleExpand = (id: string) => {
+  if (expandedItems.value.has(id)) {
+    expandedItems.value.delete(id)
+  } else {
+    expandedItems.value.add(id)
+  }
+}
 
 const handleApprove = async (item: Suggestion): Promise<void> => {
   const projectId = projectStore.currentProject?.id
   if (!projectId) return
   await approveSuggestion(item, projectId, props.context)
+}
+
+const handleApproveAll = async (): Promise<void> => {
+  const projectId = projectStore.currentProject?.id
+  if (!projectId) return
+  await approveAll(projectId, props.context)
 }
 
 const formatTime = (ts: number): string => {
@@ -113,11 +147,17 @@ const formatTime = (ts: number): string => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
+  flex-shrink: 0;
 }
 
 .panel-header .title {
   font-weight: 600;
   font-size: 14px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
 }
 
 .suggestions-list {
@@ -126,10 +166,12 @@ const formatTime = (ts: number): string => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  padding-bottom: 20px; /* Add padding to ensure bottom items are visible */
 }
 
 .suggestion-card {
   border-radius: 8px;
+  flex-shrink: 0; /* Prevent card from shrinking */
 }
 
 .suggestion-card :deep(.el-card__header) {
@@ -178,8 +220,31 @@ const formatTime = (ts: number): string => {
   padding: 8px;
   border-radius: 4px;
   font-size: 12px;
-  max-height: 200px;
+  max-height: 100px; /* Default collapsed height */
+  overflow: hidden;
+  transition: max-height 0.3s ease;
+  position: relative;
+}
+
+.details.expanded {
+  max-height: 500px; /* Expanded height */
   overflow-y: auto;
+}
+
+.expand-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--el-color-primary);
+  cursor: pointer;
+  margin-top: 4px;
+  padding: 4px 0;
+}
+
+.expand-toggle:hover {
+  opacity: 0.8;
 }
 
 .role-item {

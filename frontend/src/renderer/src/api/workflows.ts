@@ -1,4 +1,4 @@
-import request from './request'
+import request, { aiHttpClient } from './request'
 
 // 最小类型定义，避免过度耦合生成的类型
 export interface WorkflowRead {
@@ -108,7 +108,11 @@ export function getWorkflowNodeTypes(): Promise<{ node_types: WorkflowNodeType[]
 
 export function runWorkflow(
   id: number,
-  payload: { scope_json: any; params_json: any }
+  payload: { scope_json: any; params_json: any },
+  options?: { showLoading?: boolean }
 ): Promise<any> {
-  return request.post(`/workflows/${id}/run`, payload, '/api', { showLoading: true })
+  return aiHttpClient.post(`/workflows/${id}/run`, payload, '/api', {
+    showLoading: options?.showLoading ?? true,
+    rawResponse: true
+  })
 }

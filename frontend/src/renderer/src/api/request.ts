@@ -67,7 +67,7 @@ class HttpClient {
         try {
           this.loadingCount = Math.max(0, this.loadingCount - 1)
           if (this.loadingCount === 0) this.loadingInstance?.close()
-        } catch {}
+        } catch { }
         return Promise.reject(error)
       }
     )
@@ -79,7 +79,7 @@ class HttpClient {
           try {
             this.loadingCount = Math.max(0, this.loadingCount - 1)
             if (this.loadingCount === 0) this.loadingInstance?.close()
-          } catch {}
+          } catch { }
         }
         // 允许透传原始响应（用于读取 headers）
         if ((response.config as any).rawResponse === true) {
@@ -101,7 +101,7 @@ class HttpClient {
           try {
             this.loadingCount = Math.max(0, this.loadingCount - 1)
             if (this.loadingCount === 0) this.loadingInstance?.close()
-          } catch {}
+          } catch { }
         }
         if (error.response && error.response.status === 422) {
           const validationErrors = error.response.data.detail
@@ -159,7 +159,7 @@ class HttpClient {
     url: string,
     data?: object,
     prefix: string = '/api',
-    options?: { showLoading?: boolean; signal?: AbortSignal }
+    options?: { showLoading?: boolean; rawResponse?: boolean; signal?: AbortSignal }
   ): Promise<T> {
     const fullUrl = prefix ? `${prefix}${url}` : url
     return this.request<T>({

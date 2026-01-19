@@ -11,21 +11,21 @@ export function useWorkflowRunner() {
     const isRunning = ref(false)
     const currentWorkflowName = ref('')
 
-    async function runWorkflowByName(workflowName: string, scope: any, params: any = {}) {
+    async function runWorkflowByName(workflowName: string, scope: any, params: any = {}, options?: { showLoading?: boolean }) {
         isRunning.value = true
         currentWorkflowName.value = workflowName
 
-        const loading = ElMessage({
+        const loading = options?.showLoading !== false ? ElMessage({
             message: `正在启动 AI 协作：${workflowName}...`,
             type: 'info',
             duration: 0
-        })
+        }) : null
 
         try {
             const workflows = await listWorkflows()
             const target = workflows.find((w) => w.name === workflowName)
             if (!target) {
-                loading.close()
+                loading?.close()
                 ElMessage.error(`未找到工作流: ${workflowName}`)
                 return
             }
@@ -33,10 +33,12 @@ export function useWorkflowRunner() {
             const axiosResp: any = await apiRunWorkflow(target.id, {
                 scope_json: scope,
                 params_json: params
-            })
+            }, options)
 
-            loading.close()
-            ElMessage.success(`${workflowName} 已启动`)
+            loading?.close()
+            if (options?.showLoading !== false) {
+                ElMessage.success(`${workflowName} 已启动`)
+            }
 
             // 处理 SSE 事件订阅（逻辑从 store 迁移过来或保持同步）
             const runId = axiosResp.data?.id
@@ -46,7 +48,7 @@ export function useWorkflowRunner() {
 
             return axiosResp.data
         } catch (err: any) {
-            loading.close()
+            loading?.close()
             ElMessage.error(`启动失败: ${err.message}`)
             throw err
         } finally {
