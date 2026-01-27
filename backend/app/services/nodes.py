@@ -609,7 +609,7 @@ def node_card_upsert_child_by_title(session: Session, state: dict, params: dict)
 
 
 @register_node("List.ForEach")
-async def node_list_foreach(session: Session, state: dict, params: dict, run_body):
+async def node_list_foreach(session: Session, state: dict, params: dict, body_executor):
     """
     List.ForEach: 遍历列表并为每个元素执行 body 节点。
     params:
@@ -644,14 +644,14 @@ async def node_list_foreach(session: Session, state: dict, params: dict, run_bod
     for idx, it in enumerate(seq, start=1):
         state["item"] = {"index": idx, **(it if isinstance(it, dict) else {"value": it})}
         logger.info(f"[节点] List.ForEach index={idx}")
-        if asyncio.iscoroutinefunction(run_body):
-            await run_body()
+        if asyncio.iscoroutinefunction(body_executor):
+            await body_executor(session, state, params)
         else:
-            run_body()
+            body_executor(session, state, params)
 
 
 @register_node("List.ForEachRange")
-async def node_list_foreach_range(session: Session, state: dict, params: dict, run_body):
+async def node_list_foreach_range(session: Session, state: dict, params: dict, body_executor):
     """
     List.ForEachRange: 根据计数遍历 1..N
     params:
@@ -678,10 +678,10 @@ async def node_list_foreach_range(session: Session, state: dict, params: dict, r
     for i in range(start, start + n):
         state["item"] = {"index": i}
         logger.info(f"[节点] List.ForEachRange index={i} (共{n}次)")
-        if asyncio.iscoroutinefunction(run_body):
-            await run_body()
+        if asyncio.iscoroutinefunction(body_executor):
+            await body_executor(session, state, params)
         else:
-            run_body()
+            body_executor(session, state, params)
 
 
 @register_node("Card.ClearFields")

@@ -34,21 +34,10 @@ primitive_models/
 *~
 
 # 系统文件
-.DS_Store
-Thumbs.db
-desktop.ini
-.env
-
-# 日志文件
-*.log
-*.log.*
-
-# 临时文件
-*.tmp
-*.temp 
-
-backend/dist
 backend/build
-*.spec
+
 *.sh
 *.mako
+
+# Build output
+dist/

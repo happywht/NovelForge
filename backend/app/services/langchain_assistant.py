@@ -469,7 +469,7 @@ def build_chat_model(
     if provider == "google":
         model_kwargs = {
             "model": cfg.model_name,
-            "api_key": cfg.api_key,
+            "google_api_key": cfg.api_key,  # Changed from api_key to google_api_key
         }
         # 可选：启用思考过程（Gemini 的 include_thoughts 开关）
         if thinking_enabled:
@@ -477,9 +477,10 @@ def build_chat_model(
         if max_tokens is not None:
             # Google uses max_output_tokens instead of max_tokens
             model_kwargs["max_output_tokens"] = int(max_tokens)
-            model_kwargs.pop("max_tokens", None)
         if temperature is not None:
             model_kwargs["temperature"] = float(temperature)
+        if timeout is not None:
+            model_kwargs["timeout"] = float(timeout)
         return ChatGoogleGenerativeAI(**model_kwargs)
 
     raise ValueError(f"不支持的 LLM 提供商: {cfg.provider}")

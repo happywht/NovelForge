@@ -27,7 +27,7 @@ export interface CardContent {
 }
 
 type CardNode = Omit<CardRead, 'content'> & {
-  content: CardContent
+  content?: CardContent
   children: CardNode[]
 }
 const buildCardTree = (cards: CardRead[]): CardNode[] => {
@@ -38,7 +38,9 @@ const buildCardTree = (cards: CardRead[]): CardNode[] => {
 
   // First pass: Create all nodes and map them
   for (const card of cards) {
-    nodeMap.set(card.id, { ...card, children: [] });
+    // Explicitly handle content to convert null to undefined if necessary
+    const { content, ...rest } = card
+    nodeMap.set(card.id, { ...rest, content: content || undefined, children: [] })
   }
 
   // Second pass: Build the tree structure

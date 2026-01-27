@@ -58,6 +58,7 @@ const emit = defineEmits<{
   (e: 'polish', requirement: string): void
   (e: 'expand-text', requirement: string): void
   (e: 'expand'): void
+  (e: 'continue'): void
   (e: 'close'): void
 }>()
 

@@ -16,7 +16,7 @@ Thumbs.db
 
 # 缓存和日志
 .eslintcache
-*.log*
+
 *.tmp
 npm-debug.log*
 yarn-debug.log*

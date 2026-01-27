@@ -25,14 +25,15 @@ win:
   publisherName: NovelForge Team
   signAndEditExecutable: true
   target:
-    - dir
+    - nsis
   icon: build/icon.ico
-extraMetadata:
-  CompanyName: NovelForge Team
-  FileDescription: NovelForge
-  ProductName: NovelForge
-  OriginalFilename: NovelForge.exe
-# 移除 NSIS 安装器相关配置（仅保留便携版）
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: NovelForge
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:

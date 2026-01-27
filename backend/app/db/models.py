@@ -211,6 +211,7 @@ class WorkflowRun(SQLModel, table=True):
     started_at: Optional[datetime] = None
     finished_at: Optional[datetime] = None
     summary_json: Optional[dict] = Field(default=None, sa_column=Column(JSON))
+    result_json: Optional[dict] = Field(default=None, sa_column=Column(JSON))
     error_json: Optional[dict] = Field(default=None, sa_column=Column(JSON))
 
 

@@ -56,8 +56,18 @@ def build_chat_model(
         return ChatAnthropic(api_key=api_key, base_url=api_base, **kwargs)
 
     elif provider == "google":
-        # Google Generative AI (Gemini)
-        return ChatGoogleGenerativeAI(google_api_key=api_key, **kwargs)
+        # Google Generative AI (Gemini) - uses different parameter names
+        google_kwargs = {
+            "model": model_name,
+            "google_api_key": api_key,
+            "temperature": temperature if temperature is not None else 0.7,
+        }
+        if max_tokens:
+            # Google uses max_output_tokens instead of max_tokens
+            google_kwargs["max_output_tokens"] = max_tokens
+        if timeout:
+            google_kwargs["timeout"] = timeout
+        return ChatGoogleGenerativeAI(**google_kwargs)
 
     elif provider == "qwen":
         # 阿里通义千问 (DashScope)

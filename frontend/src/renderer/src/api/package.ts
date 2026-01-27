@@ -1,4 +1,4 @@
-import request from '@/utils/request'
+import request from './request'
 
 export interface CardPackageImportRequest {
     target_parent_id?: number | null
@@ -6,16 +6,9 @@ export interface CardPackageImportRequest {
 }
 
 export function exportCardPackage(cardId: number) {
-    return request({
-        url: `/cards/${cardId}/export`,
-        method: 'post'
-    })
+    return request.post(`/cards/${cardId}/export`)
 }
 
 export function importCardPackage(projectId: number, data: CardPackageImportRequest) {
-    return request({
-        url: `/projects/${projectId}/import-package`,
-        method: 'post',
-        data
-    })
+    return request.post(`/projects/${projectId}/import-package`, data)
 }

@@ -121,6 +121,7 @@ app.whenReady().then(() => {
     return { success: true }
   })
 
+  startBackend()
   createWindow()
 
   app.on('activate', function () {
@@ -141,3 +142,42 @@ app.on('window-all-closed', () => {
 
 // In this file you can include the rest of your app's specific main process
 // code. You can also put them in separate files and require them here.
+
+import { spawn, ChildProcess } from 'child_process'
+
+let backendProcess: ChildProcess | null = null
+
+function startBackend(): void {
+  if (is.dev) {
+    console.log('Development mode: Backend should be started manually.')
+    return
+  }
+
+  const backendPath = join(process.resourcesPath, 'backend', 'novel_forge_backend', 'novel_forge_backend.exe')
+  console.log('Starting backend from:', backendPath)
+
+  backendProcess = spawn(backendPath, [], {
+    cwd: join(process.resourcesPath, 'backend', 'novel_forge_backend'),
+    stdio: 'inherit'
+  })
+
+  backendProcess.on('error', (err) => {
+    console.error('Failed to start backend:', err)
+  })
+
+  backendProcess.on('exit', (code, signal) => {
+    console.log(`Backend process exited with code ${code} and signal ${signal}`)
+  })
+}
+
+function stopBackend(): void {
+  if (backendProcess) {
+    console.log('Stopping backend process...')
+    backendProcess.kill()
+    backendProcess = null
+  }
+}
+
+app.on('before-quit', () => {
+  stopBackend()
+})

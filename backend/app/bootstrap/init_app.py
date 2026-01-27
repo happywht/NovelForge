@@ -670,6 +670,64 @@ def init_workflows(db: Session):
                 total_skipped += 1
 
 
+
+    # ---------------- 项目创建 · 简单模式 ----------------
+    name_simple = "项目创建·简单模式"
+    dsl_simple = {
+        "dsl_version": 1,
+        "name": name_simple,
+        "nodes": [
+            {"id": "upsert_one_sentence", "type": "Card.UpsertChildByTitle", "params": {"parent": "$projectRoot", "cardType": "一句话梗概", "title": "一句话梗概"}, "position": {"x": 40, "y": 80}},
+            {"id": "upsert_outline", "type": "Card.UpsertChildByTitle", "params": {"parent": "$projectRoot", "cardType": "故事大纲", "title": "故事大纲"}, "position": {"x": 460, "y": 80}},
+            {"id": "upsert_char", "type": "Card.UpsertChildByTitle", "params": {"parent": "$projectRoot", "cardType": "角色卡", "title": "主角"}, "position": {"x": 880, "y": 80}}
+        ],
+        "edges": [
+            {"id": "e-one-outline", "source": "upsert_one_sentence", "target": "upsert_outline", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e-outline-char", "source": "upsert_outline", "target": "upsert_char", "sourceHandle": "r", "targetHandle": "l"}
+        ]
+    }
+    
+    c, u, s = _create_or_update_workflow(db, name_simple, "项目创建时：简单模式初始化", dsl_simple, "项目", overwrite)
+    total_created += c
+    total_updated += u
+    total_skipped += s
+
+    # 确保 onprojectcreate 触发器存在
+    wf_simple = db.exec(select(Workflow).where(Workflow.name == name_simple)).first()
+    if wf_simple:
+        tg_simple = db.exec(select(WorkflowTrigger).where(WorkflowTrigger.workflow_id == wf_simple.id, WorkflowTrigger.trigger_on == "onprojectcreate")).first()
+        if not tg_simple:
+            tg_simple = WorkflowTrigger(workflow_id=wf_simple.id, trigger_on="onprojectcreate", is_active=True)
+            db.add(tg_simple)
+            db.commit()
+            total_created += 1
+            logger.info(f"已创建触发器: onprojectcreate -> {name_simple}")
+
+    # ---------------- 项目创建 · 英雄之旅 ----------------
+    name_hero = "项目创建·英雄之旅"
+    dsl_hero = {
+        "dsl_version": 1,
+        "name": name_hero,
+        "nodes": [
+            {"id": "upsert_one_sentence", "type": "Card.UpsertChildByTitle", "params": {"parent": "$projectRoot", "cardType": "一句话梗概", "title": "一句话梗概"}, "position": {"x": 40, "y": 80}},
+            {"id": "upsert_blueprint", "type": "Card.UpsertChildByTitle", "params": {"parent": "$projectRoot", "cardType": "核心蓝图", "title": "核心蓝图"}, "position": {"x": 460, "y": 80}},
+            {"id": "upsert_guide", "type": "Card.UpsertChildByTitle", "params": {"parent": "$projectRoot", "cardType": "写作指南", "title": "英雄之旅指南", "contentTemplate": {"content": "英雄之旅十二阶段指南..."}}, "position": {"x": 880, "y": 80}},
+            {"id": "foreach_stages", "type": "List.ForEach", "params": {"list": ["1. 平凡世界", "2. 冒险召唤", "3. 拒绝召唤", "4. 遇上导师", "5. 跨越第一道门槛", "6. 试炼、盟友、敌人", "7. 接近最深的洞穴", "8. 严峻考验", "9. 奖赏", "10. 返回的路", "11. 复活", "12. 满载而归"]}, "position": {"x": 1300, "y": 80}},
+            {"id": "upsert_stage", "type": "Card.UpsertChildByTitle", "params": {"parent": "$projectRoot", "cardType": "阶段大纲", "title": "{item.value}", "contentTemplate": {"stage_name": "{item.value}", "stage_number": "{index}"}}, "position": {"x": 1300, "y": 260}}
+        ],
+        "edges": [
+            {"id": "e-one-bp", "source": "upsert_one_sentence", "target": "upsert_blueprint", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e-bp-guide", "source": "upsert_blueprint", "target": "upsert_guide", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e-guide-stages", "source": "upsert_guide", "target": "foreach_stages", "sourceHandle": "r", "targetHandle": "l"},
+            {"id": "e-stages-upsert", "source": "foreach_stages", "target": "upsert_stage", "sourceHandle": "b", "targetHandle": "t"}
+        ]
+    }
+    
+    c, u, s = _create_or_update_workflow(db, name_hero, "项目创建时：英雄之旅初始化", dsl_hero, "项目", overwrite)
+    total_created += c
+    total_updated += u
+    total_skipped += s
+
     if total_created > 0 or total_updated > 0:
         db.commit()
         logger.info(f"工作流初始化完成: 新增 {total_created} 个，更新 {total_updated} 个（overwrite={overwrite}，跳过 {total_skipped} 个）。")
