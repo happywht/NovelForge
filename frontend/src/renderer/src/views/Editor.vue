@@ -1,17 +1,82 @@
 <template>
-  <div class="editor-layout">
+  <div class="editor-layout" :class="{ 'fullscreen': isFullscreen }">
+    <!-- Fullscreen Toolbar -->
+    <div v-if="isFullscreen" class="fullscreen-toolbar">
+      <div class="toolbar-left">
+        <el-button
+          :icon="leftSidebarCollapsed ? 'Expand' : 'Fold'"
+          circle
+          size="small"
+          @click="leftSidebarCollapsed = !leftSidebarCollapsed"
+        >
+          <el-icon>
+            <component :is="leftSidebarCollapsed ? 'Expand' : 'Fold'" />
+          </el-icon>
+        </el-button>
+        <span class="toolbar-title">{{ projectStore.currentProject?.name || '编辑器' }}</span>
+      </div>
+      <div class="toolbar-right">
+        <el-button
+          :icon="rightSidebarCollapsed ? 'Expand' : 'Fold'"
+          circle
+          size="small"
+          @click="rightSidebarCollapsed = !rightSidebarCollapsed"
+        >
+          <el-icon>
+            <component :is="rightSidebarCollapsed ? 'Expand' : 'Fold'" />
+          </el-icon>
+        </el-button>
+        <el-button
+          type="primary"
+          circle
+          size="small"
+          @click="toggleFullscreen"
+        >
+          <el-icon><CloseBold /></el-icon>
+        </el-button>
+      </div>
+    </div>
+
     <!-- 左侧卡片导航树 -->
     <CardNavigationSidebar
+      v-show="!leftSidebarCollapsed"
       :left-sidebar-width="leftSidebarWidth"
+      :class="{ 'sidebar-transition': true }"
       @open-import-free-cards="importVisible = true"
       @active-tab-change="(tab: string) => (activeTab = tab)"
     />
 
+    <!-- 左侧折叠按钮 -->
+    <div v-if="!isFullscreen" class="sidebar-toggle left-toggle" @click="leftSidebarCollapsed = !leftSidebarCollapsed">
+      <el-icon>
+        <component :is="leftSidebarCollapsed ? 'DArrowRight' : 'DArrowLeft'" />
+      </el-icon>
+    </div>
+
     <!-- 拖拽条 -->
-    <div class="resizer left-resizer" @mousedown="startResizing('left')"></div>
+    <div
+      v-show="!leftSidebarCollapsed"
+      class="resizer left-resizer"
+      @mousedown="startResizing('left')"
+    ></div>
 
     <!-- 中栏主内容区 -->
     <el-main class="main-content">
+      <!-- 非全屏模式下的工具栏 -->
+      <div v-if="!isFullscreen" class="content-header">
+        <div class="header-actions">
+          <el-button
+            :icon="FullScreen"
+            circle
+            size="small"
+            @click="toggleFullscreen"
+            title="全屏模式 (F11)"
+          >
+            <el-icon><FullScreen /></el-icon>
+          </el-button>
+        </div>
+      </div>
+
       <el-tabs v-model="activeTab" type="border-card" class="main-tabs">
         <el-tab-pane label="卡片库" name="market">
           <CardMarket @edit-card="handleEditCard" />
@@ -26,15 +91,28 @@
     </el-main>
 
     <!-- 右侧助手面板分隔条与面板 -->
-    <div class="resizer right-resizer" @mousedown="startResizing('right')"></div>
+    <div
+      v-show="!rightSidebarCollapsed"
+      class="resizer right-resizer"
+      @mousedown="startResizing('right')"
+    ></div>
     <AssistantSidebar
+      v-show="!rightSidebarCollapsed"
       ref="assistantSidebarRef"
       :width="rightSidebarWidth"
       :active-card="activeCard"
       :prefetched-context="prefetchedContext"
+      :class="{ 'sidebar-transition': true }"
       @jump-to-card="handleJumpToCard"
       @history-restored="handleHistoryRestored"
     />
+
+    <!-- 右侧折叠按钮 -->
+    <div v-if="!isFullscreen" class="sidebar-toggle right-toggle" @click="rightSidebarCollapsed = !rightSidebarCollapsed">
+      <el-icon>
+        <component :is="rightSidebarCollapsed ? 'DArrowLeft' : 'DArrowRight'" />
+      </el-icon>
+    </div>
 
     <!-- 导入卡片对话框 -->
     <CardImportDialog v-model:visible="importVisible" />
@@ -42,18 +120,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, defineAsyncComponent, computed, watch } from 'vue'
+import { ref, onMounted, defineAsyncComponent, computed, watch, onUnmounted } from 'vue'
 import { storeToRefs } from 'pinia'
-import { ElMessageBox, ElMessage } from 'element-plus'
+import { ElMessage } from 'element-plus'
+import { FullScreen, CloseBold, Fold, Expand, DArrowLeft, DArrowRight } from '@element-plus/icons-vue'
 import type { components } from '@renderer/types/generated'
 import { useSidebarResizer } from '@renderer/composables/useSidebarResizer'
+import { useFullscreen } from '@renderer/composables/useFullscreen'
 import { useCardStore } from '@renderer/stores/useCardStore'
 import { useProjectStore } from '@renderer/stores/useProjectStore'
 import CardNavigationSidebar from '@renderer/components/cards/CardNavigationSidebar.vue'
 import AssistantSidebar from '@renderer/components/assistants/AssistantSidebar.vue'
 import CardImportDialog from '@renderer/components/cards/CardImportDialog.vue'
 
-// Mock components that will be created later
 const CardEditorHost = defineAsyncComponent(
   () => import('@renderer/components/cards/CardEditorHost.vue')
 )
@@ -76,9 +155,39 @@ const activeTab = ref('market')
 const prefetchedContext = ref<any>(null)
 const importVisible = ref(false)
 const assistantSidebarRef = ref<any>(null)
+const leftSidebarCollapsed = ref(false)
+const rightSidebarCollapsed = ref(false)
 
 // Composables
 const { leftSidebarWidth, rightSidebarWidth, startResizing } = useSidebarResizer()
+
+// Set optimized default widths (20% : 50% : 30% for 1400px screen)
+leftSidebarWidth.value = 280  // 20%
+rightSidebarWidth.value = 420  // 30%
+
+const { isFullscreen, toggleFullscreen } = useFullscreen()
+
+// Keyboard shortcuts
+const handleKeydown = (e: KeyboardEvent) => {
+  // Ctrl+B: toggle left sidebar
+  if (e.ctrlKey && e.key === 'b') {
+    e.preventDefault()
+    leftSidebarCollapsed.value = !leftSidebarCollapsed.value
+  }
+  // Ctrl+/: toggle right sidebar
+  if (e.ctrlKey && e.key === '/') {
+    e.preventDefault()
+    rightSidebarCollapsed.value = !rightSidebarCollapsed.value
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', handleKeydown)
+})
 
 // 判断当前是否为章节正文卡片
 const isChapterContent = computed(() => {
@@ -122,7 +231,6 @@ watch(
   { immediate: true }
 )
 
-// 当卡片仓库内容发生变化时，若当前仍在章节正文卡片上，则重新装配上下文
 watch(cards, async () => {
   if (isChapterContent.value && activeCard.value) {
     await assembleChapterContext()
@@ -152,7 +260,6 @@ async function handleJumpToCard(payload: { projectId: number; cardId: number }) 
   activeTab.value = 'editor'
 }
 
-
 async function handleHistoryRestored(content: string) {
   if (activeCard.value) {
     cardStore.updateCardContentLocally(activeCard.value.id, content)
@@ -181,6 +288,87 @@ onMounted(async () => {
   width: 100%;
   position: relative;
   background-color: var(--el-fill-color-lighter);
+  transition: all 0.3s ease;
+}
+
+.editor-layout.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background-color: var(--el-bg-color);
+}
+
+/* Fullscreen Toolbar */
+.fullscreen-toolbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 100;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+.fullscreen .main-content {
+  margin-top: 48px;
+}
+
+/* Sidebar Transitions */
+.sidebar-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar Toggle Buttons */
+.sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 0 8px 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  background: var(--el-fill-color-light);
+  border-color: var(--el-color-primary-light-7);
+}
+
+.sidebar-toggle.left-toggle {
+  left: 0;
+}
+
+.sidebar-toggle.right-toggle {
+  right: 0;
+  border-radius: 8px 0 0 8px;
 }
 
 .resizer {
@@ -192,6 +380,7 @@ onMounted(async () => {
   position: relative;
   transition: background-color 0.2s;
 }
+
 .resizer:hover {
   background: var(--el-color-primary-light-7);
 }
@@ -201,6 +390,14 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   background-color: transparent;
+  flex: 1;
+  min-width: 0;
+}
+
+.content-header {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 8px;
 }
 
 .main-tabs {
@@ -218,6 +415,7 @@ onMounted(async () => {
   flex-grow: 1;
   overflow-y: auto;
 }
+
 :deep(.el-tab-pane) {
   height: 100%;
 }
@@ -227,6 +425,7 @@ onMounted(async () => {
   width: 5px;
   background: transparent;
 }
+
 .right-resizer:hover {
   background: var(--el-color-primary-light-7);
 }

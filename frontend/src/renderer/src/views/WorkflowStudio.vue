@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch, nextTick, computed } from 'vue'
+import { onMounted, ref, watch, nextTick, computed, onUnmounted } from 'vue'
 import WorkflowCanvas from '@renderer/components/workflow/WorkflowCanvas.vue'
 import WorkflowParamPanel from '@renderer/components/workflow/WorkflowParamPanel.vue'
 import { useVueFlow } from '@vue-flow/core'
@@ -23,9 +23,14 @@ import {
   ArrowDown,
   ArrowUp,
   Document,
-  Setting
+  Setting,
+  FullScreen,
+  CloseBold,
+  Fold,
+  Expand
 } from '@element-plus/icons-vue'
 import { getCardTypes, type CardTypeRead } from '@renderer/api/cards'
+import { useFullscreen } from '@renderer/composables/useFullscreen'
 
 onMounted(() => {
   document.title = 'Workflow Studio - Novel Forge'
@@ -61,8 +66,10 @@ let resizing = false
 let startX = 0
 let startW = 320
 const ctxMenu = ref<{ visible: boolean; x: number; y: number }>({ visible: false, x: 0, y: 0 })
-const jsonPanelCollapsed = ref(true) // JSON面板折叠状态
+const jsonPanelCollapsed = ref(true) // JSON面板默认折叠
 const jsonPanelHeight = ref(200) // JSON面板高度
+const leftSidebarCollapsed = ref(false) // 左侧工作流列表折叠状态
+const { isFullscreen, toggleFullscreen } = useFullscreen()
 
 function onNodeContext(e: any) {
   try {
@@ -433,9 +440,36 @@ function deleteSelectedNode() {
 </script>
 
 <template>
-  <div class="workflow-studio">
+  <div class="workflow-studio" :class="{ 'fullscreen': isFullscreen }">
+    <!-- Fullscreen Toolbar -->
+    <div v-if="isFullscreen" class="fullscreen-toolbar">
+      <div class="toolbar-left">
+        <el-button
+          :icon="leftSidebarCollapsed ? 'Expand' : 'Fold'"
+          circle
+          size="small"
+          @click="leftSidebarCollapsed = !leftSidebarCollapsed"
+        >
+          <el-icon>
+            <component :is="leftSidebarCollapsed ? 'Expand' : 'Fold'" />
+          </el-icon>
+        </el-button>
+        <span class="toolbar-title">工作流工作室</span>
+      </div>
+      <div class="toolbar-right">
+        <el-button
+          type="primary"
+          circle
+          size="small"
+          @click="toggleFullscreen"
+        >
+          <el-icon><CloseBold /></el-icon>
+        </el-button>
+      </div>
+    </div>
+
     <!-- Header -->
-    <div class="studio-header">
+    <div v-if="!isFullscreen" class="studio-header">
       <div class="header-left">
         <div class="title">
           <el-icon><Setting /></el-icon>
@@ -444,6 +478,15 @@ function deleteSelectedNode() {
         <div class="subtitle">可视化编辑和管理工作流程</div>
       </div>
       <div class="header-actions">
+        <el-button
+          :icon="FullScreen"
+          circle
+          size="small"
+          @click="toggleFullscreen"
+          title="全屏模式 (F11)"
+        >
+          <el-icon><FullScreen /></el-icon>
+        </el-button>
         <el-button type="primary" :icon="Document" :disabled="!selectedId" @click="save"
           >保存工作流</el-button
         >
@@ -453,7 +496,7 @@ function deleteSelectedNode() {
 
     <div class="studio-layout">
       <!-- Left Sidebar -->
-      <div class="sidebar">
+      <div v-show="!leftSidebarCollapsed" class="sidebar sidebar-transition">
         <div class="sidebar-header">
           <h3>工作流列表</h3>
           <el-tag size="small" type="info">{{ workflows.length }} 个</el-tag>
@@ -481,6 +524,13 @@ function deleteSelectedNode() {
             </div>
           </div>
         </el-scrollbar>
+      </div>
+
+      <!-- Left Sidebar Toggle -->
+      <div v-if="!isFullscreen" class="sidebar-toggle left-toggle" @click="leftSidebarCollapsed = !leftSidebarCollapsed">
+        <el-icon>
+          <component :is="leftSidebarCollapsed ? 'Expand' : 'Fold'" />
+        </el-icon>
       </div>
 
       <!-- Main Content -->
@@ -684,6 +734,74 @@ function deleteSelectedNode() {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.workflow-studio.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 9999;
+  background-color: var(--el-bg-color);
+}
+
+/* Fullscreen Toolbar */
+.fullscreen-toolbar {
+  height: 48px;
+  background: var(--el-bg-color);
+  border-bottom: 1px solid var(--el-border-color-lighter);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.toolbar-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--el-text-color-primary);
+}
+
+/* Sidebar Transitions */
+.sidebar-transition {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Sidebar Toggle Button */
+.sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 48px;
+  background: var(--el-bg-color);
+  border: 1px solid var(--el-border-color-lighter);
+  border-radius: 0 8px 8px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 20;
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  background: var(--el-fill-color-light);
+  border-color: var(--el-color-primary-light-7);
+}
+
+.sidebar-toggle.left-toggle {
+  left: 0;
 }
 
 /* Header Styles */
